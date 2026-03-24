@@ -408,7 +408,7 @@
         <h1>OMNI • Dashboard</h1>
         <p>
           Dados carregados automaticamente do repositório. Todo o time vê a mesma visão.
-          Gestor: suba o incremental no GitHub e os dados atualizam para todos.
+          Gestor: suba os CSVs no GitHub (pedidos, metas e status das lojas) para atualizar.
         </p>
       </div>
       <div class="status">
@@ -426,23 +426,15 @@
         <div class="bd">
 
           <!-- STATUS DE CARGA AUTOMÁTICA -->
-          <div id="autoLoadStatus" style="
-            padding:12px 14px;
-            border-radius:14px;
-            border:1px solid rgba(255,255,255,.10);
-            background:rgba(0,0,0,.18);
-            margin-bottom:12px;
-            font-size:12.5px;
-            line-height:1.55;
-          ">
+          <div id="autoLoadStatus" style="padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18);margin-bottom:12px;font-size:12.5px;line-height:1.55;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
               <span id="autoLoadDot" style="width:8px;height:8px;border-radius:99px;background:var(--warn);box-shadow:0 0 0 4px rgba(251,191,36,.12);flex-shrink:0"></span>
-              <b id="autoLoadTitle" style="font-size:13px;">Carregando dados...</b>
+              <b id="autoLoadTitle" style="font-size:13px;">Aguardando configuração...</b>
             </div>
-            <div id="autoLoadMsg" style="color:var(--muted);font-size:12px;">Buscando arquivos do repositório.</div>
+            <div id="autoLoadMsg" style="color:var(--muted);font-size:12px;">Configure as URLs abaixo para carregar os dados automaticamente.</div>
           </div>
 
-          <!-- CONFIGURAÇÃO DE URLs (recolhida por padrão) -->
+          <!-- CONFIGURAÇÃO DE URLs -->
           <div style="margin-bottom:10px;">
             <div id="toggleConfig" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
               <span id="toggleConfigIcon" style="font-size:10px;">▶</span>
@@ -450,13 +442,17 @@
             </div>
             <div id="configFields" style="display:none;margin-top:10px;">
               <div class="field">
-                <label>URL do CSV de Pedidos</label>
+                <label>URL — CSV de Pedidos</label>
                 <input id="urlOrders" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
-                <div class="help">Use a URL <b>raw</b> do GitHub: abra o arquivo → clique em Raw → copie a URL.</div>
               </div>
               <div class="field">
-                <label>URL do CSV de Metas</label>
+                <label>URL — CSV de Metas</label>
                 <input id="urlTarget" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
+              </div>
+              <div class="field">
+                <label>URL — CSV de Status das Lojas</label>
+                <input id="urlStoreStatus" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
+                <div class="help">Formato: <span class="mono">data, fechadas</span> — ex.: <span class="mono">2025-03-24, 4</span>. Abertas = 19 − fechadas.</div>
               </div>
               <div class="btnrow">
                 <button id="btnSaveUrls" class="primary" style="flex:1">💾 Salvar e recarregar</button>
@@ -465,99 +461,27 @@
             </div>
           </div>
 
-          <!-- UPLOAD LOCAL (fallback / para o gestor) -->
-          <div>
-            <div id="toggleUpload" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
-              <span id="toggleUploadIcon" style="font-size:10px;">▶</span>
-              <span>Upload manual (gestor)</span>
-            </div>
-            <div id="uploadFields" style="display:none;margin-top:10px;">
-              <div class="field">
-                <label>Arquivo de pedidos (CSV) — incremental</label>
-                <input id="fileOrders" type="file" accept=".csv"/>
-                <div class="help">O painel acumula incrementais automaticamente via deduplicação por número de pedido.</div>
-              </div>
-              <div class="grid2">
-                <div class="field">
-                  <label>Modo de carga</label>
-                  <select id="ordersLoadMode">
-                    <option value="APPEND" selected>Incremental (acrescentar)</option>
-                    <option value="REPLACE">Substituir tudo</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>Deduplicação</label>
-                  <select id="ordersDedupeMode">
-                    <option value="KEEP_MAX_LINE">Manter maior linha</option>
-                    <option value="SUM_LINES">Somar linhas</option>
-                  </select>
-                </div>
-              </div>
-              <div class="field" style="margin-top:6px;">
-                <label>Arquivo de metas (CSV)</label>
-                <input id="fileTarget" type="file" accept=".csv"/>
-                <div class="help">Formato: <span class="mono">data | valor_diario</span> (ex.: 2025-12-01, 50000).</div>
-              </div>
-              <div class="field">
-                <label>Modo de carga (Metas)</label>
-                <select id="targetLoadMode">
-                  <option value="REPLACE">Substituir</option>
-                  <option value="APPEND">Incremental</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
           <div class="divider"></div>
 
-          <!-- CAMPOS HIDDEN para compatibilidade com o JS original -->
-          <div style="display:none">
-            <select id="targetLoadMode2"><option value="REPLACE">Substituir</option></select>
-          </div>
-
+          <!-- FILTROS -->
           <div class="grid2">
-            <div class="field">
-              <label>Modo de carga</label>
-              <select id="ordersLoadMode2" style="display:none"><option value="APPEND">Incremental</option></select>
-            </div>
             <div class="field">
               <label>Canal</label>
-              <select id="channelFilter">
-                <option value="__ALL__">Todos</option>
-              </select>
+              <select id="channelFilter"><option value="__ALL__">Todos</option></select>
             </div>
-          </div>
-
-          <div class="grid2">
             <div class="field">
               <label>Loja</label>
-              <select id="storeFilter">
-                <option value="__ALL__">Todas</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Período</label>
-              <div class="grid2" style="gap:8px">
-                <input id="startDate" type="date"/>
-                <input id="endDate" type="date"/>
-              </div>
-              <div class="help">O período impacta KPIs, gráfico, top lojas e tabelas.</div>
+              <select id="storeFilter"><option value="__ALL__">Todas</option></select>
             </div>
           </div>
-
-
-            <div class="field">
-              <label>Status das lojas (manual)</label>
-              <div class="grid2" style="gap:8px">
-                <input id="storeStatusDate" type="date"/>
-                <input id="storeClosedInput" type="number" min="0" max="19" placeholder="Fechadas (0–19)"/>
-              </div>
-              <div class="btnrow" style="margin-top:8px">
-                <button id="storeStatusSave" class="primary" style="flex:1">Registrar</button>
-                <button id="storeStatusClear" class="ghost" style="flex:1">Limpar ajustes</button>
-              </div>
-              <div class="help">Todo dia, informe quantas lojas estão fechadas. O dashboard calcula <b>abertas = 19 − fechadas</b> e salva no seu navegador. A base histórica (desde 18/07/2025) já vem carregada.</div>
+          <div class="field">
+            <label>Período</label>
+            <div class="grid2" style="gap:8px">
+              <input id="startDate" type="date"/>
+              <input id="endDate" type="date"/>
             </div>
+            <div class="help">O período impacta KPIs, gráfico, top lojas e tabelas.</div>
+          </div>
 
           <div class="btnrow">
             <button id="apply" class="primary" style="flex:1">Aplicar</button>
@@ -566,14 +490,46 @@
 
           <div class="divider"></div>
 
-          <div class="empty">
-            <b>Como ler o painel</b><br/>
-            • KPIs = resumo do período filtrado<br/>
-            • Tendência diária = receita por dia (com meta quando houver)<br/>
-            • Top lojas = ranking por receita no período<br/>
-            • Insights = leitura automática (volatilidade, picos, gaps)<br/>
-            • Tabelas = detalhe por dia e por loja
+          <!-- UPLOAD LOCAL (fallback) -->
+          <div>
+            <div id="toggleUpload" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
+              <span id="toggleUploadIcon" style="font-size:10px;">▶</span>
+              <span>Upload manual (fallback)</span>
+            </div>
+            <div id="uploadFields" style="display:none;margin-top:10px;">
+              <div class="field">
+                <label>Pedidos (CSV)</label>
+                <input id="fileOrders" type="file" accept=".csv"/>
+              </div>
+              <div class="grid2">
+                <div class="field">
+                  <label>Modo</label>
+                  <select id="ordersLoadMode"><option value="APPEND">Incremental</option><option value="REPLACE">Substituir</option></select>
+                </div>
+                <div class="field">
+                  <label>Deduplicação</label>
+                  <select id="ordersDedupeMode"><option value="KEEP_MAX_LINE">Manter maior linha</option><option value="SUM_LINES">Somar linhas</option></select>
+                </div>
+              </div>
+              <div class="field" style="margin-top:6px;">
+                <label>Metas (CSV)</label>
+                <input id="fileTarget" type="file" accept=".csv"/>
+              </div>
+              <div class="field">
+                <label>Modo (Metas)</label>
+                <select id="targetLoadMode"><option value="REPLACE">Substituir</option><option value="APPEND">Incremental</option></select>
+              </div>
+            </div>
           </div>
+
+          <!-- Inputs stub para compatibilidade com JS original -->
+          <div style="display:none">
+            <input id="storeStatusDate" type="date"/>
+            <input id="storeClosedInput" type="number"/>
+            <button id="storeStatusSave"></button>
+            <button id="storeStatusClear"></button>
+          </div>
+
         </div>
       </div>
 
@@ -727,8 +683,13 @@
     const TOTAL_STORES = 19;
     const STORE_STATUS_STORAGE_KEY = "omni_store_status_overrides_v1";
 
-    // Base histórica (carregada no HTML)
-    const STORE_STATUS_BASE = [{"date": "2025-07-18", "open": 12, "closed": 7}, {"date": "2025-07-19", "open": 9, "closed": 10}, {"date": "2025-07-20", "open": 9, "closed": 10}, {"date": "2025-07-21", "open": 14, "closed": 5}, {"date": "2025-07-22", "open": 15, "closed": 4}, {"date": "2025-07-23", "open": 8, "closed": 11}, {"date": "2025-07-24", "open": 10, "closed": 9}, {"date": "2025-07-25", "open": 11, "closed": 8}, {"date": "2025-07-26", "open": 11, "closed": 8}, {"date": "2025-07-27", "open": 11, "closed": 8}, {"date": "2025-07-28", "open": 11, "closed": 8}, {"date": "2025-07-29", "open": 14, "closed": 5}, {"date": "2025-07-30", "open": 14, "closed": 5}, {"date": "2025-07-31", "open": 11, "closed": 8}, {"date": "2025-08-01", "open": 7, "closed": 12}, {"date": "2025-08-02", "open": 7, "closed": 12}, {"date": "2025-08-03", "open": 7, "closed": 12}, {"date": "2025-08-04", "open": 7, "closed": 12}, {"date": "2025-08-05", "open": 6, "closed": 13}, {"date": "2025-08-06", "open": 6, "closed": 13}, {"date": "2025-08-07", "open": 6, "closed": 13}, {"date": "2025-08-08", "open": 6, "closed": 13}, {"date": "2025-08-09", "open": 6, "closed": 13}, {"date": "2025-08-10", "open": 6, "closed": 13}, {"date": "2025-08-11", "open": 10, "closed": 9}, {"date": "2025-08-12", "open": 10, "closed": 9}, {"date": "2025-08-13", "open": 10, "closed": 9}, {"date": "2025-08-14", "open": 8, "closed": 11}, {"date": "2025-08-15", "open": 11, "closed": 8}, {"date": "2025-08-16", "open": 11, "closed": 8}, {"date": "2025-08-17", "open": 11, "closed": 8}, {"date": "2025-08-18", "open": 9, "closed": 10}, {"date": "2025-08-19", "open": 12, "closed": 7}, {"date": "2025-08-20", "open": 12, "closed": 7}, {"date": "2025-08-21", "open": 13, "closed": 6}, {"date": "2025-08-22", "open": 15, "closed": 4}, {"date": "2025-08-23", "open": 15, "closed": 4}, {"date": "2025-08-24", "open": 15, "closed": 4}, {"date": "2025-08-25", "open": 14, "closed": 5}, {"date": "2025-08-26", "open": 11, "closed": 8}, {"date": "2025-08-27", "open": 13, "closed": 6}, {"date": "2025-08-28", "open": 13, "closed": 6}, {"date": "2025-08-29", "open": 15, "closed": 4}, {"date": "2025-08-30", "open": 15, "closed": 4}, {"date": "2025-08-31", "open": 15, "closed": 4}, {"date": "2025-09-01", "open": 12, "closed": 7}, {"date": "2025-09-02", "open": 12, "closed": 7}, {"date": "2025-09-03", "open": 12, "closed": 7}, {"date": "2025-09-04", "open": 11, "closed": 8}, {"date": "2025-09-05", "open": 11, "closed": 8}, {"date": "2025-09-06", "open": 11, "closed": 8}, {"date": "2025-09-07", "open": 11, "closed": 8}, {"date": "2025-09-08", "open": 8, "closed": 11}, {"date": "2025-09-09", "open": 9, "closed": 10}, {"date": "2025-09-10", "open": 7, "closed": 12}, {"date": "2025-09-11", "open": 7, "closed": 12}, {"date": "2025-09-12", "open": 13, "closed": 6}, {"date": "2025-09-13", "open": 13, "closed": 6}, {"date": "2025-09-14", "open": 13, "closed": 6}, {"date": "2025-09-15", "open": 13, "closed": 6}, {"date": "2025-09-16", "open": 10, "closed": 9}, {"date": "2025-09-17", "open": 10, "closed": 9}, {"date": "2025-09-18", "open": 14, "closed": 5}, {"date": "2025-09-19", "open": 14, "closed": 5}, {"date": "2025-09-20", "open": 14, "closed": 5}, {"date": "2025-09-21", "open": 14, "closed": 5}, {"date": "2025-09-22", "open": 9, "closed": 10}, {"date": "2025-09-23", "open": 9, "closed": 10}, {"date": "2025-09-24", "open": 12, "closed": 7}, {"date": "2025-09-25", "open": 13, "closed": 6}, {"date": "2025-09-26", "open": 12, "closed": 7}, {"date": "2025-09-27", "open": 12, "closed": 7}, {"date": "2025-09-28", "open": 12, "closed": 7}, {"date": "2025-09-29", "open": 14, "closed": 5}, {"date": "2025-09-30", "open": 16, "closed": 3}, {"date": "2025-10-01", "open": 17, "closed": 2}, {"date": "2025-10-02", "open": 17, "closed": 2}, {"date": "2025-10-03", "open": 15, "closed": 4}, {"date": "2025-10-04", "open": 15, "closed": 4}, {"date": "2025-10-05", "open": 15, "closed": 4}, {"date": "2025-10-06", "open": 14, "closed": 5}, {"date": "2025-10-07", "open": 14, "closed": 5}, {"date": "2025-10-08", "open": 14, "closed": 5}, {"date": "2025-10-09", "open": 15, "closed": 4}, {"date": "2025-10-10", "open": 14, "closed": 5}, {"date": "2025-10-11", "open": 14, "closed": 5}, {"date": "2025-10-12", "open": 14, "closed": 5}, {"date": "2025-10-13", "open": 15, "closed": 4}, {"date": "2025-10-14", "open": 13, "closed": 6}, {"date": "2025-10-15", "open": 14, "closed": 5}, {"date": "2025-10-16", "open": 14, "closed": 5}, {"date": "2025-10-17", "open": 13, "closed": 6}, {"date": "2025-10-18", "open": 13, "closed": 6}, {"date": "2025-10-19", "open": 13, "closed": 6}, {"date": "2025-10-20", "open": 13, "closed": 6}, {"date": "2025-10-21", "open": 12, "closed": 7}, {"date": "2025-10-22", "open": 14, "closed": 5}, {"date": "2025-10-23", "open": 14, "closed": 5}, {"date": "2025-10-24", "open": 12, "closed": 7}, {"date": "2025-10-25", "open": 12, "closed": 7}, {"date": "2025-10-26", "open": 12, "closed": 7}, {"date": "2025-10-27", "open": 13, "closed": 6}, {"date": "2025-10-28", "open": 15, "closed": 4}, {"date": "2025-10-29", "open": 17, "closed": 2}, {"date": "2025-10-30", "open": 16, "closed": 3}, {"date": "2025-10-31", "open": 17, "closed": 2}, {"date": "2025-11-01", "open": 17, "closed": 2}, {"date": "2025-11-02", "open": 17, "closed": 2}, {"date": "2025-11-03", "open": 16, "closed": 3}, {"date": "2025-11-04", "open": 18, "closed": 1}, {"date": "2025-11-05", "open": 18, "closed": 1}, {"date": "2025-11-06", "open": 18, "closed": 1}, {"date": "2025-11-07", "open": 18, "closed": 1}, {"date": "2025-11-08", "open": 18, "closed": 1}, {"date": "2025-11-09", "open": 18, "closed": 1}, {"date": "2025-11-10", "open": 17, "closed": 2}, {"date": "2025-11-11", "open": 0, "closed": 19}, {"date": "2025-11-12", "open": 18, "closed": 1}, {"date": "2025-11-13", "open": 18, "closed": 1}, {"date": "2025-11-14", "open": 17, "closed": 2}, {"date": "2025-11-15", "open": 17, "closed": 2}, {"date": "2025-11-16", "open": 17, "closed": 2}, {"date": "2025-11-17", "open": 18, "closed": 1}, {"date": "2025-11-18", "open": 16, "closed": 3}, {"date": "2025-11-19", "open": 17, "closed": 2}, {"date": "2025-11-20", "open": 17, "closed": 2}, {"date": "2025-11-21", "open": 17, "closed": 2}, {"date": "2025-11-22", "open": 17, "closed": 2}, {"date": "2025-11-23", "open": 17, "closed": 2}, {"date": "2025-11-24", "open": 17, "closed": 2}, {"date": "2025-11-25", "open": 18, "closed": 1}, {"date": "2025-11-26", "open": 19, "closed": 0}, {"date": "2025-11-27", "open": 16, "closed": 3}, {"date": "2025-11-28", "open": 16, "closed": 3}, {"date": "2025-11-29", "open": 16, "closed": 3}, {"date": "2025-11-30", "open": 16, "closed": 3}, {"date": "2025-12-01", "open": 0, "closed": 19}, {"date": "2025-12-02", "open": 15, "closed": 4}, {"date": "2025-12-03", "open": 16, "closed": 3}, {"date": "2025-12-04", "open": 16, "closed": 3}, {"date": "2025-12-05", "open": 16, "closed": 3}, {"date": "2025-12-06", "open": 16, "closed": 3}, {"date": "2025-12-07", "open": 16, "closed": 3}, {"date": "2025-12-08", "open": 18, "closed": 1}, {"date": "2025-12-09", "open": 18, "closed": 1}, {"date": "2025-12-10", "open": 18, "closed": 1}, {"date": "2025-12-11", "open": 18, "closed": 1}, {"date": "2025-12-12", "open": 18, "closed": 1}, {"date": "2025-12-13", "open": 18, "closed": 1}, {"date": "2025-12-14", "open": 18, "closed": 1}, {"date": "2025-12-15", "open": 18, "closed": 1}, {"date": "2025-12-16", "open": 18, "closed": 1}, {"date": "2025-12-17", "open": 18, "closed": 1}, {"date": "2025-12-18", "open": 18, "closed": 1}, {"date": "2025-12-19", "open": 17, "closed": 2}, {"date": "2025-12-20", "open": 17, "closed": 2}, {"date": "2025-12-21", "open": 17, "closed": 2}, {"date": "2025-12-22", "open": 17, "closed": 2}, {"date": "2025-12-23", "open": 19, "closed": 0}, {"date": "2025-12-24", "open": 19, "closed": 0}, {"date": "2025-12-25", "open": 19, "closed": 0}, {"date": "2025-12-26", "open": 19, "closed": 0}, {"date": "2025-12-27", "open": 19, "closed": 0}, {"date": "2025-12-28", "open": 19, "closed": 0}, {"date": "2025-12-29", "open": 19, "closed": 0}, {"date": "2025-12-30", "open": 19, "closed": 0}, {"date": "2025-12-31", "open": 19, "closed": 0}, {"date": "2026-01-01", "open": 19, "closed": 0}, {"date": "2026-01-02", "open": 19, "closed": 0}, {"date": "2026-01-03", "open": 19, "closed": 0}, {"date": "2026-01-04", "open": 19, "closed": 0}, {"date": "2026-01-05", "open": 19, "closed": 0}, {"date": "2026-01-06", "open": 19, "closed": 0}, {"date": "2026-01-07", "open": 18, "closed": 1}];
+    // Base histórica: carregada via CSV do GitHub (veja loadAll abaixo)
+    // Formato CSV: data,fechadas  →  ex: 2025-03-24,4
+    // O dashboard calcula abertas = TOTAL_STORES - fechadas
+    let STORE_STATUS_DYNAMIC = []; // preenchido pelo loadAll
+
+    const STORE_STATUS_BASE = []; // mantido vazio — dados vêm do GitHub
+    // Stub removido: {"date": "2025-07-19", "open": 9, "closed": 10}, {"date": "2025-07-20", "open": 9, "closed": 10}, {"date": "2025-07-21", "open": 14, "closed": 5}, {"date": "2025-07-22", "open": 15, "closed": 4}, {"date": "2025-07-23", "open": 8, "closed": 11}, {"date": "2025-07-24", "open": 10, "closed": 9}, {"date": "2025-07-25", "open": 11, "closed": 8}, {"date": "2025-07-26", "open": 11, "closed": 8}, {"date": "2025-07-27", "open": 11, "closed": 8}, {"date": "2025-07-28", "open": 11, "closed": 8}, {"date": "2025-07-29", "open": 14, "closed": 5}, {"date": "2025-07-30", "open": 14, "closed": 5}, {"date": "2025-07-31", "open": 11, "closed": 8}, {"date": "2025-08-01", "open": 7, "closed": 12}, {"date": "2025-08-02", "open": 7, "closed": 12}, {"date": "2025-08-03", "open": 7, "closed": 12}, {"date": "2025-08-04", "open": 7, "closed": 12}, {"date": "2025-08-05", "open": 6, "closed": 13}, {"date": "2025-08-06", "open": 6, "closed": 13}, {"date": "2025-08-07", "open": 6, "closed": 13}, {"date": "2025-08-08", "open": 6, "closed": 13}, {"date": "2025-08-09", "open": 6, "closed": 13}, {"date": "2025-08-10", "open": 6, "closed": 13}, {"date": "2025-08-11", "open": 10, "closed": 9}, {"date": "2025-08-12", "open": 10, "closed": 9}, {"date": "2025-08-13", "open": 10, "closed": 9}, {"date": "2025-08-14", "open": 8, "closed": 11}, {"date": "2025-08-15", "open": 11, "closed": 8}, {"date": "2025-08-16", "open": 11, "closed": 8}, {"date": "2025-08-17", "open": 11, "closed": 8}, {"date": "2025-08-18", "open": 9, "closed": 10}, {"date": "2025-08-19", "open": 12, "closed": 7}, {"date": "2025-08-20", "open": 12, "closed": 7}, {"date": "2025-08-21", "open": 13, "closed": 6}, {"date": "2025-08-22", "open": 15, "closed": 4}, {"date": "2025-08-23", "open": 15, "closed": 4}, {"date": "2025-08-24", "open": 15, "closed": 4}, {"date": "2025-08-25", "open": 14, "closed": 5}, {"date": "2025-08-26", "open": 11, "closed": 8}, {"date": "2025-08-27", "open": 13, "closed": 6}, {"date": "2025-08-28", "open": 13, "closed": 6}, {"date": "2025-08-29", "open": 15, "closed": 4}, {"date": "2025-08-30", "open": 15, "closed": 4}, {"date": "2025-08-31", "open": 15, "closed": 4}, {"date": "2025-09-01", "open": 12, "closed": 7}, {"date": "2025-09-02", "open": 12, "closed": 7}, {"date": "2025-09-03", "open": 12, "closed": 7}, {"date": "2025-09-04", "open": 11, "closed": 8}, {"date": "2025-09-05", "open": 11, "closed": 8}, {"date": "2025-09-06", "open": 11, "closed": 8}, {"date": "2025-09-07", "open": 11, "closed": 8}, {"date": "2025-09-08", "open": 8, "closed": 11}, {"date": "2025-09-09", "open": 9, "closed": 10}, {"date": "2025-09-10", "open": 7, "closed": 12}, {"date": "2025-09-11", "open": 7, "closed": 12}, {"date": "2025-09-12", "open": 13, "closed": 6}, {"date": "2025-09-13", "open": 13, "closed": 6}, {"date": "2025-09-14", "open": 13, "closed": 6}, {"date": "2025-09-15", "open": 13, "closed": 6}, {"date": "2025-09-16", "open": 10, "closed": 9}, {"date": "2025-09-17", "open": 10, "closed": 9}, {"date": "2025-09-18", "open": 14, "closed": 5}, {"date": "2025-09-19", "open": 14, "closed": 5}, {"date": "2025-09-20", "open": 14, "closed": 5}, {"date": "2025-09-21", "open": 14, "closed": 5}, {"date": "2025-09-22", "open": 9, "closed": 10}, {"date": "2025-09-23", "open": 9, "closed": 10}, {"date": "2025-09-24", "open": 12, "closed": 7}, {"date": "2025-09-25", "open": 13, "closed": 6}, {"date": "2025-09-26", "open": 12, "closed": 7}, {"date": "2025-09-27", "open": 12, "closed": 7}, {"date": "2025-09-28", "open": 12, "closed": 7}, {"date": "2025-09-29", "open": 14, "closed": 5}, {"date": "2025-09-30", "open": 16, "closed": 3}, {"date": "2025-10-01", "open": 17, "closed": 2}, {"date": "2025-10-02", "open": 17, "closed": 2}, {"date": "2025-10-03", "open": 15, "closed": 4}, {"date": "2025-10-04", "open": 15, "closed": 4}, {"date": "2025-10-05", "open": 15, "closed": 4}, {"date": "2025-10-06", "open": 14, "closed": 5}, {"date": "2025-10-07", "open": 14, "closed": 5}, {"date": "2025-10-08", "open": 14, "closed": 5}, {"date": "2025-10-09", "open": 15, "closed": 4}, {"date": "2025-10-10", "open": 14, "closed": 5}, {"date": "2025-10-11", "open": 14, "closed": 5}, {"date": "2025-10-12", "open": 14, "closed": 5}, {"date": "2025-10-13", "open": 15, "closed": 4}, {"date": "2025-10-14", "open": 13, "closed": 6}, {"date": "2025-10-15", "open": 14, "closed": 5}, {"date": "2025-10-16", "open": 14, "closed": 5}, {"date": "2025-10-17", "open": 13, "closed": 6}, {"date": "2025-10-18", "open": 13, "closed": 6}, {"date": "2025-10-19", "open": 13, "closed": 6}, {"date": "2025-10-20", "open": 13, "closed": 6}, {"date": "2025-10-21", "open": 12, "closed": 7}, {"date": "2025-10-22", "open": 14, "closed": 5}, {"date": "2025-10-23", "open": 14, "closed": 5}, {"date": "2025-10-24", "open": 12, "closed": 7}, {"date": "2025-10-25", "open": 12, "closed": 7}, {"date": "2025-10-26", "open": 12, "closed": 7}, {"date": "2025-10-27", "open": 13, "closed": 6}, {"date": "2025-10-28", "open": 15, "closed": 4}, {"date": "2025-10-29", "open": 17, "closed": 2}, {"date": "2025-10-30", "open": 16, "closed": 3}, {"date": "2025-10-31", "open": 17, "closed": 2}, {"date": "2025-11-01", "open": 17, "closed": 2}, {"date": "2025-11-02", "open": 17, "closed": 2}, {"date": "2025-11-03", "open": 16, "closed": 3}, {"date": "2025-11-04", "open": 18, "closed": 1}, {"date": "2025-11-05", "open": 18, "closed": 1}, {"date": "2025-11-06", "open": 18, "closed": 1}, {"date": "2025-11-07", "open": 18, "closed": 1}, {"date": "2025-11-08", "open": 18, "closed": 1}, {"date": "2025-11-09", "open": 18, "closed": 1}, {"date": "2025-11-10", "open": 17, "closed": 2}, {"date": "2025-11-11", "open": 0, "closed": 19}, {"date": "2025-11-12", "open": 18, "closed": 1}, {"date": "2025-11-13", "open": 18, "closed": 1}, {"date": "2025-11-14", "open": 17, "closed": 2}, {"date": "2025-11-15", "open": 17, "closed": 2}, {"date": "2025-11-16", "open": 17, "closed": 2}, {"date": "2025-11-17", "open": 18, "closed": 1}, {"date": "2025-11-18", "open": 16, "closed": 3}, {"date": "2025-11-19", "open": 17, "closed": 2}, {"date": "2025-11-20", "open": 17, "closed": 2}, {"date": "2025-11-21", "open": 17, "closed": 2}, {"date": "2025-11-22", "open": 17, "closed": 2}, {"date": "2025-11-23", "open": 17, "closed": 2}, {"date": "2025-11-24", "open": 17, "closed": 2}, {"date": "2025-11-25", "open": 18, "closed": 1}, {"date": "2025-11-26", "open": 19, "closed": 0}, {"date": "2025-11-27", "open": 16, "closed": 3}, {"date": "2025-11-28", "open": 16, "closed": 3}, {"date": "2025-11-29", "open": 16, "closed": 3}, {"date": "2025-11-30", "open": 16, "closed": 3}, {"date": "2025-12-01", "open": 0, "closed": 19}, {"date": "2025-12-02", "open": 15, "closed": 4}, {"date": "2025-12-03", "open": 16, "closed": 3}, {"date": "2025-12-04", "open": 16, "closed": 3}, {"date": "2025-12-05", "open": 16, "closed": 3}, {"date": "2025-12-06", "open": 16, "closed": 3}, {"date": "2025-12-07", "open": 16, "closed": 3}, {"date": "2025-12-08", "open": 18, "closed": 1}, {"date": "2025-12-09", "open": 18, "closed": 1}, {"date": "2025-12-10", "open": 18, "closed": 1}, {"date": "2025-12-11", "open": 18, "closed": 1}, {"date": "2025-12-12", "open": 18, "closed": 1}, {"date": "2025-12-13", "open": 18, "closed": 1}, {"date": "2025-12-14", "open": 18, "closed": 1}, {"date": "2025-12-15", "open": 18, "closed": 1}, {"date": "2025-12-16", "open": 18, "closed": 1}, {"date": "2025-12-17", "open": 18, "closed": 1}, {"date": "2025-12-18", "open": 18, "closed": 1}, {"date": "2025-12-19", "open": 17, "closed": 2}, {"date": "2025-12-20", "open": 17, "closed": 2}, {"date": "2025-12-21", "open": 17, "closed": 2}, {"date": "2025-12-22", "open": 17, "closed": 2}, {"date": "2025-12-23", "open": 19, "closed": 0}, {"date": "2025-12-24", "open": 19, "closed": 0}, {"date": "2025-12-25", "open": 19, "closed": 0}, {"date": "2025-12-26", "open": 19, "closed": 0}, {"date": "2025-12-27", "open": 19, "closed": 0}, {"date": "2025-12-28", "open": 19, "closed": 0}, {"date": "2025-12-29", "open": 19, "closed": 0}, {"date": "2025-12-30", "open": 19, "closed": 0}, {"date": "2025-12-31", "open": 19, "closed": 0}, {"date": "2026-01-01", "open": 19, "closed": 0}, {"date": "2026-01-02", "open": 19, "closed": 0}, {"date": "2026-01-03", "open": 19, "closed": 0}, {"date": "2026-01-04", "open": 19, "closed": 0}, {"date": "2026-01-05", "open": 19, "closed": 0}, {"date": "2026-01-06", "open": 19, "closed": 0}, {"date": "2026-01-07", "open": 18, "closed": 1}];
 
     function ymdToBr(ymd){
       if(!ymd) return "—";
@@ -761,15 +722,11 @@
 
     function getStoreStatusSeries(){
       const map = new Map();
-      for(const r of STORE_STATUS_BASE){
+      // Usa os dados carregados do CSV do GitHub
+      const base = STORE_STATUS_DYNAMIC.length ? STORE_STATUS_DYNAMIC : STORE_STATUS_BASE;
+      for(const r of base){
         if(!r || !r.date) continue;
-        map.set(r.date, { date:r.date, open:r.open, closed:r.closed, source:"base" });
-      }
-      const overrides = loadStoreStatusOverrides();
-      for(const [date, closed] of Object.entries(overrides)){
-        const c = clampInt(closed, 0, TOTAL_STORES);
-        if(c === null) continue;
-        map.set(date, { date, open: TOTAL_STORES - c, closed: c, source:"manual" });
+        map.set(r.date, { date:r.date, open:r.open, closed:r.closed, source:"csv" });
       }
       return Array.from(map.values()).sort((a,b)=> a.date.localeCompare(b.date));
     }
@@ -1893,13 +1850,14 @@
 </script>
 <script>
 // ============================================================
-//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
-//  Sem localStorage de dados. Todo mundo vê o mesmo estado.
+//  OMNI DASHBOARD v9 — Carregamento automático via GitHub Raw
+//  3 arquivos: pedidos.csv, metas.csv, status_lojas.csv
 // ============================================================
 (function(){
 
-  const KEY_URL_ORDERS = "omni_gh_url_orders_v1";
-  const KEY_URL_TARGET = "omni_gh_url_target_v1";
+  const KEY_URL_ORDERS      = "omni_gh_url_orders_v1";
+  const KEY_URL_TARGET      = "omni_gh_url_target_v1";
+  const KEY_URL_STORESTATUS = "omni_gh_url_storestatus_v1";
 
   // --- UI refs ---
   const elDot    = document.getElementById("autoLoadDot");
@@ -1912,13 +1870,14 @@
   const elConfigStatus  = document.getElementById("configStatus");
   const elUrlOrders     = document.getElementById("urlOrders");
   const elUrlTarget     = document.getElementById("urlTarget");
+  const elUrlStoreStatus= document.getElementById("urlStoreStatus");
   const elBtnSave       = document.getElementById("btnSaveUrls");
 
   const elToggleUpload  = document.getElementById("toggleUpload");
   const elUploadIcon    = document.getElementById("toggleUploadIcon");
   const elUploadFields  = document.getElementById("uploadFields");
 
-  // --- Toggle seções ---
+  // --- Toggles ---
   if(elToggleConfig){
     elToggleConfig.addEventListener("click", () => {
       const open = elConfigFields.style.display !== "none";
@@ -1936,175 +1895,209 @@
 
   // --- Status helpers ---
   function setStatus(ok, title, msg){
-    if(elDot){
-      elDot.style.background = ok === true ? "var(--good)" : ok === false ? "var(--bad)" : "var(--warn)";
-      elDot.style.boxShadow  = ok === true
-        ? "0 0 0 4px rgba(52,211,153,.12)"
-        : ok === false
-        ? "0 0 0 4px rgba(251,113,133,.12)"
-        : "0 0 0 4px rgba(251,191,36,.12)";
-    }
+    const colors = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
+    const shadows = {
+      true:  "0 0 0 4px rgba(52,211,153,.12)",
+      false: "0 0 0 4px rgba(251,113,133,.12)",
+      null:  "0 0 0 4px rgba(251,191,36,.12)"
+    };
+    const k = ok === true ? "true" : ok === false ? "false" : "null";
+    if(elDot){ elDot.style.background = colors[k]; elDot.style.boxShadow = shadows[k]; }
     if(elTitle) elTitle.textContent = title || "";
     if(elMsg)   elMsg.innerHTML = msg || "";
   }
 
-  function setConfigStatus(msg, color){
-    if(!elConfigStatus) return;
-    elConfigStatus.style.color = color || "var(--muted2)";
-    elConfigStatus.textContent = msg;
-  }
-
-  // --- Restaurar URLs salvas nos inputs ---
+  // --- Restaurar inputs ---
   function restoreInputs(){
     const uo = localStorage.getItem(KEY_URL_ORDERS) || "";
     const ut = localStorage.getItem(KEY_URL_TARGET) || "";
-    if(elUrlOrders && uo) elUrlOrders.value = uo;
-    if(elUrlTarget && ut) elUrlTarget.value = ut;
+    const us = localStorage.getItem(KEY_URL_STORESTATUS) || "";
+    if(elUrlOrders && uo)      elUrlOrders.value = uo;
+    if(elUrlTarget && ut)      elUrlTarget.value = ut;
+    if(elUrlStoreStatus && us) elUrlStoreStatus.value = us;
   }
   restoreInputs();
 
-  // --- Salvar URLs e recarregar ---
+  // --- Salvar e recarregar ---
   if(elBtnSave){
     elBtnSave.addEventListener("click", () => {
       const uo = (elUrlOrders?.value || "").trim();
       const ut = (elUrlTarget?.value || "").trim();
-      if(!uo && !ut){ setConfigStatus("Cole ao menos uma URL antes de salvar.", "var(--bad)"); return; }
-      if(uo) localStorage.setItem(KEY_URL_ORDERS, uo);
-      else   localStorage.removeItem(KEY_URL_ORDERS);
-      if(ut) localStorage.setItem(KEY_URL_TARGET, ut);
-      else   localStorage.removeItem(KEY_URL_TARGET);
-      setConfigStatus("URLs salvas! Recarregando...", "var(--good)");
+      const us = (elUrlStoreStatus?.value || "").trim();
+      if(!uo && !ut && !us){
+        if(elConfigStatus){ elConfigStatus.style.color="var(--bad)"; elConfigStatus.textContent="Cole ao menos uma URL antes de salvar."; }
+        return;
+      }
+      uo ? localStorage.setItem(KEY_URL_ORDERS, uo)      : localStorage.removeItem(KEY_URL_ORDERS);
+      ut ? localStorage.setItem(KEY_URL_TARGET, ut)      : localStorage.removeItem(KEY_URL_TARGET);
+      us ? localStorage.setItem(KEY_URL_STORESTATUS, us) : localStorage.removeItem(KEY_URL_STORESTATUS);
+      if(elConfigStatus){ elConfigStatus.style.color="var(--good)"; elConfigStatus.textContent="URLs salvas! Recarregando..."; }
       setTimeout(() => loadAll(), 300);
     });
   }
 
-  // --- Fetch com cache-bust para sempre pegar o arquivo mais recente ---
+  // --- Fetch com cache-bust ---
   async function fetchCsv(url){
-    const bust = "?t=" + Date.now();
-    const finalUrl = url.includes("?") ? url + "&t=" + Date.now() : url + bust;
+    const finalUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
     const res = await fetch(finalUrl, { cache: "no-store" });
-    if(!res.ok) throw new Error(`HTTP ${res.status} ao buscar: ${url}`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
   }
 
-  // --- Parsear CSV com PapaParse e devolver rows ---
+  // --- Parse CSV ---
   function parseCsv(text){
     return new Promise((resolve, reject) => {
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
-        complete: (r) => resolve(r.data),
-        error:    (e) => reject(new Error(e?.message || String(e)))
+        complete: r => resolve(r.data),
+        error:    e => reject(new Error(e?.message || String(e)))
       });
     });
   }
 
-  // --- Injetar rows no pipeline de pedidos (re-usa funções do JS original) ---
-  function injectOrders(rows){
-    const mode   = "APPEND";   // sempre incremental: o GitHub tem a base acumulada
-    const dedupe = "KEEP_MAX_LINE";
+  // --- Parse CSV de status das lojas ---
+  // Aceita: data,fechadas  (colunas podem ter nomes variados, detecta por conteúdo)
+  function parseStoreStatusCsv(rows){
+    if(!rows.length) return [];
+    const keys = Object.keys(rows[0]);
+    const kLow = keys.map(k => k.toLowerCase().trim());
 
-    // buildOrderBase e mergeOrders são definidas no JS principal do dashboard
-    const incoming = buildOrderBase(rows);
-    const { merged, stats } = mergeOrders(ordersState, incoming, dedupe);
+    // detecta coluna de data
+    const dateIdx = kLow.findIndex(k =>
+      k.includes("data") || k.includes("date") || k.includes("dia")
+    );
+    // detecta coluna de fechadas
+    const closedIdx = kLow.findIndex(k =>
+      k.includes("fechad") || k.includes("closed") || k.includes("fech")
+    );
 
-    if(mode === "REPLACE"){
-      ordersState = incoming;
-    } else {
-      ordersState = merged;
+    const dk = keys[dateIdx >= 0 ? dateIdx : 0];
+    const ck = keys[closedIdx >= 0 ? closedIdx : 1];
+
+    const result = [];
+    for(const r of rows){
+      const rawDate = (r[dk] || "").toString().trim();
+      const rawClosed = (r[ck] || "").toString().trim();
+
+      // aceita yyyy-mm-dd ou dd/mm/yyyy
+      let isoDate = null;
+      if(rawDate.includes("-")){
+        isoDate = rawDate.split("T")[0]; // remove hora se houver
+      } else if(rawDate.includes("/")){
+        const [d, m, y] = rawDate.split("/");
+        if(d && m && y) isoDate = `${y.padStart(4,"0")}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+      }
+      if(!isoDate) continue;
+
+      const closed = parseInt(rawClosed, 10);
+      if(isNaN(closed) || closed < 0 || closed > TOTAL_STORES) continue;
+
+      result.push({
+        date:   isoDate,
+        closed: closed,
+        open:   TOTAL_STORES - closed
+      });
     }
+    return result;
+  }
 
-    const saved = saveJson(STORAGE_ORDERS_KEY, ordersState);
-    if(!saved.ok) console.warn("Não foi possível salvar pedidos no localStorage:", saved.error);
-
+  // --- Injetar pedidos ---
+  function injectOrders(rows){
+    const incoming = buildOrderBase(rows);
+    ordersState = [];
+    const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
+    ordersState = merged;
+    saveJson(STORAGE_ORDERS_KEY, ordersState);
     const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
     const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
     setSelectOptions(els.channelFilter, channels);
     setSelectOptions(els.storeFilter, stores, storeLabel);
-
-    return stats;
+    return stats.after;
   }
 
-  // --- Injetar rows no pipeline de metas ---
+  // --- Injetar metas ---
   function injectTargets(rows){
     const incoming = parseTargets(rows);
-    const { merged } = mergeTargets(targetsState, incoming, "REPLACE");
-    targetsState = merged;
+    targetsState = incoming;
     saveJson(STORAGE_TARGETS_KEY, targetsState);
     return Object.keys(incoming).length;
   }
 
+  // --- Injetar status das lojas ---
+  function injectStoreStatus(rows){
+    const parsed = parseStoreStatusCsv(rows);
+    STORE_STATUS_DYNAMIC = parsed;
+    return parsed.length;
+  }
+
   // --- Carga principal ---
   async function loadAll(){
-    const urlOrders = localStorage.getItem(KEY_URL_ORDERS) || "";
-    const urlTarget = localStorage.getItem(KEY_URL_TARGET) || "";
+    const urlOrders      = localStorage.getItem(KEY_URL_ORDERS) || "";
+    const urlTarget      = localStorage.getItem(KEY_URL_TARGET) || "";
+    const urlStoreStatus = localStorage.getItem(KEY_URL_STORESTATUS) || "";
 
-    if(!urlOrders && !urlTarget){
+    if(!urlOrders && !urlTarget && !urlStoreStatus){
       setStatus(null, "URLs não configuradas",
-        'Clique em <b>Configurar URLs dos arquivos</b> acima, cole as URLs raw do GitHub e salve.');
+        'Clique em <b>Configurar URLs dos arquivos</b>, cole as URLs raw do GitHub e salve.');
       return;
     }
 
     setStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
-    let ordersLoaded = 0, targetsLoaded = 0;
-    const erros = [];
-
-    // Limpa estado para garantir visão idêntica a todos
     ordersState  = [];
     targetsState = {};
+    STORE_STATUS_DYNAMIC = [];
 
-    // --- Pedidos ---
+    const erros = [];
+    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0;
+
     if(urlOrders){
       try {
         setStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
-        const text = await fetchCsv(urlOrders);
-        const rows = await parseCsv(text);
-        const stats = injectOrders(rows);
-        ordersLoaded = stats.after;
-      } catch(e){
-        erros.push("Pedidos: " + e.message);
-      }
+        const rows = await parseCsv(await fetchCsv(urlOrders));
+        ordersLoaded = injectOrders(rows);
+      } catch(e){ erros.push("Pedidos: " + e.message); }
     }
 
-    // --- Metas ---
     if(urlTarget){
       try {
         setStatus(null, "Carregando metas...", "Baixando CSV de metas...");
-        const text = await fetchCsv(urlTarget);
-        const rows = await parseCsv(text);
+        const rows = await parseCsv(await fetchCsv(urlTarget));
         targetsLoaded = injectTargets(rows);
-      } catch(e){
-        erros.push("Metas: " + e.message);
-      }
+      } catch(e){ erros.push("Metas: " + e.message); }
     }
 
-    // --- Resultado ---
+    if(urlStoreStatus){
+      try {
+        setStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
+        const rows = await parseCsv(await fetchCsv(urlStoreStatus));
+        statusLoaded = injectStoreStatus(rows);
+        renderStoreStatus(); // re-renderiza o gráfico/tabela com dados novos
+      } catch(e){ erros.push("Status lojas: " + e.message); }
+    }
+
     if(erros.length){
       setStatus(false, "Erro ao carregar",
         erros.map(e => `⚠️ ${e}`).join("<br>") +
-        "<br><small>Verifique se as URLs estão corretas e são URLs <b>raw</b> do GitHub.</small>");
+        "<br><small>Verifique se as URLs são <b>raw</b> do GitHub (começam com raw.githubusercontent.com).</small>");
       return;
     }
 
     const now = new Date().toLocaleString("pt-BR");
-    setStatus(true, "Dados atualizados",
-      `${ordersLoaded} pedido(s) • ${targetsLoaded} dia(s) de meta • ${now}`);
+    const partes = [];
+    if(ordersLoaded) partes.push(`${ordersLoaded} pedidos`);
+    if(targetsLoaded) partes.push(`${targetsLoaded} dias de meta`);
+    if(statusLoaded) partes.push(`${statusLoaded} dias de status`);
+    setStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
 
-    // Dispara render
-    if(els.apply && !els.apply.disabled){
-      els.apply.click();
-    } else if(ordersState.length){
+    if(ordersState.length){
       runFromState();
     }
   }
 
-  // --- Carrega automaticamente ao abrir a página ---
-  window.addEventListener("load", () => {
-    setTimeout(loadAll, 400);
-  });
-
-  // Expõe para uso externo (ex: botão recarregar)
+  // --- Auto-carrega ao abrir ---
+  window.addEventListener("load", () => setTimeout(loadAll, 400));
   window._omniReload = loadAll;
 
 })();
