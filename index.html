@@ -1,0 +1,2116 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OMNI • Dashboard</title>
+
+  <!-- Libs -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg: #0b1020;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.10);
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.70);
+      --muted2: rgba(255,255,255,.55);
+      --accent: #7dd3fc;
+      --accent2: #a78bfa;
+      --good: #34d399;
+      --bad: #fb7185;
+      --warn: #fbbf24;
+      --shadow: 0 18px 50px rgba(0,0,0,.30);
+      --r: 16px;
+      --r2: 22px;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 10% -10%, rgba(125,211,252,.20), transparent 55%),
+        radial-gradient(900px 700px at 95% 0%, rgba(167,139,250,.16), transparent 52%),
+        radial-gradient(1000px 800px at 50% 120%, rgba(52,211,153,.10), transparent 55%),
+        linear-gradient(180deg, #070a14 0%, #0b1020 40%, #070a14 100%);
+      overflow-x:hidden;
+    }
+    a{color:inherit}
+    .wrap{max-width:1480px; margin:0 auto; padding:24px 20px 52px}
+    .topbar{
+      display:flex; gap:14px; align-items:flex-start; justify-content:space-between;
+      padding:18px 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.05));
+      border:1px solid var(--border);
+      border-radius:var(--r2);
+      box-shadow: var(--shadow);
+      position:sticky; top:12px; z-index:20;
+      backdrop-filter: blur(10px);
+    }
+    .brand h1{margin:0; font-size:18px; letter-spacing:.2px}
+    .brand p{margin:6px 0 0; color:var(--muted); font-size:12.5px; line-height:1.35}
+    .status{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      font-size:12px; color:var(--muted);
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background: rgba(0,0,0,.15);
+    }
+    .dot{width:8px; height:8px; border-radius:99px; background:var(--warn); box-shadow:0 0 0 4px rgba(251,191,36,.12)}
+    .dot.ok{background:var(--good); box-shadow:0 0 0 4px rgba(52,211,153,.12)}
+
+    .layout{display:grid; grid-template-columns: 1fr; gap:16px; margin-top:16px}
+    @media (max-width: 980px) {
+      .layout{grid-template-columns: 1fr;}
+      .topbar{position:relative; top:auto}
+    }
+
+    .panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.05));
+      border:1px solid var(--border);
+      border-radius:var(--r2);
+      box-shadow: 0 10px 35px rgba(0,0,0,.22);
+    }
+    .panel .hd{
+      padding:14px 14px 10px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .panel .hd h2{margin:0; font-size:13px; letter-spacing:.25px; color:rgba(255,255,255,.86)}
+    .panel .bd{padding:14px}
+
+    .filters{position:sticky; top:96px}
+    @media (max-width: 980px) {.filters{position:relative; top:auto}}
+
+    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    .field{display:flex; flex-direction:column; gap:6px; margin-bottom:10px}
+    label{font-size:12px; color:var(--muted);}
+    input[type="date"], select, input[type="file"]{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color:var(--text);
+      outline:none;
+    }
+    input[type="file"]{padding:9px}
+    .help{font-size:11.5px; color:var(--muted2); line-height:1.35}
+    .btnrow{display:flex; gap:10px; margin-top:8px}
+    button{
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.10);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:600;
+      letter-spacing:.2px;
+      transition: transform .08s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.18)}
+    button:active{transform: translateY(1px)}
+    .primary{
+      border-color: rgba(125,211,252,.35);
+      background: linear-gradient(180deg, rgba(125,211,252,.25), rgba(125,211,252,.10));
+    }
+    .ghost{background: transparent}
+    .divider{height:1px; background:rgba(255,255,255,.08); margin:12px 0}
+
+    .content{display:flex; flex-direction:column; gap:16px}
+    .kpis{
+      display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px;
+    }
+    @media (max-width: 1100px) {.kpis{grid-template-columns: repeat(2, minmax(0,1fr));}}
+    .kpi{
+      padding:14px 14px 12px;
+      border-radius:var(--r2);
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.09), rgba(0,0,0,.06));
+      box-shadow: 0 12px 30px rgba(0,0,0,.18);
+    }
+    .kpi .t{font-size:12px; color:var(--muted); display:flex; align-items:center; justify-content:space-between; gap:10px}
+    .kpi .v{margin-top:8px; font-size:20px; font-weight:800; letter-spacing:.2px}
+    .kpi .s{margin-top:6px; font-size:12px; color:var(--muted2); line-height:1.3}
+    .badge{
+      font-size:11px;
+      padding:5px 9px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.15);
+      color:rgba(255,255,255,.82)
+    }
+
+    .twocol{display:grid; grid-template-columns: 1.1fr .9fr; gap:16px}
+    @media (max-width: 1100px) {.twocol{grid-template-columns: 1fr;}}
+    .chartwrap{padding:14px}
+    .charthead{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding:14px 14px 0}
+    .charthead .left h3{margin:0; font-size:13px; color:rgba(255,255,255,.86)}
+    .charthead .left p{margin:6px 0 0; font-size:12px; color:var(--muted); line-height:1.35}
+    .note{font-size:12px; color:var(--muted); padding:8px 14px 0}
+
+    .insights{
+      padding:14px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
+    .insights .item{
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:var(--r2);
+      background: rgba(0,0,0,.18);
+      padding:12px 12px;
+      line-height:1.45;
+      font-size:12.5px;
+      color:rgba(255,255,255,.84);
+    }
+    .insights .item b{color:rgba(255,255,255,.94)}
+
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      overflow:hidden;
+      border-radius:var(--r2);
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+    }
+    thead th{
+      position:sticky; top:0;
+      background: rgba(10,14,30,.88);
+      backdrop-filter: blur(8px);
+      color: rgba(255,255,255,.82);
+      font-size:12px;
+      text-align:left;
+      padding:12px 12px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      white-space:nowrap;
+    }
+    tbody td{
+      padding:11px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:12.5px;
+      color: rgba(255,255,255,.86);
+    }
+    tbody tr:hover td{background: rgba(255,255,255,.04)}
+    .tablewrap{max-height:420px; overflow:auto; border-radius:var(--r2)}
+
+    .empty{
+      padding:14px;
+      color:var(--muted);
+      font-size:12.5px;
+      line-height:1.45;
+    }
+    .mono{font-family:var(--mono)}
+
+    /* ===========================
+       EXECUTIVE VISUAL THEME
+       =========================== */
+    body{font-size:16px}
+    .filters{position:relative; top:auto}
+    .topbar{padding:20px 20px}
+    .brand h1{font-size:24px}
+    .brand p{font-size:14.5px; line-height:1.5}
+
+    /* Filters as horizontal strip */
+    .filters .bd{
+      display:grid;
+      grid-template-columns: 1.3fr 1fr 1fr 1fr;
+      gap:12px;
+      align-items:end;
+    }
+    @media (max-width: 1220px){ .filters .bd{grid-template-columns: 1fr 1fr} }
+    @media (max-width: 760px){ .filters .bd{grid-template-columns: 1fr} }
+    .filters .bd .divider,
+    .filters .bd .empty{grid-column: 1 / -1}
+    .filters .bd .btnrow{grid-column: 1 / -1; justify-content:flex-end}
+    .filters .bd .btnrow button{min-width:170px}
+
+    /* Pills used by the original JS (meta + warnings) */
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.86);
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .pill.warn{
+      border-color: rgba(251,191,36,.35);
+      background: rgba(251,191,36,.12);
+    }
+
+    /* KPI cards (match original JS: .kpi > .label/.value + .delta) */
+    .kpis{display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:14px}
+    @media (max-width: 1220px){ .kpis{grid-template-columns: repeat(2, minmax(0,1fr));} }
+    @media (max-width: 640px){ .kpis{grid-template-columns: 1fr;} }
+
+    .kpi{
+      position:relative;
+      padding:18px 18px 16px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.10));
+      box-shadow: 0 14px 34px rgba(0,0,0,.22);
+      overflow:hidden;
+    }
+    .kpi::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: radial-gradient(600px 220px at 12% 0%, rgba(125,211,252,.14), transparent 55%);
+      pointer-events:none;
+    }
+    .kpi::after{
+      content:"";
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:6px;
+      background: rgba(125,211,252,.55);
+      opacity:.55;
+    }
+    .kpi.kpi-good::after{ background: rgba(52,211,153,.80); opacity:.75; }
+    .kpi.kpi-bad::after{ background: rgba(251,113,133,.85); opacity:.80; }
+    .kpi.kpi-warn::after{ background: rgba(251,191,36,.85); opacity:.80; }
+
+    .kpi .label{
+      position:relative;
+      font-size:13px;
+      color: rgba(255,255,255,.72);
+      letter-spacing:.2px;
+    }
+    .kpi .value{
+      position:relative;
+      margin-top:10px;
+      font-size:34px;
+      font-weight:850;
+      letter-spacing:.2px;
+      line-height:1.05;
+    }
+    .kpi .delta{
+      position:relative;
+      display:block;
+      margin-top:10px;
+      font-size:13px;
+      color: rgba(255,255,255,.75);
+      line-height:1.35;
+    }
+    .kpi b.pos{ color: rgba(52,211,153,.95); }
+    .kpi b.neg{ color: rgba(251,113,133,.95); }
+
+    /* Chart panels: bigger + cleaner */
+    .twocol{display:grid; grid-template-columns: 1.25fr .75fr; gap:16px}
+    @media (max-width: 1100px){ .twocol{grid-template-columns: 1fr;} }
+
+    .charthead{padding:16px 18px 0}
+    .charthead .left h3{font-size:15px}
+    .charthead .left p{font-size:13.5px}
+    .chartwrap{padding:14px 18px 18px; height:360px; display:flex;}
+    .chartwrap canvas{flex:1 1 auto; width:100% !important; height:100% !important; display:block;}
+    #storesChart{height:100% !important;}
+    #trendChart{height:100% !important;}
+
+    /* Tables: executive readability */
+    .tablewrap{max-height:560px}
+    thead th{font-size:13px; padding:14px 14px}
+    tbody td{font-size:13.5px; padding:13px 14px}
+
+    /* Reduce clutter text on desktop */
+    .filters .empty{display:none}
+    @media (max-width: 980px){ .filters .empty{display:block} }
+
+    /* ===== Insights (more visual) ===== */
+    #insights{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:12px;
+    }
+    @media (max-width: 980px){ #insights{grid-template-columns: 1fr;} }
+
+    #insights .item{
+      position:relative;
+      padding:14px 14px 14px 52px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.16));
+      box-shadow: 0 12px 28px rgba(0,0,0,.18);
+      overflow:hidden;
+      font-size:13.5px;
+      line-height:1.45;
+      color: rgba(255,255,255,.86);
+    }
+    #insights .item::before{
+      content:"";
+      position:absolute; inset:0;
+      background: radial-gradient(520px 240px at 0% 0%, rgba(125,211,252,.12), transparent 55%);
+      pointer-events:none;
+    }
+    #insights .item::after{
+      content:"";
+      position:absolute; left:0; top:0; bottom:0;
+      width:6px; background: rgba(125,211,252,.60);
+      opacity:.65;
+    }
+    #insights .item.ins-good::after{ background: rgba(52,211,153,.85); opacity:.80; }
+    #insights .item.ins-bad::after{ background: rgba(251,113,133,.90); opacity:.85; }
+    #insights .item.ins-warn::after{ background: rgba(251,191,36,.92); opacity:.85; }
+
+    #insights .icon{
+      position:absolute;
+      left:14px; top:14px;
+      width:28px; height:28px;
+      display:grid; place-items:center;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.20);
+      font-size:15px;
+    }
+    #insights .item.ins-good .icon{ background: rgba(52,211,153,.16); border-color: rgba(52,211,153,.35); }
+    #insights .item.ins-bad  .icon{ background: rgba(251,113,133,.16); border-color: rgba(251,113,133,.35); }
+    #insights .item.ins-warn .icon{ background: rgba(251,191,36,.14); border-color: rgba(251,191,36,.35); }
+
+    #insights .tag{
+      display:inline-flex; align-items:center;
+      margin-left:8px;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.14);
+      font-size:11px;
+      color: rgba(255,255,255,.78);
+      vertical-align:middle;
+      white-space:nowrap;
+    }
+    #insights .item.ins-good .tag{ border-color: rgba(52,211,153,.30); background: rgba(52,211,153,.10); }
+    #insights .item.ins-bad  .tag{ border-color: rgba(251,113,133,.30); background: rgba(251,113,133,.10); }
+    #insights .item.ins-warn .tag{ border-color: rgba(251,191,36,.30); background: rgba(251,191,36,.10); }
+
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <h1>OMNI • Dashboard</h1>
+        <p>
+          Dados carregados automaticamente do repositório. Todo o time vê a mesma visão.
+          Gestor: suba o incremental no GitHub e os dados atualizam para todos.
+        </p>
+      </div>
+      <div class="status">
+        <span class="chip" id="statusChip"><span class="dot" id="statusDot"></span><span id="statusText">Sem dados carregados</span></span>
+        <span class="chip"><span class="mono" id="statusMeta">—</span></span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="panel filters">
+        <div class="hd">
+          <h2>Dados & filtros</h2>
+          <span class="badge">automático ao abrir</span>
+        </div>
+        <div class="bd">
+
+          <!-- STATUS DE CARGA AUTOMÁTICA -->
+          <div id="autoLoadStatus" style="
+            padding:12px 14px;
+            border-radius:14px;
+            border:1px solid rgba(255,255,255,.10);
+            background:rgba(0,0,0,.18);
+            margin-bottom:12px;
+            font-size:12.5px;
+            line-height:1.55;
+          ">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span id="autoLoadDot" style="width:8px;height:8px;border-radius:99px;background:var(--warn);box-shadow:0 0 0 4px rgba(251,191,36,.12);flex-shrink:0"></span>
+              <b id="autoLoadTitle" style="font-size:13px;">Carregando dados...</b>
+            </div>
+            <div id="autoLoadMsg" style="color:var(--muted);font-size:12px;">Buscando arquivos do repositório.</div>
+          </div>
+
+          <!-- CONFIGURAÇÃO DE URLs (recolhida por padrão) -->
+          <div style="margin-bottom:10px;">
+            <div id="toggleConfig" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
+              <span id="toggleConfigIcon" style="font-size:10px;">▶</span>
+              <span>Configurar URLs dos arquivos</span>
+            </div>
+            <div id="configFields" style="display:none;margin-top:10px;">
+              <div class="field">
+                <label>URL do CSV de Pedidos</label>
+                <input id="urlOrders" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
+                <div class="help">Use a URL <b>raw</b> do GitHub: abra o arquivo → clique em Raw → copie a URL.</div>
+              </div>
+              <div class="field">
+                <label>URL do CSV de Metas</label>
+                <input id="urlTarget" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
+              </div>
+              <div class="btnrow">
+                <button id="btnSaveUrls" class="primary" style="flex:1">💾 Salvar e recarregar</button>
+              </div>
+              <div id="configStatus" style="font-size:11.5px;color:var(--muted2);margin-top:6px;min-height:14px;"></div>
+            </div>
+          </div>
+
+          <!-- UPLOAD LOCAL (fallback / para o gestor) -->
+          <div>
+            <div id="toggleUpload" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
+              <span id="toggleUploadIcon" style="font-size:10px;">▶</span>
+              <span>Upload manual (gestor)</span>
+            </div>
+            <div id="uploadFields" style="display:none;margin-top:10px;">
+              <div class="field">
+                <label>Arquivo de pedidos (CSV) — incremental</label>
+                <input id="fileOrders" type="file" accept=".csv"/>
+                <div class="help">O painel acumula incrementais automaticamente via deduplicação por número de pedido.</div>
+              </div>
+              <div class="grid2">
+                <div class="field">
+                  <label>Modo de carga</label>
+                  <select id="ordersLoadMode">
+                    <option value="APPEND" selected>Incremental (acrescentar)</option>
+                    <option value="REPLACE">Substituir tudo</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Deduplicação</label>
+                  <select id="ordersDedupeMode">
+                    <option value="KEEP_MAX_LINE">Manter maior linha</option>
+                    <option value="SUM_LINES">Somar linhas</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field" style="margin-top:6px;">
+                <label>Arquivo de metas (CSV)</label>
+                <input id="fileTarget" type="file" accept=".csv"/>
+                <div class="help">Formato: <span class="mono">data | valor_diario</span> (ex.: 2025-12-01, 50000).</div>
+              </div>
+              <div class="field">
+                <label>Modo de carga (Metas)</label>
+                <select id="targetLoadMode">
+                  <option value="REPLACE">Substituir</option>
+                  <option value="APPEND">Incremental</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- CAMPOS HIDDEN para compatibilidade com o JS original -->
+          <div style="display:none">
+            <select id="targetLoadMode2"><option value="REPLACE">Substituir</option></select>
+          </div>
+
+          <div class="grid2">
+            <div class="field">
+              <label>Modo de carga</label>
+              <select id="ordersLoadMode2" style="display:none"><option value="APPEND">Incremental</option></select>
+            </div>
+            <div class="field">
+              <label>Canal</label>
+              <select id="channelFilter">
+                <option value="__ALL__">Todos</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="field">
+              <label>Loja</label>
+              <select id="storeFilter">
+                <option value="__ALL__">Todas</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Período</label>
+              <div class="grid2" style="gap:8px">
+                <input id="startDate" type="date"/>
+                <input id="endDate" type="date"/>
+              </div>
+              <div class="help">O período impacta KPIs, gráfico, top lojas e tabelas.</div>
+            </div>
+          </div>
+
+
+            <div class="field">
+              <label>Status das lojas (manual)</label>
+              <div class="grid2" style="gap:8px">
+                <input id="storeStatusDate" type="date"/>
+                <input id="storeClosedInput" type="number" min="0" max="19" placeholder="Fechadas (0–19)"/>
+              </div>
+              <div class="btnrow" style="margin-top:8px">
+                <button id="storeStatusSave" class="primary" style="flex:1">Registrar</button>
+                <button id="storeStatusClear" class="ghost" style="flex:1">Limpar ajustes</button>
+              </div>
+              <div class="help">Todo dia, informe quantas lojas estão fechadas. O dashboard calcula <b>abertas = 19 − fechadas</b> e salva no seu navegador. A base histórica (desde 18/07/2025) já vem carregada.</div>
+            </div>
+
+          <div class="btnrow">
+            <button id="apply" class="primary" style="flex:1">Aplicar</button>
+            <button id="clear" class="ghost">Limpar</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="empty">
+            <b>Como ler o painel</b><br/>
+            • KPIs = resumo do período filtrado<br/>
+            • Tendência diária = receita por dia (com meta quando houver)<br/>
+            • Top lojas = ranking por receita no período<br/>
+            • Insights = leitura automática (volatilidade, picos, gaps)<br/>
+            • Tabelas = detalhe por dia e por loja
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="kpis" id="kpis"></div>
+
+        <div class="twocol">
+          <div class="panel">
+            <div class="charthead">
+              <div class="left">
+                <h3>Tendência diária</h3>
+                <p>Receita por dia (e meta diária quando existir).</p>
+              </div>
+              <span class="badge" id="meta">Meta: —</span>
+            </div>
+            <div class="note" id="trendNote">Carregue pedidos para ver o gráfico.</div>
+            <div class="chartwrap">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="charthead">
+              <div class="left">
+                <h3>Top lojas</h3>
+                <p>Receita total por loja no período filtrado.</p>
+              </div>
+              <span class="badge">Ranking</span>
+            </div>
+            <div class="chartwrap">
+              <canvas id="storesChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="hd">
+            <h2>Insights</h2>
+            <span class="badge">Leitura automática</span>
+          </div>
+          <div class="insights" id="insights"></div>
+        </div>
+
+        <div class="panel">
+          <div class="hd">
+            <h2>Tabela diária</h2>
+            <span class="badge">Detalhe por data</span>
+          </div>
+          <div class="bd">
+            <div class="tablewrap">
+              <table id="dailyTable">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Receita</th>
+                    <th>Meta</th>
+                    <th>Gap</th>
+                    <th>Pedidos</th>
+                    <th>Peças</th>
+                    <th>Ticket médio</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="hd">
+            <h2>Tabela de lojas</h2>
+            <span class="badge">Resumo por loja</span>
+          </div>
+          <div class="bd">
+            <div class="tablewrap">
+              <table id="storesTable">
+                <thead>
+                  <tr>
+                    <th>Loja</th>
+                    <th>Receita</th>
+                    <th>Pedidos</th>
+                    <th>Ticket médio</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:14px" id="storeStatusPanel">
+                  <div class="charthead">
+                    <div class="left">
+                      <h3>Status das lojas (rede)</h3>
+                      <p>Contagem diária de lojas abertas vs fechadas (total da rede: <b>19</b>).</p>
+                    </div>
+                    <span class="badge" id="storeStatusBadge">—</span>
+                  </div>
+                  <div class="note" id="storeStatusNote">A base histórica de status das lojas já está carregada. Use o campo “Status das lojas (manual)” para registrar o dia.</div>
+                  <div class="chartwrap" style="height:260px">
+                    <canvas id="storeStatusChart"></canvas>
+                  </div>
+                  <div class="tablewrap" style="margin-top:12px">
+                    <table id="storeStatusTable">
+                      <thead>
+                        <tr>
+                          <th>Data</th>
+                          <th>Abertas</th>
+                          <th>Fechadas</th>
+                          <th>Origem</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+
+
+
+  
+      </div>
+    </div>
+  </div>
+        <script>
+
+    // ---------- Store map (locationId -> nome) ----------
+    const STORE_MAP = new Map([
+      [4,  "Balneário"],
+      [51, "Belem Boulevard"],
+      [55, "BH Boulevard"],
+      [10, "Brasilia"],
+      [50, "Campo Grande"],
+      [19, "Goiabeiras"],
+      [2,  "Barigui"],
+      [25, "Mueller"],
+      [21, "Ponta Negra"],
+      [20, "Barra Sul"],
+      [3,  "Iguatemi POA"],
+      [8,  "Shopping Recife"],
+      [24, "Rio Mar"],
+      [13, "Barra Rio"],
+      [9,  "Salvador"],
+      [6,  "Nações"],
+      [57, "Center Norte"],
+      [17, "Morumbi"],
+      [14, "Anália Franco"]
+    ]);
+
+
+    // ---------- Store status (abertas x fechadas) ----------
+    const TOTAL_STORES = 19;
+    const STORE_STATUS_STORAGE_KEY = "omni_store_status_overrides_v1";
+
+    // Base histórica (carregada no HTML)
+    const STORE_STATUS_BASE = [{"date": "2025-07-18", "open": 12, "closed": 7}, {"date": "2025-07-19", "open": 9, "closed": 10}, {"date": "2025-07-20", "open": 9, "closed": 10}, {"date": "2025-07-21", "open": 14, "closed": 5}, {"date": "2025-07-22", "open": 15, "closed": 4}, {"date": "2025-07-23", "open": 8, "closed": 11}, {"date": "2025-07-24", "open": 10, "closed": 9}, {"date": "2025-07-25", "open": 11, "closed": 8}, {"date": "2025-07-26", "open": 11, "closed": 8}, {"date": "2025-07-27", "open": 11, "closed": 8}, {"date": "2025-07-28", "open": 11, "closed": 8}, {"date": "2025-07-29", "open": 14, "closed": 5}, {"date": "2025-07-30", "open": 14, "closed": 5}, {"date": "2025-07-31", "open": 11, "closed": 8}, {"date": "2025-08-01", "open": 7, "closed": 12}, {"date": "2025-08-02", "open": 7, "closed": 12}, {"date": "2025-08-03", "open": 7, "closed": 12}, {"date": "2025-08-04", "open": 7, "closed": 12}, {"date": "2025-08-05", "open": 6, "closed": 13}, {"date": "2025-08-06", "open": 6, "closed": 13}, {"date": "2025-08-07", "open": 6, "closed": 13}, {"date": "2025-08-08", "open": 6, "closed": 13}, {"date": "2025-08-09", "open": 6, "closed": 13}, {"date": "2025-08-10", "open": 6, "closed": 13}, {"date": "2025-08-11", "open": 10, "closed": 9}, {"date": "2025-08-12", "open": 10, "closed": 9}, {"date": "2025-08-13", "open": 10, "closed": 9}, {"date": "2025-08-14", "open": 8, "closed": 11}, {"date": "2025-08-15", "open": 11, "closed": 8}, {"date": "2025-08-16", "open": 11, "closed": 8}, {"date": "2025-08-17", "open": 11, "closed": 8}, {"date": "2025-08-18", "open": 9, "closed": 10}, {"date": "2025-08-19", "open": 12, "closed": 7}, {"date": "2025-08-20", "open": 12, "closed": 7}, {"date": "2025-08-21", "open": 13, "closed": 6}, {"date": "2025-08-22", "open": 15, "closed": 4}, {"date": "2025-08-23", "open": 15, "closed": 4}, {"date": "2025-08-24", "open": 15, "closed": 4}, {"date": "2025-08-25", "open": 14, "closed": 5}, {"date": "2025-08-26", "open": 11, "closed": 8}, {"date": "2025-08-27", "open": 13, "closed": 6}, {"date": "2025-08-28", "open": 13, "closed": 6}, {"date": "2025-08-29", "open": 15, "closed": 4}, {"date": "2025-08-30", "open": 15, "closed": 4}, {"date": "2025-08-31", "open": 15, "closed": 4}, {"date": "2025-09-01", "open": 12, "closed": 7}, {"date": "2025-09-02", "open": 12, "closed": 7}, {"date": "2025-09-03", "open": 12, "closed": 7}, {"date": "2025-09-04", "open": 11, "closed": 8}, {"date": "2025-09-05", "open": 11, "closed": 8}, {"date": "2025-09-06", "open": 11, "closed": 8}, {"date": "2025-09-07", "open": 11, "closed": 8}, {"date": "2025-09-08", "open": 8, "closed": 11}, {"date": "2025-09-09", "open": 9, "closed": 10}, {"date": "2025-09-10", "open": 7, "closed": 12}, {"date": "2025-09-11", "open": 7, "closed": 12}, {"date": "2025-09-12", "open": 13, "closed": 6}, {"date": "2025-09-13", "open": 13, "closed": 6}, {"date": "2025-09-14", "open": 13, "closed": 6}, {"date": "2025-09-15", "open": 13, "closed": 6}, {"date": "2025-09-16", "open": 10, "closed": 9}, {"date": "2025-09-17", "open": 10, "closed": 9}, {"date": "2025-09-18", "open": 14, "closed": 5}, {"date": "2025-09-19", "open": 14, "closed": 5}, {"date": "2025-09-20", "open": 14, "closed": 5}, {"date": "2025-09-21", "open": 14, "closed": 5}, {"date": "2025-09-22", "open": 9, "closed": 10}, {"date": "2025-09-23", "open": 9, "closed": 10}, {"date": "2025-09-24", "open": 12, "closed": 7}, {"date": "2025-09-25", "open": 13, "closed": 6}, {"date": "2025-09-26", "open": 12, "closed": 7}, {"date": "2025-09-27", "open": 12, "closed": 7}, {"date": "2025-09-28", "open": 12, "closed": 7}, {"date": "2025-09-29", "open": 14, "closed": 5}, {"date": "2025-09-30", "open": 16, "closed": 3}, {"date": "2025-10-01", "open": 17, "closed": 2}, {"date": "2025-10-02", "open": 17, "closed": 2}, {"date": "2025-10-03", "open": 15, "closed": 4}, {"date": "2025-10-04", "open": 15, "closed": 4}, {"date": "2025-10-05", "open": 15, "closed": 4}, {"date": "2025-10-06", "open": 14, "closed": 5}, {"date": "2025-10-07", "open": 14, "closed": 5}, {"date": "2025-10-08", "open": 14, "closed": 5}, {"date": "2025-10-09", "open": 15, "closed": 4}, {"date": "2025-10-10", "open": 14, "closed": 5}, {"date": "2025-10-11", "open": 14, "closed": 5}, {"date": "2025-10-12", "open": 14, "closed": 5}, {"date": "2025-10-13", "open": 15, "closed": 4}, {"date": "2025-10-14", "open": 13, "closed": 6}, {"date": "2025-10-15", "open": 14, "closed": 5}, {"date": "2025-10-16", "open": 14, "closed": 5}, {"date": "2025-10-17", "open": 13, "closed": 6}, {"date": "2025-10-18", "open": 13, "closed": 6}, {"date": "2025-10-19", "open": 13, "closed": 6}, {"date": "2025-10-20", "open": 13, "closed": 6}, {"date": "2025-10-21", "open": 12, "closed": 7}, {"date": "2025-10-22", "open": 14, "closed": 5}, {"date": "2025-10-23", "open": 14, "closed": 5}, {"date": "2025-10-24", "open": 12, "closed": 7}, {"date": "2025-10-25", "open": 12, "closed": 7}, {"date": "2025-10-26", "open": 12, "closed": 7}, {"date": "2025-10-27", "open": 13, "closed": 6}, {"date": "2025-10-28", "open": 15, "closed": 4}, {"date": "2025-10-29", "open": 17, "closed": 2}, {"date": "2025-10-30", "open": 16, "closed": 3}, {"date": "2025-10-31", "open": 17, "closed": 2}, {"date": "2025-11-01", "open": 17, "closed": 2}, {"date": "2025-11-02", "open": 17, "closed": 2}, {"date": "2025-11-03", "open": 16, "closed": 3}, {"date": "2025-11-04", "open": 18, "closed": 1}, {"date": "2025-11-05", "open": 18, "closed": 1}, {"date": "2025-11-06", "open": 18, "closed": 1}, {"date": "2025-11-07", "open": 18, "closed": 1}, {"date": "2025-11-08", "open": 18, "closed": 1}, {"date": "2025-11-09", "open": 18, "closed": 1}, {"date": "2025-11-10", "open": 17, "closed": 2}, {"date": "2025-11-11", "open": 0, "closed": 19}, {"date": "2025-11-12", "open": 18, "closed": 1}, {"date": "2025-11-13", "open": 18, "closed": 1}, {"date": "2025-11-14", "open": 17, "closed": 2}, {"date": "2025-11-15", "open": 17, "closed": 2}, {"date": "2025-11-16", "open": 17, "closed": 2}, {"date": "2025-11-17", "open": 18, "closed": 1}, {"date": "2025-11-18", "open": 16, "closed": 3}, {"date": "2025-11-19", "open": 17, "closed": 2}, {"date": "2025-11-20", "open": 17, "closed": 2}, {"date": "2025-11-21", "open": 17, "closed": 2}, {"date": "2025-11-22", "open": 17, "closed": 2}, {"date": "2025-11-23", "open": 17, "closed": 2}, {"date": "2025-11-24", "open": 17, "closed": 2}, {"date": "2025-11-25", "open": 18, "closed": 1}, {"date": "2025-11-26", "open": 19, "closed": 0}, {"date": "2025-11-27", "open": 16, "closed": 3}, {"date": "2025-11-28", "open": 16, "closed": 3}, {"date": "2025-11-29", "open": 16, "closed": 3}, {"date": "2025-11-30", "open": 16, "closed": 3}, {"date": "2025-12-01", "open": 0, "closed": 19}, {"date": "2025-12-02", "open": 15, "closed": 4}, {"date": "2025-12-03", "open": 16, "closed": 3}, {"date": "2025-12-04", "open": 16, "closed": 3}, {"date": "2025-12-05", "open": 16, "closed": 3}, {"date": "2025-12-06", "open": 16, "closed": 3}, {"date": "2025-12-07", "open": 16, "closed": 3}, {"date": "2025-12-08", "open": 18, "closed": 1}, {"date": "2025-12-09", "open": 18, "closed": 1}, {"date": "2025-12-10", "open": 18, "closed": 1}, {"date": "2025-12-11", "open": 18, "closed": 1}, {"date": "2025-12-12", "open": 18, "closed": 1}, {"date": "2025-12-13", "open": 18, "closed": 1}, {"date": "2025-12-14", "open": 18, "closed": 1}, {"date": "2025-12-15", "open": 18, "closed": 1}, {"date": "2025-12-16", "open": 18, "closed": 1}, {"date": "2025-12-17", "open": 18, "closed": 1}, {"date": "2025-12-18", "open": 18, "closed": 1}, {"date": "2025-12-19", "open": 17, "closed": 2}, {"date": "2025-12-20", "open": 17, "closed": 2}, {"date": "2025-12-21", "open": 17, "closed": 2}, {"date": "2025-12-22", "open": 17, "closed": 2}, {"date": "2025-12-23", "open": 19, "closed": 0}, {"date": "2025-12-24", "open": 19, "closed": 0}, {"date": "2025-12-25", "open": 19, "closed": 0}, {"date": "2025-12-26", "open": 19, "closed": 0}, {"date": "2025-12-27", "open": 19, "closed": 0}, {"date": "2025-12-28", "open": 19, "closed": 0}, {"date": "2025-12-29", "open": 19, "closed": 0}, {"date": "2025-12-30", "open": 19, "closed": 0}, {"date": "2025-12-31", "open": 19, "closed": 0}, {"date": "2026-01-01", "open": 19, "closed": 0}, {"date": "2026-01-02", "open": 19, "closed": 0}, {"date": "2026-01-03", "open": 19, "closed": 0}, {"date": "2026-01-04", "open": 19, "closed": 0}, {"date": "2026-01-05", "open": 19, "closed": 0}, {"date": "2026-01-06", "open": 19, "closed": 0}, {"date": "2026-01-07", "open": 18, "closed": 1}];
+
+    function ymdToBr(ymd){
+      if(!ymd) return "—";
+      const [y,m,d] = ymd.split("-");
+      return `${d}/${m}/${y}`;
+    }
+
+    function clampInt(v, min, max){
+      const n = Number(v);
+      if(!Number.isFinite(n)) return null;
+      const i = Math.round(n);
+      if(i < min || i > max) return null;
+      return i;
+    }
+
+    function loadStoreStatusOverrides(){
+      try {
+        const raw = localStorage.getItem(STORE_STATUS_STORAGE_KEY);
+        if(!raw) return {};
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === "object") ? obj : {};
+      } catch(e){
+        return {};
+      }
+    }
+
+    function saveStoreStatusOverrides(obj){
+      localStorage.setItem(STORE_STATUS_STORAGE_KEY, JSON.stringify(obj));
+    }
+
+    function getStoreStatusSeries(){
+      const map = new Map();
+      for(const r of STORE_STATUS_BASE){
+        if(!r || !r.date) continue;
+        map.set(r.date, { date:r.date, open:r.open, closed:r.closed, source:"base" });
+      }
+      const overrides = loadStoreStatusOverrides();
+      for(const [date, closed] of Object.entries(overrides)){
+        const c = clampInt(closed, 0, TOTAL_STORES);
+        if(c === null) continue;
+        map.set(date, { date, open: TOTAL_STORES - c, closed: c, source:"manual" });
+      }
+      return Array.from(map.values()).sort((a,b)=> a.date.localeCompare(b.date));
+    }
+
+    function withinRange(dateStr, start, end){
+      if(start && dateStr < start) return false;
+      if(end && dateStr > end) return false;
+      return true;
+    }
+
+    let storeStatusChart = null;
+
+    function renderStoreStatus(){
+      // lê período atual do filtro (se estiver vazio, usa toda a série)
+      const start = (els.startDate?.value || "").trim();
+      const end = (els.endDate?.value || "").trim();
+
+      const seriesAll = getStoreStatusSeries();
+      const series = seriesAll.filter(r => withinRange(r.date, start || null, end || null));
+
+      // badge = último dia do recorte (ou último do histórico)
+      const last = (series.length ? series[series.length-1] : (seriesAll.length ? seriesAll[seriesAll.length-1] : null));
+      if(els.storeStatusBadge){
+        els.storeStatusBadge.textContent = last
+          ? `Último: ${ymdToBr(last.date)} • Fechadas: ${last.closed} • Abertas: ${last.open}`
+          : "—";
+      }
+
+      // tabela (mais recente primeiro; limita pra não ficar gigante)
+      const tbody = els.storeStatusTableBody;
+      if(tbody){
+        tbody.innerHTML = "";
+        const rows = (series.length ? [...series].reverse() : [...seriesAll].reverse()).slice(0, 120);
+        for(const r of rows){
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="mono">${ymdToBr(r.date)}</td>
+            <td>${r.open}</td>
+            <td>${r.closed}</td>
+            <td><span class="badge">${r.source === "manual" ? "manual" : "base"}</span></td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      // gráfico
+      const canvas = els.storeStatusChart;
+      if(!canvas) return;
+      const ctx = canvas.getContext("2d");
+
+      const plot = series.length ? series : seriesAll;
+      const labels = plot.map(r => ymdToBr(r.date));
+      const open = plot.map(r => r.open);
+      const closed = plot.map(r => r.closed);
+
+      if(storeStatusChart) storeStatusChart.destroy();
+
+      storeStatusChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Abertas",
+              data: open,
+              tension: 0.25,
+              pointRadius: 0,
+              fill: true,
+              stack: "stack1",
+              borderWidth: 1,
+              borderColor: "rgba(0, 200, 83, 0.95)",
+              backgroundColor: "rgba(0, 200, 83, 0.30)"
+            },
+            {
+              label: "Fechadas",
+              data: closed,
+              tension: 0.25,
+              pointRadius: 0,
+              fill: true,
+              stack: "stack1",
+              borderWidth: 1,
+              borderColor: "rgba(229, 57, 53, 0.95)",
+              backgroundColor: "rgba(229, 57, 53, 0.30)"
+            },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "bottom", labels: { color: "#cfe0ff" } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const label = ctx.dataset.label || "";
+                  const v = ctx.parsed.y;
+                  return `${label}: ${v}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              ticks: { color: "#9fb4d6" },
+              grid: { color: "rgba(255,255,255,0.06)" }
+            },
+            y: {
+              stacked: true,
+              min: 0,
+              max: TOTAL_STORES,
+              ticks: { color: "#9fb4d6", stepSize: 1 },
+              grid: { color: "rgba(255,255,255,0.06)" }
+            }
+          }
+        }
+      });
+    }
+
+    function setupStoreStatusInputs(){
+      if(els.storeStatusDate){
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth()+1).padStart(2,"0");
+        const d = String(today.getDate()).padStart(2,"0");
+        els.storeStatusDate.value = `${y}-${m}-${d}`;
+      }
+
+      if(els.storeStatusSave){
+        els.storeStatusSave.addEventListener("click", () => {
+          const date = (els.storeStatusDate?.value || "").trim();
+          const closed = clampInt(els.storeClosedInput?.value, 0, TOTAL_STORES);
+
+          if(!date){
+            alert("Selecione a data.");
+            return;
+          }
+          if(closed === null){
+            alert(`Informe um número de lojas fechadas entre 0 e ${TOTAL_STORES}.`);
+            return;
+          }
+
+          const overrides = loadStoreStatusOverrides();
+          overrides[date] = closed;
+          saveStoreStatusOverrides(overrides);
+
+          // limpa campo e re-render
+          if(els.storeClosedInput) els.storeClosedInput.value = "";
+          renderStoreStatus();
+        });
+      }
+
+      if(els.storeStatusClear){
+        els.storeStatusClear.addEventListener("click", () => {
+          localStorage.removeItem(STORE_STATUS_STORAGE_KEY);
+          renderStoreStatus();
+        });
+      }
+    }
+
+    function storeLabel(locationIdRaw){
+      const s = (locationIdRaw ?? "").toString().trim();
+      if(!s) return "(vazio)";
+      const n = parseInt(s.replace(/^0+/, "") || "0", 10);
+      const name = STORE_MAP.get(n);
+      if(name){
+        const code = String(n).padStart(2, "0");
+        return `${code} • ${name}`;
+      }
+      return s;
+    }
+
+    // ---------- Helpers ----------
+    const fmtBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    const fmtInt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+    const fmtPct = new Intl.NumberFormat("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+    function toNumberBR(value){
+      if(value === null || value === undefined) return 0;
+      const s = String(value).trim();
+      if(!s) return 0;
+      const normalized = s.replace(/\./g, "").replace(",", ".");
+      const n = Number(normalized);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function parsePtBrDateTime(s){
+      if(!s) return null;
+      const parts = String(s).trim().split(" ");
+      const d = parts[0]?.split("/");
+      if(!d || d.length !== 3) return null;
+      const day = Number(d[0]), month = Number(d[1]), year = Number(d[2]);
+      const t = (parts[1] || "00:00").split(":");
+      const hh = Number(t[0] || 0), mm = Number(t[1] || 0), ss = Number(t[2] || 0);
+      const dt = new Date(year, month-1, day, hh, mm, ss);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function parseDateAny(s){
+      // Accepts "dd/mm/yyyy" or "yyyy-mm-dd" (optionally with time)
+      if(!s) return null;
+      const str = String(s).trim();
+      if(!str) return null;
+
+      if(str.includes("/")){
+        const p = str.split(" ")[0].split("/");
+        if(p.length !== 3) return null;
+        const d = Number(p[0]), m = Number(p[1]), y = Number(p[2]);
+        const dt = new Date(y, m-1, d, 0, 0, 0);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+      if(str.includes("-")){
+        // yyyy-mm-dd
+        const p = str.split(" ")[0].split("-");
+        if(p.length < 3) return null;
+        const y = Number(p[0]), m = Number(p[1]), d = Number(p[2]);
+        const dt = new Date(y, m-1, d, 0, 0, 0);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+      }
+      return null;
+    }
+
+    function isoDate(d){
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,"0");
+      const dd = String(d.getDate()).padStart(2,"0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function nowIso(){
+      const d = new Date();
+      return `${isoDate(d)} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    }
+
+    function monthEnd(dateIso){
+      const d = new Date(dateIso + "T00:00:00");
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const last = new Date(y, m+1, 0);
+      return isoDate(last);
+    }
+
+    function dateRangeIso(startIso, endIso){
+      const out = [];
+      const s = new Date(startIso + "T00:00:00");
+      const e = new Date(endIso + "T00:00:00");
+      for(let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
+        out.push(isoDate(d));
+      }
+      return out;
+    }
+
+    // ---------- Storage ----------
+    const STORAGE_ORDERS_KEY = "omni_orders_v2";
+    const STORAGE_ORDERS_META = "omni_orders_meta_v2";
+    const STORAGE_TARGETS_KEY = "omni_targets_v1";
+    const STORAGE_TARGETS_META = "omni_targets_meta_v1";
+
+    function loadJson(key, fallback){
+      try{
+        const raw = localStorage.getItem(key);
+        if(!raw) return fallback;
+        return JSON.parse(raw);
+      }catch(e){
+        return fallback;
+      }
+    }
+    function saveJson(key, value){
+      try{
+        localStorage.setItem(key, JSON.stringify(value));
+        return { ok:true };
+      }catch(e){
+        return { ok:false, error: e?.message || String(e) };
+      }
+    }
+
+    // ---------- State ----------
+    let ordersState = [];  // array {order, placedDate, placedAtIso, channelId, locationId, value, lineCount}
+    let targetsState = {}; // dict isoDate -> targetValue
+    let trendChart = null;
+    let storesChart = null;
+
+    const els = {
+      fileOrders: document.getElementById("fileOrders"),
+      ordersLoadMode: document.getElementById("ordersLoadMode"),
+      ordersDedupeMode: document.getElementById("ordersDedupeMode"),
+      fileTarget: document.getElementById("fileTarget"),
+      targetLoadMode: document.getElementById("targetLoadMode"),
+      startDate: document.getElementById("startDate"),
+      endDate: document.getElementById("endDate"),
+      channelFilter: document.getElementById("channelFilter"),
+      storeFilter: document.getElementById("storeFilter"),
+      apply: document.getElementById("apply"),
+      clear: document.getElementById("clear"),
+      meta: document.getElementById("meta"),
+      kpis: document.getElementById("kpis"),
+      insights: document.getElementById("insights"),
+      dailyTableBody: document.querySelector("#dailyTable tbody"),
+      storeStatusDate: document.getElementById("storeStatusDate"),
+      storeClosedInput: document.getElementById("storeClosedInput"),
+      storeStatusSave: document.getElementById("storeStatusSave"),
+      storeStatusClear: document.getElementById("storeStatusClear"),
+      storeStatusBadge: document.getElementById("storeStatusBadge"),
+      storeStatusChart: document.getElementById("storeStatusChart"),
+      storeStatusTableBody: document.querySelector("#storeStatusTable tbody"),
+
+      storesTableBody: document.querySelector("#storesTable tbody"),
+      trendNote: document.getElementById("trendNote")
+    };
+
+    function setMeta(lines){
+      els.meta.innerHTML = lines.map(x => `<span class="pill">${x}</span>`).join("");
+    }
+    function setMetaWarn(lines){
+      els.meta.innerHTML = lines.map(x => `<span class="pill warn">${x}</span>`).join("");
+    }
+    function setSelectOptions(selectEl, values, labelFn){
+      const keep = selectEl.querySelector('option[value="__ALL__"]');
+      selectEl.innerHTML = "";
+      selectEl.appendChild(keep);
+      [...values].sort().forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = labelFn ? labelFn(v) : v;
+        selectEl.appendChild(opt);
+      });
+    }
+
+    // ---------- Orders: aggregation from CSV rows ----------
+    function buildOrderBase(rows){
+      const byOrder = new Map();
+      for(const r of rows){
+        const orderId = (r["order"] ?? "").toString().trim();
+        if(!orderId) continue;
+
+        const placedAt = parsePtBrDateTime(r["placedAt"]);
+        if(!placedAt) continue;
+
+        const placedDate = isoDate(placedAt);
+        const channelId = (r["channelId"] ?? "").toString().trim();
+        const locationId = (r["locationId"] ?? "").toString().trim();
+        const price = toNumberBR(r["productPrice"]);
+
+        if(!byOrder.has(orderId)){
+          byOrder.set(orderId, {
+            order: orderId,
+            placedDate,
+            placedAtIso: placedAt.toISOString(),
+            channelId,
+            locationId,
+            lineCount: 0,
+            value: 0
+          });
+        }
+        const o = byOrder.get(orderId);
+        o.lineCount += 1;
+        o.value += price;
+        if(!o.channelId && channelId) o.channelId = channelId;
+        if(!o.locationId && locationId) o.locationId = locationId;
+
+        const existingDt = new Date(o.placedAtIso);
+        if(placedAt < existingDt){
+          o.placedAtIso = placedAt.toISOString();
+          o.placedDate = placedDate;
+        }
+      }
+      return [...byOrder.values()];
+    }
+
+    function mergeOrders(existing, incoming, dedupeMode){
+      const map = new Map(existing.map(o => [o.order, o]));
+      let replaced = 0, inserted = 0, kept = 0;
+
+      for(const n of incoming){
+        if(!map.has(n.order)){
+          map.set(n.order, n);
+          inserted++;
+          continue;
+        }
+        const e = map.get(n.order);
+
+        if(dedupeMode === "REPLACE"){
+          map.set(n.order, n);
+          replaced++;
+          continue;
+        }
+
+        // KEEP_MAX: mantém o registro "mais completo"
+        const takeNew = (n.value > e.value) || (n.value === e.value && n.lineCount > e.lineCount);
+        if(takeNew){
+          map.set(n.order, n);
+          replaced++;
+        }else{
+          kept++;
+        }
+      }
+      return { merged: [...map.values()], stats: { inserted, replaced, kept, before: existing.length, after: map.size } };
+    }
+
+    // ---------- Targets: parse & merge ----------
+    function parseTargets(rows){
+      // try to detect columns: date + value
+      const keys = rows.length ? Object.keys(rows[0]) : [];
+      const keyLower = keys.map(k => k.toLowerCase());
+
+      function findKey(candidates){
+        for(const c of candidates){
+          const idx = keyLower.indexOf(c);
+          if(idx >= 0) return keys[idx];
+        }
+        return null;
+      }
+
+      const dateKey = findKey(["data","date","dia"]);
+      const valueKey = findKey(["valor diário projetado","valor_diario_projetado","valor","meta","target","projecao","projeção"]);
+
+      // if not found, fallback to first two columns
+      const dk = dateKey || keys[0];
+      const vk = valueKey || keys[1];
+
+      const out = {};
+      for(const r of rows){
+        const dt = parseDateAny(r[dk]);
+        if(!dt) continue;
+        const iso = isoDate(dt);
+        const v = toNumberBR(r[vk]);
+        if(v === 0 && String(r[vk] ?? "").trim() === "") continue;
+        out[iso] = v;
+      }
+      return out;
+    }
+
+    function mergeTargets(existingDict, incomingDict, mode){
+      if(mode === "BASE") return { merged: incomingDict, stats: { before: Object.keys(existingDict).length, after: Object.keys(incomingDict).length, mode } };
+      const merged = { ...existingDict, ...incomingDict }; // incoming overwrites date
+      return { merged, stats: { before: Object.keys(existingDict).length, after: Object.keys(merged).length, mode } };
+    }
+
+    // ---------- Filters & rollups ----------
+    function filterOrders(orders){
+      const start = els.startDate.value ? new Date(els.startDate.value + "T00:00:00") : null;
+      const end = els.endDate.value ? new Date(els.endDate.value + "T23:59:59") : null;
+      const channel = els.channelFilter.value;
+      const store = els.storeFilter.value;
+
+      return orders.filter(o => {
+        const d = new Date(o.placedDate + "T00:00:00");
+        if(start && d < start) return false;
+        if(end && d > end) return false;
+        if(channel !== "__ALL__" && (o.channelId || "") !== channel) return false;
+        if(store !== "__ALL__" && (o.locationId || "") !== store) return false;
+        return true;
+      });
+    }
+
+    function buildDaily(orders){
+      const byDay = new Map();
+      for(const o of orders){
+        const day = o.placedDate;
+        if(!byDay.has(day)){
+          byDay.set(day, { placedDate: day, orders: 0, revenue: 0 });
+        }
+        const d = byDay.get(day);
+        d.orders += 1;
+        d.revenue += o.value;
+      }
+      return [...byDay.values()].sort((a,b)=> a.placedDate.localeCompare(b.placedDate));
+    }
+
+    function buildStores(orders){
+      const byStore = new Map();
+      for(const o of orders){
+        const key = o.locationId || "";
+        if(!byStore.has(key)){
+          byStore.set(key, { locationId: key, orders: 0, revenue: 0 });
+        }
+        const s = byStore.get(key);
+        s.orders += 1;
+        s.revenue += o.value;
+      }
+      const stores = [...byStore.values()];
+      for(const s of stores){
+        s.ticket = s.orders ? s.revenue / s.orders : 0;
+      }
+      stores.sort((a,b)=> (b.revenue - a.revenue));
+      return stores;
+    }
+
+    function sum(arr, key){ return arr.reduce((acc, x) => acc + (x[key] || 0), 0); }
+
+    function sumTargetsBetween(startIso, endIso){
+      const days = dateRangeIso(startIso, endIso);
+      return days.reduce((acc, d) => acc + (targetsState[d] || 0), 0);
+    }
+
+    // ---------- Rendering ----------
+    function renderKpis(daily){
+      const revenue = sum(daily, "revenue");
+      const orders = sum(daily, "orders");
+      const ticket = orders ? revenue / orders : 0;
+
+      const lastDay = daily.length ? daily[daily.length - 1] : null;
+      const prev7 = daily.slice(Math.max(0, daily.length - 8), Math.max(0, daily.length - 1));
+      const avg7_rev = prev7.length ? sum(prev7, "revenue") / prev7.length : 0;
+      const avg7_ord = prev7.length ? sum(prev7, "orders") / prev7.length : 0;
+
+      const last_rev = lastDay ? lastDay.revenue : 0;
+      const last_ord = lastDay ? lastDay.orders : 0;
+      const last_ticket = last_ord ? last_rev / last_ord : 0;
+
+      const hasTargets = Object.keys(targetsState).length > 0;
+      const startIso = els.startDate.value || (daily[0]?.placedDate ?? null);
+      const endIso = els.endDate.value || (daily[daily.length-1]?.placedDate ?? null);
+      const targetSum = (hasTargets && startIso && endIso) ? sumTargetsBetween(startIso, endIso) : 0;
+      const attain = targetSum ? revenue / targetSum : 0;
+
+      function deltaHtml(curr, base){
+        if(!base) return `<span class="delta">vs média 7d: <b>-</b></span>`;
+        const diff = (curr - base) / base;
+        const cls = diff >= 0 ? "pos" : "neg";
+        const sign = diff >= 0 ? "+" : "";
+        return `<span class="delta">vs média 7d: <b class="${cls}">${sign}${(diff*100).toFixed(1)}%</b></span>`;
+      }
+
+      const cards = [
+        { label: "Receita (no filtro)", value: fmtBRL.format(revenue), delta: deltaHtml(last_rev, avg7_rev) },
+        { label: "Pedidos (no filtro)", value: fmtInt.format(orders), delta: deltaHtml(last_ord, avg7_ord) },
+        { label: "Ticket médio", value: fmtBRL.format(ticket), delta: `<span class="delta">Último dia: <b>${fmtBRL.format(last_ticket)}</b></span>` },
+        { label: "Meta (no filtro)", value: hasTargets ? fmtBRL.format(targetSum) : "—", delta: hasTargets ? `<span class="delta">Atingimento: <b>${fmtPct.format(attain)}</b></span>` : `<span class="delta">Faça upload da meta diária</span>` },
+        { label: "Receita (último dia)", value: fmtBRL.format(last_rev), delta: `<span class="delta">Pedidos (último dia): <b>${fmtInt.format(last_ord)}</b></span>` }
+      ];
+
+      els.kpis.innerHTML = cards.map(c => `
+        <div class="kpi">
+          <div class="label">${c.label}</div>
+          <div class="value">${c.value}</div>
+          ${c.delta}
+        </div>
+      `).join("");
+    }
+
+    function renderTrendChart(daily){
+      const labels = daily.map(d => d.placedDate);
+      const revenue = daily.map(d => d.revenue);
+      const orders = daily.map(d => d.orders);
+      const targets = labels.map(d => (targetsState[d] ?? null));
+
+      const ctx = document.getElementById("trendChart");
+      if(trendChart) trendChart.destroy();
+
+      const hasTargets = targets.some(v => v !== null);
+
+      const datasets = [
+        { type: "line", label: "Receita", data: revenue, yAxisID: "yMoney", tension: 0.25, pointRadius: 2 },
+        { type: "bar", label: "Pedidos", data: orders, yAxisID: "yOrders" },
+      ];
+
+      if(hasTargets){
+        datasets.unshift({ type: "line", label: "Meta diária", data: targets, yAxisID: "yMoney", tension: 0.2, pointRadius: 0, borderDash: [6,6] });
+      }
+
+      trendChart = new Chart(ctx, {
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { labels: { color: "#cfe0ff" } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const v = ctx.raw ?? 0;
+                  if(ctx.dataset.yAxisID === "yMoney") return `${ctx.dataset.label}: ${fmtBRL.format(v || 0)}`;
+                  return `${ctx.dataset.label}: ${fmtInt.format(v || 0)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: "#9fb0d0", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,.06)" } },
+            yMoney: { position: "left", ticks: { color: "#9fb0d0", callback: (v)=> fmtBRL.format(v) }, grid: { color: "rgba(255,255,255,.06)" } },
+            yOrders: { position: "right", ticks: { color: "#9fb0d0", callback: (v)=> fmtInt.format(v) }, grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+
+      const total = revenue.reduce((a,b)=>a+b,0);
+      els.trendNote.textContent = hasTargets ? `Total: ${fmtBRL.format(total)} • Meta no período: ${fmtBRL.format(labels.reduce((a,d)=>a+(targetsState[d]||0),0))}` : `Total: ${fmtBRL.format(total)}`;
+    }
+
+    function renderStoresChart(stores){
+      const top = stores.slice(0, 10);
+      const labels = top.map(s => storeLabel(s.locationId));
+      const revenue = top.map(s => s.revenue);
+
+      const ctx = document.getElementById("storesChart");
+      if(storesChart) storesChart.destroy();
+
+      storesChart = new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets: [{ label: "Receita", data: revenue }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode:"index", intersect:false },
+          plugins: {
+            legend: { labels: { color: "#cfe0ff" } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtBRL.format(ctx.raw || 0)}` } }
+          },
+          scales: {
+            x: { ticks: { color: "#9fb0d0" }, grid: { color:"rgba(255,255,255,.06)" } },
+            y: { ticks: { color:"#9fb0d0", callback:(v)=> fmtBRL.format(v) }, grid: { color:"rgba(255,255,255,.06)" } }
+          }
+        }
+      });
+    }
+
+    function renderStoresTable(stores){
+      const tbody = els.storesTableBody;
+      tbody.innerHTML = "";
+      for(const s of stores){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><b>${storeLabel(s.locationId)}</b></td>
+          <td>${fmtBRL.format(s.revenue)}</td>
+          <td>${fmtInt.format(s.orders)}</td>
+          <td>${fmtBRL.format(s.ticket)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderDailyTable(daily){
+      const tbody = els.dailyTableBody;
+      tbody.innerHTML = "";
+      for(const d of daily){
+        const target = targetsState[d.placedDate] ?? null;
+        const gap = (target !== null) ? (d.revenue - target) : null;
+        const pct = (target && target > 0) ? (d.revenue / target) : null;
+        const ticket = d.orders ? d.revenue / d.orders : 0;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><b>${d.placedDate}</b></td>
+          <td>${fmtBRL.format(d.revenue)}</td>
+          <td>${target !== null ? fmtBRL.format(target) : "—"}</td>
+          <td>${gap !== null ? fmtBRL.format(gap) : "—"}</td>
+          <td>${pct !== null ? fmtPct.format(pct) : "—"}</td>
+          <td>${fmtInt.format(d.orders)}</td>
+          <td>${fmtBRL.format(ticket)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderInsights(daily){
+      const container = els.insights;
+      container.innerHTML = "";
+      if(!daily.length){
+        container.innerHTML = `<div class="insight"><h3>Sem dados no filtro</h3><p>Verifica a faixa de datas ou filtros de canal/loja.</p></div>`;
+        return;
+      }
+
+      const last = daily[daily.length - 1];
+      const lastDate = last.placedDate;
+      const lastRevenue = last.revenue;
+      const lastOrders = last.orders;
+      const lastTicket = lastOrders ? lastRevenue / lastOrders : 0;
+
+      const prev7 = daily.slice(Math.max(0, daily.length - 8), Math.max(0, daily.length - 1));
+      const avg7Rev = prev7.length ? sum(prev7,"revenue") / prev7.length : 0;
+      const avg7Ord = prev7.length ? sum(prev7,"orders") / prev7.length : 0;
+
+      const diffRev = avg7Rev ? (lastRevenue - avg7Rev) / avg7Rev : 0;
+      const diffOrd = avg7Ord ? (lastOrders - avg7Ord) / avg7Ord : 0;
+
+      const hasTargets = Object.keys(targetsState).length > 0;
+
+      // Pacing month (based on endDate month)
+      const endIso = els.endDate.value || lastDate;
+      const startIso = els.startDate.value || daily[0].placedDate;
+      const monthEndIso = monthEnd(endIso);
+      const realizedToEnd = sum(daily, "revenue");
+      const targetToEnd = hasTargets ? sumTargetsBetween(startIso, endIso) : 0;
+
+      // remaining days in month after endIso
+      const remainingDays = dateRangeIso(endIso, monthEndIso).slice(1);
+      const remainingTarget = hasTargets ? remainingDays.reduce((a, d)=> a + (targetsState[d]||0), 0) : 0;
+
+      const runRate = (daily.length >= 3) ? (sum(daily.slice(Math.max(0,daily.length-7)), "revenue") / Math.min(7, daily.length)) : (realizedToEnd / Math.max(1, daily.length));
+      const projRunRate = realizedToEnd + runRate * remainingDays.length;
+      const projMetaBased = hasTargets ? (realizedToEnd + remainingTarget) : null;
+
+      // last day vs target
+      const lastTarget = hasTargets ? (targetsState[lastDate] ?? null) : null;
+      const lastGap = (lastTarget !== null) ? (lastRevenue - lastTarget) : null;
+      const lastAtt = (lastTarget && lastTarget>0) ? (lastRevenue/lastTarget) : null;
+
+      const i1 = document.createElement("div");
+      i1.className = "insight";
+      i1.innerHTML = `
+        <h3>Resumo do último dia (${lastDate})</h3>
+        <p>
+          <b>Receita:</b> ${fmtBRL.format(lastRevenue)} (${diffRev>=0?`+${(diffRev*100).toFixed(1)}%`:`${(diffRev*100).toFixed(1)}%`} vs média 7d)<br/>
+          <b>Pedidos:</b> ${fmtInt.format(lastOrders)} (${diffOrd>=0?`+${(diffOrd*100).toFixed(1)}%`:`${(diffOrd*100).toFixed(1)}%`} vs média 7d)<br/>
+          <b>Ticket:</b> ${fmtBRL.format(lastTicket)}
+          ${lastTarget !== null ? `<br/><b>Meta:</b> ${fmtBRL.format(lastTarget)} • <b>Gap:</b> ${fmtBRL.format(lastGap)} • <b>%:</b> ${fmtPct.format(lastAtt)}` : ``}
+        </p>
+      `;
+      container.appendChild(i1);
+
+      const i2 = document.createElement("div");
+      i2.className = "insight";
+      if(hasTargets){
+        const attain = targetToEnd ? realizedToEnd / targetToEnd : 0;
+        i2.innerHTML = `
+          <h3>Pacing vs meta (no filtro)</h3>
+          <p><b>Realizado:</b> ${fmtBRL.format(realizedToEnd)} • <b>Meta:</b> ${fmtBRL.format(targetToEnd)} • <b>Atingimento:</b> ${fmtPct.format(attain)}</p>
+        `;
+      }else{
+        i2.innerHTML = `
+          <h3>Pacing vs meta</h3>
+          <p>Para habilitar projeções de meta, faça upload do CSV de meta diária (data + valor).</p>
+        `;
+      }
+      container.appendChild(i2);
+
+      const i3 = document.createElement("div");
+      i3.className = "insight";
+      i3.innerHTML = `
+        <h3>Projeção até o fim do mês (${monthEndIso})</h3>
+        <p>
+          <b>Run-rate (média últimos dias):</b> ${fmtBRL.format(projRunRate)} (${remainingDays.length} dias restantes × ${fmtBRL.format(runRate)}/dia)
+          ${hasTargets ? `<br/><b>Meta-based (se cumprir meta restante):</b> ${fmtBRL.format(projMetaBased)}` : ``}
+        </p>
+      `;
+      container.appendChild(i3);
+    }
+
+    // ---------- Apply pipeline ----------
+    function runFromState(){
+      const filtered = filterOrders(ordersState);
+      const daily = buildDaily(filtered);
+      const stores = buildStores(filtered);
+
+      renderKpis(daily);
+      renderTrendChart(daily);
+      renderStoresChart(stores);
+      renderStoresTable(stores);
+      renderDailyTable(daily);
+      renderInsights(daily);
+      renderStoreStatus();
+
+      const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
+      const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
+      setMeta([
+        `Pedidos no histórico: <code>${fmtInt.format(ordersState.length)}</code>`,
+        `Meta: <code>${fmtInt.format(Object.keys(targetsState).length)}</code> dias`,
+        `Pedidos no filtro: <code>${fmtInt.format(filtered.length)}</code>`,
+        `Canais (no filtro): <code>${fmtInt.format(channels.size)}</code>`,
+        `Lojas (no filtro): <code>${fmtInt.format(storesSet.size)}</code>`
+      ]);
+    }
+
+    function inferRangeFromOrders(orders){
+      if(!orders.length) return null;
+      const dates = orders.map(o => new Date(o.placedDate + "T00:00:00"));
+      dates.sort((a,b)=>a-b);
+      return { min: dates[0], max: dates[dates.length-1] };
+    }
+
+    function refreshFiltersFromState(){
+      const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
+      const storesSet = new Set(ordersState.map(o => o.locationId).filter(Boolean));
+      setSelectOptions(els.channelFilter, channels, (v)=> v);
+      setSelectOptions(els.storeFilter, storesSet, (v)=> storeLabel(v));
+    }
+
+    // ---------- Init from storage ----------
+    (function init(){
+      ordersState = loadJson(STORAGE_ORDERS_KEY, []);
+      targetsState = loadJson(STORAGE_TARGETS_KEY, {});
+
+      if(ordersState.length){
+        els.apply.disabled = false;
+        els.clear.disabled = false;
+
+        const range = inferRangeFromOrders(ordersState);
+        if(range){
+          els.startDate.value = isoDate(range.min);
+          els.endDate.value = isoDate(range.max);
+        }
+        refreshFiltersFromState();
+
+        const om = loadJson(STORAGE_ORDERS_META, null);
+        const tm = loadJson(STORAGE_TARGETS_META, null);
+
+        setMeta([
+          `Histórico carregado do navegador: <code>${fmtInt.format(ordersState.length)}</code> pedidos`,
+          `Meta carregada: <code>${fmtInt.format(Object.keys(targetsState).length)}</code> dias`,
+          om?.updatedAt ? `Pedidos atualizados: <code>${om.updatedAt}</code>` : `Pedidos atualizados: <code>(n/a)</code>`,
+          tm?.updatedAt ? `Meta atualizada: <code>${tm.updatedAt}</code>` : `Meta atualizada: <code>(n/a)</code>`
+        ]);
+
+        runFromState();
+      }else{
+        setMeta([
+          `Sem histórico salvo ainda`,
+          `Carregue uma base de pedidos (tipo “Base”) e depois use “Incremental” diariamente.`
+        ]);
+      }
+    })();
+
+    // ---------- File handling: Orders ----------
+    function handleOrdersFile(file){
+      Papa.parse(file, {
+        header: true,
+        delimiter: ";",
+        skipEmptyLines: true,
+        complete: (res) => {
+          const rows = res.data || [];
+          const incomingOrders = buildOrderBase(rows);
+
+          const mode = els.ordersLoadMode.value;      // BASE | INCR
+          const dedupeMode = els.ordersDedupeMode.value; // KEEP_MAX | REPLACE
+
+          let mergeInfo = null;
+
+          if(mode === "BASE" || !ordersState.length){
+            ordersState = incomingOrders;
+            mergeInfo = { inserted: incomingOrders.length, replaced: 0, kept: 0, before: 0, after: incomingOrders.length, mode: "BASE" };
+          }else{
+            const { merged, stats } = mergeOrders(ordersState, incomingOrders, dedupeMode);
+            ordersState = merged;
+            mergeInfo = { ...stats, mode: "INCR", dedupeMode };
+          }
+
+          const meta = { updatedAt: nowIso(), lastFile: file.name, lastMode: mode, lastDedupe: dedupeMode, lastMerge: mergeInfo };
+          const saved = saveJson(STORAGE_ORDERS_KEY, ordersState);
+          const savedMeta = saveJson(STORAGE_ORDERS_META, meta);
+
+          if(!saved.ok || !savedMeta.ok){
+            setMetaWarn([
+              `⚠️ Não consegui salvar pedidos no navegador (provável limite de espaço).`,
+              `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
+              `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
+            ]);
+          }
+
+          const range = inferRangeFromOrders(ordersState);
+          if(range){
+            els.startDate.value = isoDate(range.min);
+            els.endDate.value = isoDate(range.max);
+          }
+
+          refreshFiltersFromState();
+          els.apply.disabled = false;
+          els.clear.disabled = false;
+
+          setMeta([
+            `Pedidos: <code>${file.name}</code>`,
+            mode === "BASE"
+              ? `Base: <code>${fmtInt.format(incomingOrders.length)}</code> pedidos`
+              : `Incremental: <code>${fmtInt.format(incomingOrders.length)}</code> • inseridos <code>${fmtInt.format(mergeInfo.inserted)}</code> • substituídos <code>${fmtInt.format(mergeInfo.replaced)}</code>`,
+            `Histórico pedidos: <code>${fmtInt.format(ordersState.length)}</code>`,
+            `Meta dias: <code>${fmtInt.format(Object.keys(targetsState).length)}</code>`,
+            `Atualizado: <code>${meta.updatedAt}</code>`
+          ]);
+
+          runFromState();
+        },
+        error: (err) => alert("Erro ao ler CSV de pedidos.\n\n" + (err?.message || err))
+      });
+    }
+
+    els.fileOrders.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      handleOrdersFile(file);
+      e.target.value = "";
+    });
+
+    // ---------- File handling: Targets ----------
+    function handleTargetsFile(file){
+      Papa.parse(file, {
+        header: true,
+        delimiter: ";",
+        skipEmptyLines: true,
+        complete: (res) => {
+          const rows = res.data || [];
+          const incoming = parseTargets(rows);
+
+          const mode = els.targetLoadMode.value; // BASE | INCR
+          const { merged, stats } = mergeTargets(targetsState, incoming, mode);
+          targetsState = merged;
+
+          const meta = { updatedAt: nowIso(), lastFile: file.name, lastMode: mode, lastStats: stats };
+          const saved = saveJson(STORAGE_TARGETS_KEY, targetsState);
+          const savedMeta = saveJson(STORAGE_TARGETS_META, meta);
+
+          if(!saved.ok || !savedMeta.ok){
+            setMetaWarn([
+              `⚠️ Não consegui salvar meta no navegador (provável limite de espaço).`,
+              `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
+              `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
+            ]);
+          }else{
+            setMeta([
+              `Meta: <code>${file.name}</code>`,
+              `Modo: <code>${mode}</code> • dias lidos: <code>${fmtInt.format(Object.keys(incoming).length)}</code>`,
+              `Dias de meta total: <code>${fmtInt.format(Object.keys(targetsState).length)}</code>`,
+              `Pedidos no histórico: <code>${fmtInt.format(ordersState.length)}</code>`,
+              `Atualizado: <code>${meta.updatedAt}</code>`
+            ]);
+          }
+
+          if(ordersState.length){
+            els.apply.disabled = false;
+            els.clear.disabled = false;
+            runFromState();
+          }
+        },
+        error: (err) => alert("Erro ao ler CSV de meta.\n\n" + (err?.message || err))
+      });
+    }
+
+    els.fileTarget.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      handleTargetsFile(file);
+      e.target.value = "";
+    });
+
+    // ---------- Actions ----------
+    setupStoreStatusInputs();
+    renderStoreStatus();
+
+    els.apply.addEventListener("click", runFromState);
+
+    els.clear.addEventListener("click", () => {
+      // Clear all
+      localStorage.removeItem(STORAGE_ORDERS_KEY);
+      localStorage.removeItem(STORAGE_ORDERS_META);
+      localStorage.removeItem(STORAGE_TARGETS_KEY);
+      localStorage.removeItem(STORAGE_TARGETS_META);
+
+      ordersState = [];
+      targetsState = {};
+
+      els.apply.disabled = true;
+      els.clear.disabled = true;
+
+      els.channelFilter.innerHTML = `<option value="__ALL__">Todos</option>`;
+      els.storeFilter.innerHTML = `<option value="__ALL__">Todas</option>`;
+      els.startDate.value = "";
+      els.endDate.value = "";
+
+      setMeta([`Histórico limpo`, `Carregue uma base novamente para recomeçar.`]);
+
+      document.getElementById("kpis").innerHTML = "";
+      document.getElementById("insights").innerHTML = "";
+      document.querySelector("#storesTable tbody").innerHTML = "";
+      document.querySelector("#dailyTable tbody").innerHTML = "";
+      if(trendChart) trendChart.destroy();
+      if(storesChart) storesChart.destroy();
+      els.trendNote.textContent = "";
+    });
+
+    [els.startDate, els.endDate, els.channelFilter, els.storeFilter].forEach(el => {
+      el.addEventListener("change", () => { if(!els.apply.disabled) runFromState(); });
+    });
+  
+
+// --- Small UX helpers (non-invasive) ---
+(function(){
+  const dot = document.getElementById("statusDot");
+  const text = document.getElementById("statusText");
+  const meta = document.getElementById("statusMeta");
+
+  function setStatus(ok, msg, extra){
+    if(dot){ dot.classList.toggle("ok", !!ok); }
+    if(text){ text.textContent = msg || ""; }
+    if(meta){ meta.textContent = extra || "—"; }
+  }
+
+  const kpis = document.getElementById("kpis");
+  const observer = new MutationObserver(() => {
+    const hasCards = kpis && kpis.children && kpis.children.length > 0;
+    if(hasCards){
+      const stamp = new Date().toLocaleString("pt-BR");
+      setStatus(true, "Dados carregados • pronto para analisar", stamp);
+    } else {
+      setStatus(false, "Sem dados carregados", "—");
+    }
+  });
+  if(kpis) observer.observe(kpis, {childList:true, subtree:false});
+})();
+  </script>
+
+<script>
+// AUTO-APPLY FIX
+(function(){
+  function autoApply(){
+    const btn = document.getElementById('apply');
+    if(btn){ btn.click(); }
+  }
+
+  ['fileOrders','fileTarget'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){
+      el.addEventListener('change', ()=>{
+        setTimeout(autoApply, 300);
+      });
+    }
+  });
+})();
+</script>
+
+<script>
+// Executive helpers: auto-apply + KPI colorization (non-invasive)
+(function(){
+  const autoApply = () => {
+    const btn = document.getElementById('apply');
+    if(btn) btn.click();
+  };
+
+  // auto apply when loading CSVs or changing filters
+  ['fileOrders','fileTarget','storeFilter','channelFilter','startDate','endDate','ordersLoadMode','ordersDedupeMode','targetLoadMode']
+    .forEach(id=>{
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.addEventListener('change', ()=> setTimeout(autoApply, 120));
+    });
+
+  function paintKpis(){
+    const kpis = document.querySelectorAll('#kpis .kpi');
+    kpis.forEach(card=>{
+      card.classList.remove('kpi-good','kpi-bad','kpi-warn');
+      const hasPos = card.querySelector('b.pos');
+      const hasNeg = card.querySelector('b.neg');
+
+      // If this KPI contains attainment %, use warn if < 95% (heuristic)
+      const txt = card.textContent || '';
+      const m = txt.match(/Atingimento:\s*([0-9]+[.,]?[0-9]*)%/i);
+      if(m){
+        const val = parseFloat(m[1].replace(',','.'));
+        if(!isNaN(val) && val < 95) { card.classList.add('kpi-warn'); return; }
+      }
+
+      if(hasPos) card.classList.add('kpi-good');
+      else if(hasNeg) card.classList.add('kpi-bad');
+    });
+  }
+
+  const kpisEl = document.getElementById('kpis');
+  if(kpisEl){
+    new MutationObserver(()=> paintKpis()).observe(kpisEl, {childList:true, subtree:true});
+  }
+})();
+</script>
+
+<script>
+// Insights visual classifier (non-invasive)
+(function(){
+  const root = document.getElementById('insights');
+  if(!root) return;
+
+  const rules = [
+    {cls:'ins-bad',  icon:'▼', tag:'Atenção',  re:/\b(gap|abaixo|queda|pior|cr[ií]tico|atraso|ruptura|reclama|cancel|falha)\b/i},
+    {cls:'ins-warn', icon:'!', tag:'Alerta',   re:/\b(volatil|oscila|inst[aá]vel|varia|press[aã]o|risco|tend[eê]ncia)\b/i},
+    {cls:'ins-good', icon:'▲', tag:'Boa',      re:/\b(acima|alta|cresceu|melhor|recorde|atingiu|superou|evolu[ií]u)\b/i},
+  ];
+
+  function decorate(el){
+    if(el.dataset.decorated === '1') return;
+    el.dataset.decorated = '1';
+
+    // Clean previous classes
+    el.classList.remove('ins-good','ins-bad','ins-warn');
+
+    const text = (el.textContent || '').trim();
+    let picked = {cls:'', icon:'•', tag:'Info'};
+    for(const r of rules){
+      if(r.re.test(text)){ picked = r; break; }
+    }
+    if(picked.cls) el.classList.add(picked.cls);
+
+    // icon
+    const icon = document.createElement('span');
+    icon.className = 'icon';
+    icon.textContent = picked.icon;
+    el.insertBefore(icon, el.firstChild);
+
+    // tag (append to first <b> if exists, else prepend line)
+    const b = el.querySelector('b');
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = picked.tag;
+    if(b){
+      b.insertAdjacentElement('afterend', tag);
+    }else{
+      el.appendChild(tag);
+    }
+  }
+
+  function run(){
+    const items = root.querySelectorAll('.item');
+    items.forEach(item=>{
+      // remove old icon/tag if re-render happened
+      item.querySelectorAll(':scope > .icon').forEach(n=>n.remove());
+      item.querySelectorAll('.tag').forEach(n=>n.remove());
+      item.dataset.decorated = '0';
+      decorate(item);
+    });
+  }
+
+  new MutationObserver(()=> run()).observe(root, {childList:true, subtree:true});
+  run();
+})();
+</script>
+<script>
+// ============================================================
+//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
+//  Sem localStorage de dados. Todo mundo vê o mesmo estado.
+// ============================================================
+(function(){
+
+  const KEY_URL_ORDERS = "omni_gh_url_orders_v1";
+  const KEY_URL_TARGET = "omni_gh_url_target_v1";
+
+  // --- UI refs ---
+  const elDot    = document.getElementById("autoLoadDot");
+  const elTitle  = document.getElementById("autoLoadTitle");
+  const elMsg    = document.getElementById("autoLoadMsg");
+
+  const elToggleConfig  = document.getElementById("toggleConfig");
+  const elConfigIcon    = document.getElementById("toggleConfigIcon");
+  const elConfigFields  = document.getElementById("configFields");
+  const elConfigStatus  = document.getElementById("configStatus");
+  const elUrlOrders     = document.getElementById("urlOrders");
+  const elUrlTarget     = document.getElementById("urlTarget");
+  const elBtnSave       = document.getElementById("btnSaveUrls");
+
+  const elToggleUpload  = document.getElementById("toggleUpload");
+  const elUploadIcon    = document.getElementById("toggleUploadIcon");
+  const elUploadFields  = document.getElementById("uploadFields");
+
+  // --- Toggle seções ---
+  if(elToggleConfig){
+    elToggleConfig.addEventListener("click", () => {
+      const open = elConfigFields.style.display !== "none";
+      elConfigFields.style.display = open ? "none" : "block";
+      elConfigIcon.textContent = open ? "▶" : "▼";
+    });
+  }
+  if(elToggleUpload){
+    elToggleUpload.addEventListener("click", () => {
+      const open = elUploadFields.style.display !== "none";
+      elUploadFields.style.display = open ? "none" : "block";
+      elUploadIcon.textContent = open ? "▶" : "▼";
+    });
+  }
+
+  // --- Status helpers ---
+  function setStatus(ok, title, msg){
+    if(elDot){
+      elDot.style.background = ok === true ? "var(--good)" : ok === false ? "var(--bad)" : "var(--warn)";
+      elDot.style.boxShadow  = ok === true
+        ? "0 0 0 4px rgba(52,211,153,.12)"
+        : ok === false
+        ? "0 0 0 4px rgba(251,113,133,.12)"
+        : "0 0 0 4px rgba(251,191,36,.12)";
+    }
+    if(elTitle) elTitle.textContent = title || "";
+    if(elMsg)   elMsg.innerHTML = msg || "";
+  }
+
+  function setConfigStatus(msg, color){
+    if(!elConfigStatus) return;
+    elConfigStatus.style.color = color || "var(--muted2)";
+    elConfigStatus.textContent = msg;
+  }
+
+  // --- Restaurar URLs salvas nos inputs ---
+  function restoreInputs(){
+    const uo = localStorage.getItem(KEY_URL_ORDERS) || "";
+    const ut = localStorage.getItem(KEY_URL_TARGET) || "";
+    if(elUrlOrders && uo) elUrlOrders.value = uo;
+    if(elUrlTarget && ut) elUrlTarget.value = ut;
+  }
+  restoreInputs();
+
+  // --- Salvar URLs e recarregar ---
+  if(elBtnSave){
+    elBtnSave.addEventListener("click", () => {
+      const uo = (elUrlOrders?.value || "").trim();
+      const ut = (elUrlTarget?.value || "").trim();
+      if(!uo && !ut){ setConfigStatus("Cole ao menos uma URL antes de salvar.", "var(--bad)"); return; }
+      if(uo) localStorage.setItem(KEY_URL_ORDERS, uo);
+      else   localStorage.removeItem(KEY_URL_ORDERS);
+      if(ut) localStorage.setItem(KEY_URL_TARGET, ut);
+      else   localStorage.removeItem(KEY_URL_TARGET);
+      setConfigStatus("URLs salvas! Recarregando...", "var(--good)");
+      setTimeout(() => loadAll(), 300);
+    });
+  }
+
+  // --- Fetch com cache-bust para sempre pegar o arquivo mais recente ---
+  async function fetchCsv(url){
+    const bust = "?t=" + Date.now();
+    const finalUrl = url.includes("?") ? url + "&t=" + Date.now() : url + bust;
+    const res = await fetch(finalUrl, { cache: "no-store" });
+    if(!res.ok) throw new Error(`HTTP ${res.status} ao buscar: ${url}`);
+    return await res.text();
+  }
+
+  // --- Parsear CSV com PapaParse e devolver rows ---
+  function parseCsv(text){
+    return new Promise((resolve, reject) => {
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (r) => resolve(r.data),
+        error:    (e) => reject(new Error(e?.message || String(e)))
+      });
+    });
+  }
+
+  // --- Injetar rows no pipeline de pedidos (re-usa funções do JS original) ---
+  function injectOrders(rows){
+    const mode   = "APPEND";   // sempre incremental: o GitHub tem a base acumulada
+    const dedupe = "KEEP_MAX_LINE";
+
+    // buildOrderBase e mergeOrders são definidas no JS principal do dashboard
+    const incoming = buildOrderBase(rows);
+    const { merged, stats } = mergeOrders(ordersState, incoming, dedupe);
+
+    if(mode === "REPLACE"){
+      ordersState = incoming;
+    } else {
+      ordersState = merged;
+    }
+
+    const saved = saveJson(STORAGE_ORDERS_KEY, ordersState);
+    if(!saved.ok) console.warn("Não foi possível salvar pedidos no localStorage:", saved.error);
+
+    const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
+    const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
+    setSelectOptions(els.channelFilter, channels);
+    setSelectOptions(els.storeFilter, stores, storeLabel);
+
+    return stats;
+  }
+
+  // --- Injetar rows no pipeline de metas ---
+  function injectTargets(rows){
+    const incoming = parseTargets(rows);
+    const { merged } = mergeTargets(targetsState, incoming, "REPLACE");
+    targetsState = merged;
+    saveJson(STORAGE_TARGETS_KEY, targetsState);
+    return Object.keys(incoming).length;
+  }
+
+  // --- Carga principal ---
+  async function loadAll(){
+    const urlOrders = localStorage.getItem(KEY_URL_ORDERS) || "";
+    const urlTarget = localStorage.getItem(KEY_URL_TARGET) || "";
+
+    if(!urlOrders && !urlTarget){
+      setStatus(null, "URLs não configuradas",
+        'Clique em <b>Configurar URLs dos arquivos</b> acima, cole as URLs raw do GitHub e salve.');
+      return;
+    }
+
+    setStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
+
+    let ordersLoaded = 0, targetsLoaded = 0;
+    const erros = [];
+
+    // Limpa estado para garantir visão idêntica a todos
+    ordersState  = [];
+    targetsState = {};
+
+    // --- Pedidos ---
+    if(urlOrders){
+      try {
+        setStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
+        const text = await fetchCsv(urlOrders);
+        const rows = await parseCsv(text);
+        const stats = injectOrders(rows);
+        ordersLoaded = stats.after;
+      } catch(e){
+        erros.push("Pedidos: " + e.message);
+      }
+    }
+
+    // --- Metas ---
+    if(urlTarget){
+      try {
+        setStatus(null, "Carregando metas...", "Baixando CSV de metas...");
+        const text = await fetchCsv(urlTarget);
+        const rows = await parseCsv(text);
+        targetsLoaded = injectTargets(rows);
+      } catch(e){
+        erros.push("Metas: " + e.message);
+      }
+    }
+
+    // --- Resultado ---
+    if(erros.length){
+      setStatus(false, "Erro ao carregar",
+        erros.map(e => `⚠️ ${e}`).join("<br>") +
+        "<br><small>Verifique se as URLs estão corretas e são URLs <b>raw</b> do GitHub.</small>");
+      return;
+    }
+
+    const now = new Date().toLocaleString("pt-BR");
+    setStatus(true, "Dados atualizados",
+      `${ordersLoaded} pedido(s) • ${targetsLoaded} dia(s) de meta • ${now}`);
+
+    // Dispara render
+    if(els.apply && !els.apply.disabled){
+      els.apply.click();
+    } else if(ordersState.length){
+      runFromState();
+    }
+  }
+
+  // --- Carrega automaticamente ao abrir a página ---
+  window.addEventListener("load", () => {
+    setTimeout(loadAll, 400);
+  });
+
+  // Expõe para uso externo (ex: botão recarregar)
+  window._omniReload = loadAll;
+
+})();
+</script>
+</body>
+
+
+
+</html>
