@@ -2776,6 +2776,8 @@ function _reRenderRupturas(){
     _lastRuptRender.skusByStore,
     _lastRuptRender.totalSkusGlobal
   );
+  // atualiza o bullet de rupturas com o filtro de motivo aplicado
+  renderReportKpis(_lastRuptRender.filteredOrders);
 }
 
 // ---- Render principal (chamado pelo runFromState) ----
@@ -2990,7 +2992,16 @@ function renderReportKpis(filteredOrders){
   const ruptFiltered = rupturasState.filter(r =>
     r.registeredDate >= periodStart && r.registeredDate <= periodEnd
   );
-  const totalRupt    = ruptFiltered.length;
+
+  // aplica o mesmo filtro de motivos das pills
+  const ruptVisiveis = _ruptActiveMotivos === null
+    ? ruptFiltered
+    : ruptFiltered.filter(r => _ruptActiveMotivos.has(r.reason));
+
+  const totalRupt    = ruptVisiveis.length;
+  const motivoLabel  = _ruptActiveMotivos === null
+    ? null
+    : [..._ruptActiveMotivos].map(r => reasonMeta(r).label).join(", ");
 
   // denominador: SKUs dos pedidos não-cancelados
   const totalSkus    = filteredOrders
@@ -2998,9 +3009,9 @@ function renderReportKpis(filteredOrders){
     .reduce((a, o) => a + (o.lineCount || 1), 0);
   const pctRupt      = totalSkus > 0 ? totalRupt / totalSkus : 0;
 
-  // motivo mais frequente
+  // motivo mais frequente (dentro dos visíveis)
   const reasonCount  = new Map();
-  for(const r of ruptFiltered){
+  for(const r of ruptVisiveis){
     reasonCount.set(r.reason, (reasonCount.get(r.reason) || 0) + 1);
   }
   const topReason    = [...reasonCount.entries()].sort((a,b) => b[1]-a[1])[0];
@@ -3049,14 +3060,16 @@ function renderReportKpis(filteredOrders){
   const kpis = [
     // 1 — Rupturas
     {
-      label: "Rupturas no período",
+      label: motivoLabel
+        ? `Rupturas — ${motivoLabel}`
+        : "Rupturas no período",
       value: rupturasState.length
         ? `${fmtInt.format(totalRupt)} SKUs`
         : "—",
       sub: rupturasState.length
         ? [
             `<b class="${ruptColor(pctRupt)}">${fmtPct.format(pctRupt)}</b> do total de ${fmtInt.format(totalSkus)} SKUs`,
-            topReasonMeta
+            !motivoLabel && topReasonMeta
               ? `Principal motivo: <b style="color:${topReasonMeta.color}">${topReasonMeta.label}</b> (${fmtInt.format(topReason[1])})`
               : ""
           ].filter(Boolean).join("<br>")
