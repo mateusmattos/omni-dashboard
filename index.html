@@ -3049,31 +3049,44 @@ function renderReportKpis(filteredOrders){
         const col = info.colecao;
         if(!byCol.has(col)) byCol.set(col, { receita: 0, pedidos: 0 });
         const c = byCol.get(col);
-        c.receita  += (o.value || 0);
+        c.receita += (o.value || 0);
         c.pedidos++;
       }
 
-      const cols = [...byCol.entries()].filter(([,v]) => v.receita > 0).sort((a,b) => b[1].receita - a[1].receita);
-      const totalRec = cols.reduce((a,[,v]) => a + v.receita, 0);
+      const totalRec = [...byCol.values()].reduce((a, v) => a + v.receita, 0);
+
+      // filtrar >= 1% e ordenar
+      const cols = [...byCol.entries()]
+        .filter(([, v]) => v.receita > 0 && (totalRec > 0 ? v.receita / totalRec >= 0.01 : true))
+        .sort((a, b) => b[1].receita - a[1].receita);
 
       if(!cols.length) return {
         label: "Vendas por coleção",
         value: "0 coleções",
-        sub: "Nenhuma coleção identificada no período",
+        sub: "Nenhuma coleção com participação ≥ 1%",
         accent: "rgba(255,255,255,.2)"
       };
 
-      const top1 = cols[0];
-      const top2 = cols[1];
-      const pct1 = totalRec > 0 ? top1[1].receita / totalRec : 0;
+      const top3 = cols.slice(0, 3);
+      const bars = ["var(--accent)", "rgba(167,139,250,.9)", "rgba(52,211,153,.9)"];
+
+      const subLines = top3.map(([nome, v], i) => {
+        const pct  = totalRec > 0 ? v.receita / totalRec : 0;
+        const barW = Math.min(100, pct * 100).toFixed(0);
+        return `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <span style="font-size:11px;color:var(--muted2);min-width:14px">${i+1}º</span>
+          <div style="flex:1;height:5px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden">
+            <div style="height:100%;width:${barW}%;background:${bars[i]};border-radius:99px"></div>
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${bars[i]};min-width:38px;text-align:right">${fmtPct.format(pct)}</span>
+          <span style="font-size:10.5px;color:var(--muted);white-space:nowrap">${nome} · ${fmtBRL.format(v.receita)}</span>
+        </div>`;
+      }).join("");
 
       return {
-        label: `Coleções (${cols.length} com venda)`,
-        value: top1[0],
-        sub: [
-          `<b style="color:var(--accent)">${fmtPct.format(pct1)}</b> da receita • ${fmtBRL.format(top1[1].receita)}`,
-          top2 ? `2ª: <b>${top2[0]}</b> — ${fmtPct.format(totalRec > 0 ? top2[1].receita/totalRec : 0)}` : ""
-        ].filter(Boolean).join("<br>"),
+        label: `Top coleções (${cols.length} com ≥ 1%)`,
+        value: top3[0][0],
+        sub: subLines,
         accent: "rgba(167,139,250,.65)"
       };
     })(),
@@ -3163,9 +3176,15 @@ function renderColecao(filteredOrders){
       .filter(Boolean)
   )].sort();
 
-  // Filtrar: sem zeradas, sem sem-coleção, aplicar categoria selecionada
+  // Filtrar: sem zeradas, sem sem-coleção, sem menos de 1%, aplicar categoria selecionada
+  const totalReceitaGlobal = [...byColecao.values()]
+    .filter(r => r.colecao !== "__sem_colecao__" && r.receita > 0)
+    .reduce((a, r) => a + r.receita, 0);
+
   let rows = [...byColecao.values()].filter(r =>
-    r.colecao !== "__sem_colecao__" && r.receita > 0
+    r.colecao !== "__sem_colecao__" &&
+    r.receita > 0 &&
+    (totalReceitaGlobal > 0 ? r.receita / totalReceitaGlobal >= 0.01 : true)
   );
   if(_colecaoActiveCat !== null){
     rows = rows.filter(r => r.categoria === _colecaoActiveCat);
