@@ -2305,10 +2305,23 @@
     const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
     ordersState = merged;
     saveJson(STORAGE_ORDERS_KEY, ordersState);
+
     const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
     const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
     setSelectOptions(els.channelFilter, channels);
     setSelectOptions(els.storeFilter, stores, storeLabel);
+
+    // Habilita apply e define range de datas para os filtros funcionarem
+    if(ordersState.length){
+      els.apply.disabled = false;
+      els.clear.disabled = false;
+      const range = inferRangeFromOrders(ordersState);
+      if(range){
+        els.startDate.value = isoDate(range.min);
+        els.endDate.value   = isoDate(range.max);
+      }
+    }
+
     return stats.after;
   }
 
