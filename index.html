@@ -605,12 +605,12 @@
     /* ===== KPI BULLETS — Report Diário ===== */
     .report-kpis{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
+      grid-template-columns: repeat(4, minmax(0,1fr));
       gap:12px;
       margin-bottom:4px;
     }
-    @media(max-width:900px){ .report-kpis{ grid-template-columns: repeat(2,minmax(0,1fr)); } }
-    @media(max-width:500px){ .report-kpis{ grid-template-columns: 1fr; } }
+    @media(max-width:1100px){ .report-kpis{ grid-template-columns: repeat(2,minmax(0,1fr)); } }
+    @media(max-width:500px){  .report-kpis{ grid-template-columns: 1fr; } }
 
     .rkpi{
       position:relative;
@@ -3029,6 +3029,54 @@ function renderReportKpis(filteredOrders){
             : lastStoreDay.open >= 14 ? "rgba(251,191,36,.65)"
             : "rgba(251,113,133,.65)"
     },
+
+    // 4 — Coleções
+    (function(){
+      if(!colecaoMap.size) return {
+        label: "Vendas por coleção",
+        value: "—",
+        sub: "Configure a URL do arquivo skus_colecao.csv",
+        accent: "rgba(255,255,255,.2)"
+      };
+
+      // Agregar por coleção (excluindo cancelados)
+      const byCol = new Map();
+      for(const o of filteredOrders){
+        if((o.status || "").includes("cancel")) continue;
+        const prefix = skuPrefix(o.sku || "");
+        const info   = prefix ? colecaoMap.get(prefix) : null;
+        if(!info) continue;
+        const col = info.colecao;
+        if(!byCol.has(col)) byCol.set(col, { receita: 0, pedidos: 0 });
+        const c = byCol.get(col);
+        c.receita  += (o.value || 0);
+        c.pedidos++;
+      }
+
+      const cols = [...byCol.entries()].filter(([,v]) => v.receita > 0).sort((a,b) => b[1].receita - a[1].receita);
+      const totalRec = cols.reduce((a,[,v]) => a + v.receita, 0);
+
+      if(!cols.length) return {
+        label: "Vendas por coleção",
+        value: "0 coleções",
+        sub: "Nenhuma coleção identificada no período",
+        accent: "rgba(255,255,255,.2)"
+      };
+
+      const top1 = cols[0];
+      const top2 = cols[1];
+      const pct1 = totalRec > 0 ? top1[1].receita / totalRec : 0;
+
+      return {
+        label: `Coleções (${cols.length} com venda)`,
+        value: top1[0],
+        sub: [
+          `<b style="color:var(--accent)">${fmtPct.format(pct1)}</b> da receita • ${fmtBRL.format(top1[1].receita)}`,
+          top2 ? `2ª: <b>${top2[0]}</b> — ${fmtPct.format(totalRec > 0 ? top2[1].receita/totalRec : 0)}` : ""
+        ].filter(Boolean).join("<br>"),
+        accent: "rgba(167,139,250,.65)"
+      };
+    })(),
   ];
 
   el.innerHTML = kpis.map(k => `
@@ -3086,27 +3134,20 @@ function renderColecao(filteredOrders){
   }
 
   // --- Agregar vendas por coleção ---
-  // Cada pedido tem lineCount SKUs — precisamos iterar linha a linha do ordersState
-  // mas no estado agregado só temos o total por pedido.
-  // Usamos: para cada pedido filtrado, o SKU é o campo `sku` (se existir) ou inferimos
-  // pelo prefixo. Como o ordersState agrega por pedido, usamos o campo sku do pedido.
-  // Cruzamento: skuPrefix(order.sku) → colecaoMap
-
   const byColecao = new Map();
   let matched = 0, total = 0;
 
   for(const o of filteredOrders){
     const prefix = skuPrefix(o.sku || "");
     const info   = prefix ? colecaoMap.get(prefix) : null;
-    const col    = info?.colecao    || "__sem_colecao__";
-    const cat    = info?.categoria  || "";
-    const sub    = info?.subcategoria || "";
+    const col    = info?.colecao   || "__sem_colecao__";
+    const cat    = info?.categoria || "";
 
     if(info) matched++;
     total++;
 
     if(!byColecao.has(col)){
-      byColecao.set(col, { colecao: col, categoria: cat, subcategoria: sub, pedidos: 0, receita: 0, pecas: 0 });
+      byColecao.set(col, { colecao: col, categoria: cat, pedidos: 0, receita: 0, pecas: 0 });
     }
     const c = byColecao.get(col);
     c.pedidos++;
@@ -3114,18 +3155,24 @@ function renderColecao(filteredOrders){
     c.pecas   += (o.lineCount || 1);
   }
 
-  // Categorias presentes
-  const cats = [...new Set([...byColecao.values()].map(v => v.categoria).filter(Boolean))].sort();
+  // Categorias presentes (apenas das coleções com venda)
+  const cats = [...new Set(
+    [...byColecao.values()]
+      .filter(v => v.colecao !== "__sem_colecao__" && v.receita > 0)
+      .map(v => v.categoria)
+      .filter(Boolean)
+  )].sort();
 
-  // Filtrar por categoria selecionada
-  let rows = [...byColecao.values()];
+  // Filtrar: sem zeradas, sem sem-coleção, aplicar categoria selecionada
+  let rows = [...byColecao.values()].filter(r =>
+    r.colecao !== "__sem_colecao__" && r.receita > 0
+  );
   if(_colecaoActiveCat !== null){
     rows = rows.filter(r => r.categoria === _colecaoActiveCat);
   }
-  // Ordenar por receita desc
   rows.sort((a, b) => b.receita - a.receita);
 
-  // Totais
+  // Totais (só das linhas visíveis)
   const grandReceita = rows.reduce((a, r) => a + r.receita, 0);
   const grandPedidos = rows.reduce((a, r) => a + r.pedidos, 0);
   const grandPecas   = rows.reduce((a, r) => a + r.pecas, 0);
@@ -3133,20 +3180,16 @@ function renderColecao(filteredOrders){
   // Badge
   if(elBadge){
     const pctMatch = total > 0 ? (matched/total*100).toFixed(0) : 0;
-    elBadge.textContent = `${rows.filter(r=>r.colecao!=="__sem_colecao__").length} coleções • ${pctMatch}% SKUs identificados`;
+    elBadge.textContent = `${rows.length} coleções com venda • ${pctMatch}% SKUs identificados`;
   }
 
   // --- Pills de categoria ---
   if(elCatBar){
     elCatBar.innerHTML = `<span class="filter-label">Categoria:</span>`;
-
     const allPill = document.createElement("span");
     allPill.className = "motivo-pill motivo-pill-all" + (_colecaoActiveCat === null ? " active" : "");
     allPill.textContent = "Todas";
-    allPill.addEventListener("click", () => {
-      _colecaoActiveCat = null;
-      renderColecao(filteredOrders);
-    });
+    allPill.addEventListener("click", () => { _colecaoActiveCat = null; renderColecao(filteredOrders); });
     elCatBar.appendChild(allPill);
 
     cats.forEach(cat => {
@@ -3154,20 +3197,15 @@ function renderColecao(filteredOrders){
       pill.className = "motivo-pill" + (_colecaoActiveCat === cat ? " active" : "");
       pill.style.setProperty("--pill-color", "#7dd3fc");
       pill.innerHTML = `<span class="pill-dot"></span>${cat}`;
-      pill.addEventListener("click", () => {
-        _colecaoActiveCat = cat;
-        renderColecao(filteredOrders);
-      });
+      pill.addEventListener("click", () => { _colecaoActiveCat = cat; renderColecao(filteredOrders); });
       elCatBar.appendChild(pill);
     });
   }
 
-  // --- Tabela pivot ---
+  // --- Tabela ---
   let html = `<div class="pivot-wrap"><table class="rupt-table">
     <thead><tr>
       <th style="text-align:left">Coleção</th>
-      <th style="text-align:left">Categoria</th>
-      <th style="text-align:left">Subcategoria</th>
       <th>Pedidos</th>
       <th>Peças</th>
       <th>Receita</th>
@@ -3175,14 +3213,10 @@ function renderColecao(filteredOrders){
     </tr></thead><tbody>`;
 
   for(const r of rows){
-    if(r.colecao === "__sem_colecao__") continue;
     const pctRec = grandReceita > 0 ? r.receita / grandReceita : 0;
     const barW   = Math.min(100, pctRec * 100).toFixed(1);
-
     html += `<tr>
       <td style="text-align:left;font-weight:700">${r.colecao}</td>
-      <td style="text-align:left;color:var(--muted);font-size:12px">${r.categoria}</td>
-      <td style="text-align:left;color:var(--muted2);font-size:12px">${r.subcategoria}</td>
       <td>${fmtInt.format(r.pedidos)}</td>
       <td>${fmtInt.format(r.pecas)}</td>
       <td>${fmtBRL.format(r.receita)}</td>
@@ -3195,21 +3229,8 @@ function renderColecao(filteredOrders){
     </tr>`;
   }
 
-  // Linha sem coleção (se houver)
-  const semCol = byColecao.get("__sem_colecao__");
-  if(semCol && _colecaoActiveCat === null){
-    html += `<tr style="opacity:.5">
-      <td style="text-align:left;font-style:italic">Sem coleção mapeada</td>
-      <td colspan="2" style="text-align:left;font-size:12px;color:var(--muted2)">SKU não encontrado na tabela de referência</td>
-      <td>${fmtInt.format(semCol.pedidos)}</td>
-      <td>${fmtInt.format(semCol.pecas)}</td>
-      <td>${fmtBRL.format(semCol.receita)}</td>
-      <td>—</td>
-    </tr>`;
-  }
-
   html += `</tbody><tfoot><tr>
-    <td colspan="3" style="text-align:left">Total${_colecaoActiveCat ? ` — ${_colecaoActiveCat}` : " Geral"}</td>
+    <td style="text-align:left">Total${_colecaoActiveCat ? ` — ${_colecaoActiveCat}` : " Geral"}</td>
     <td>${fmtInt.format(grandPedidos)}</td>
     <td>${fmtInt.format(grandPecas)}</td>
     <td>${fmtBRL.format(grandReceita)}</td>
