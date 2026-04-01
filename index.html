@@ -643,6 +643,133 @@
     .rkpi .rkpi-sub b.neg{ color:var(--bad); }
     .rkpi .rkpi-sub b.warn{ color:var(--warn); }
 
+    /* ===== ABA DAILY — layout slide PPT 16:9 ===== */
+    #tab-daily{
+      /* força proporção PPT: 1270 × 952 área útil → usamos max-width + aspect-ratio */
+      max-width: 1270px;
+      margin: 0 auto;
+    }
+    .daily-wrap{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 10px;
+      aspect-ratio: 4 / 3;
+      max-height: 860px;
+    }
+    .daily-panel{
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .daily-panel .dp-head{
+      padding: 7px 10px 5px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .daily-panel .dp-head h3{
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      color: rgba(255,255,255,.85);
+      text-transform: uppercase;
+    }
+    .daily-panel .dp-head .dp-badge{
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.15);
+      color: rgba(255,255,255,.70);
+    }
+    .daily-panel .dp-body{
+      flex: 1;
+      overflow: auto;
+      padding: 0;
+      min-height: 0;
+    }
+
+    /* Tabelas compactas dentro da Daily */
+    .dt{ width:100%; border-collapse:separate; border-spacing:0; }
+    .dt thead th{
+      position: sticky; top: 0;
+      background: rgba(8,12,28,.95);
+      backdrop-filter: blur(6px);
+      font-size: 9.5px; font-weight: 700;
+      color: rgba(255,255,255,.60);
+      text-align: center;
+      padding: 5px 6px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      white-space: nowrap;
+      letter-spacing: .2px;
+    }
+    .dt thead th:first-child{ text-align: left; min-width: 90px; }
+    .dt thead th.dt-total{ background:rgba(125,211,252,.08); color:var(--accent); }
+    .dt tbody td{
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      font-size: 10px;
+      text-align: center;
+      color: rgba(255,255,255,.82);
+      white-space: nowrap;
+    }
+    .dt tbody td:first-child{ text-align:left; font-weight:600; font-size:10px; }
+    .dt tbody td.dt-total{ background:rgba(125,211,252,.04); font-weight:700; color:var(--accent); }
+    .dt tbody td.dt-pend{ color:var(--warn); font-weight:700; }
+    .dt tbody td.dt-zero{ color:rgba(255,255,255,.18); }
+    .dt tbody tr:hover td{ background:rgba(255,255,255,.03); }
+    .dt tfoot td{
+      padding: 5px 6px;
+      border-top: 1px solid rgba(255,255,255,.10);
+      font-size: 10px; font-weight: 700;
+      text-align: center;
+      background: rgba(8,12,28,.70);
+      color: rgba(255,255,255,.90);
+    }
+    .dt tfoot td:first-child{ text-align:left; }
+    .dt tfoot td.dt-total{ color:var(--accent); background:rgba(125,211,252,.06); }
+
+    /* Ruptura % badge inline */
+    .rupt-pct{
+      display:inline-block;
+      padding:1px 5px;
+      border-radius:5px;
+      font-size:9.5px;
+      font-weight:700;
+    }
+    .rupt-pct.crit{ background:rgba(251,113,133,.20); color:#fb7185; }
+    .rupt-pct.warn{ background:rgba(251,191,36,.20);  color:#fbbf24; }
+    .rupt-pct.ok  { background:rgba(52,211,153,.20);  color:#34d399; }
+
+    /* Status lojas compacto */
+    .store-status-grid{
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 5px;
+      padding: 8px;
+    }
+    .store-chip{
+      display:flex; align-items:center; gap:5px;
+      padding: 4px 7px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+      font-size: 9.5px;
+    }
+    .store-chip .sc-dot{
+      width:7px; height:7px; border-radius:99px; flex-shrink:0;
+    }
+    .store-chip .sc-name{ font-weight:600; color:rgba(255,255,255,.82); }
+    .store-chip .sc-status{ color:var(--muted2); font-size:9px; }
+
   </style>
 </head>
 
@@ -727,6 +854,7 @@
         <div class="tabs">
           <button class="tab-btn active" data-tab="tab-dashboard">📊 Dashboard</button>
           <button class="tab-btn" data-tab="tab-report">📋 Report Diário</button>
+          <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -934,6 +1062,57 @@
           </div>
 
         </div><!-- /tab-pane report -->
+
+        <!-- ABA: DAILY -->
+        <div class="tab-pane" id="tab-daily">
+          <div class="daily-wrap">
+
+            <!-- Q1: Pedidos por dia (últimos 4 dias) -->
+            <div class="daily-panel">
+              <div class="dp-head">
+                <h3>Pedidos por dia</h3>
+                <span class="dp-badge" id="dailyPedidosBadge">—</span>
+              </div>
+              <div class="dp-body">
+                <div id="dailyPedidosTabela"></div>
+              </div>
+            </div>
+
+            <!-- Q2: Pedidos pendentes (últimos 4 dias) -->
+            <div class="daily-panel">
+              <div class="dp-head">
+                <h3>Pedidos pendentes</h3>
+                <span class="dp-badge" id="dailyPendentesBadge">—</span>
+              </div>
+              <div class="dp-body">
+                <div id="dailyPendentesTabela"></div>
+              </div>
+            </div>
+
+            <!-- Q3: Status das lojas -->
+            <div class="daily-panel">
+              <div class="dp-head">
+                <h3>Status das lojas</h3>
+                <span class="dp-badge" id="dailyLojasBadge">—</span>
+              </div>
+              <div class="dp-body">
+                <div id="dailyLojasGrid"></div>
+              </div>
+            </div>
+
+            <!-- Q4: Rupturas -->
+            <div class="daily-panel">
+              <div class="dp-head">
+                <h3>Rupturas</h3>
+                <span class="dp-badge" id="dailyRuptBadge">—</span>
+              </div>
+              <div class="dp-body">
+                <div id="dailyRuptTabela"></div>
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /tab-pane daily -->
 
       </div>
     </div>
@@ -1777,6 +1956,7 @@
       renderRupturas(filtered);           // ← rupturas
       renderReportKpis(filtered);         // ← kpi bullets do report
       renderColecao(filtered);            // ← vendas por coleção
+      renderDaily(filtered);             // ← aba daily
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -3262,6 +3442,274 @@ function renderColecao(filteredOrders){
 // Guarda pedidos filtrados para re-render ao mudar categoria
 let _lastColecaoOrders = [];
 const _origRenderColecao = renderColecao;
+</script>
+<script>
+// ============================================================
+//  ABA DAILY — 4 quadrantes compactos (formato slide PPT)
+// ============================================================
+function renderDaily(filteredOrders){
+
+  // --- Pegar os últimos 4 dias com dados ---
+  const allDays = [...new Set(filteredOrders.map(o => o.placedDate))].sort();
+  const last4   = allDays.slice(-4);
+
+  if(!last4.length){
+    ["dailyPedidosTabela","dailyPendentesTabela","dailyLojasGrid","dailyRuptTabela"]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:11px;">Sem dados no filtro.</div>`;
+      });
+    return;
+  }
+
+  // Lojas ordenadas por nome
+  const storeIds = [...new Set(filteredOrders.map(o => o.locationId).filter(Boolean))]
+    .sort((a,b) => storeLabel(a).localeCompare(storeLabel(b)));
+
+  // Formatar dia: dd/MM (dom, seg...)
+  const DOW = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  function fmtDay(iso){
+    const [y,m,d] = iso.split("-");
+    const dt = new Date(+y, +m-1, +d);
+    return `${d}/${m}<br><span style="font-size:8.5px;opacity:.6">${DOW[dt.getDay()]}</span>`;
+  }
+
+  // ── Q1: Pedidos por dia ──────────────────────────────────
+  (function(){
+    const el    = document.getElementById("dailyPedidosTabela");
+    const badge = document.getElementById("dailyPedidosBadge");
+    if(!el) return;
+
+    // matriz loja × dia
+    const mat = new Map(); // storeId → Map(day → count)
+    const dayTot = new Map(last4.map(d => [d, 0]));
+    for(const sid of storeIds) mat.set(sid, new Map());
+
+    for(const o of filteredOrders){
+      if(!last4.includes(o.placedDate)) continue;
+      const sid = o.locationId || "";
+      if(!mat.has(sid)) continue;
+      mat.get(sid).set(o.placedDate, (mat.get(sid).get(o.placedDate) || 0) + 1);
+      dayTot.set(o.placedDate, (dayTot.get(o.placedDate) || 0) + 1);
+    }
+
+    // totais por loja
+    const storeTot = new Map(storeIds.map(s => [s, last4.reduce((a,d) => a + (mat.get(s)?.get(d)||0), 0)]));
+    const grandTot = [...dayTot.values()].reduce((a,v)=>a+v,0);
+
+    let html = `<table class="dt"><thead><tr>
+      <th>Loja</th>
+      ${last4.map(d => `<th>${fmtDay(d)}</th>`).join("")}
+      <th class="dt-total">Total</th>
+    </tr></thead><tbody>`;
+
+    for(const sid of storeIds){
+      const tot = storeTot.get(sid) || 0;
+      if(tot === 0) continue;
+      html += `<tr><td>${storeLabel(sid)}</td>`;
+      for(const d of last4){
+        const v = mat.get(sid)?.get(d) || 0;
+        html += v > 0
+          ? `<td>${v}</td>`
+          : `<td class="dt-zero">—</td>`;
+      }
+      html += `<td class="dt-total">${tot}</td></tr>`;
+    }
+
+    html += `</tbody><tfoot><tr>
+      <td>Total</td>
+      ${last4.map(d => `<td>${dayTot.get(d)||0}</td>`).join("")}
+      <td class="dt-total">${grandTot}</td>
+    </tr></tfoot></table>`;
+
+    el.innerHTML = html;
+    if(badge) badge.textContent = `${grandTot} pedidos · ${last4.length} dias`;
+  })();
+
+  // ── Q2: Pedidos pendentes ────────────────────────────────
+  (function(){
+    const el    = document.getElementById("dailyPendentesTabela");
+    const badge = document.getElementById("dailyPendentesBadge");
+    if(!el) return;
+
+    const pendOrders = filteredOrders.filter(o => (o.status||"").includes("pending"));
+
+    const mat    = new Map();
+    const dayTot = new Map(last4.map(d => [d, 0]));
+    for(const sid of storeIds) mat.set(sid, new Map());
+
+    for(const o of pendOrders){
+      if(!last4.includes(o.placedDate)) continue;
+      const sid = o.locationId || "";
+      if(!mat.has(sid)) continue;
+      mat.get(sid).set(o.placedDate, (mat.get(sid).get(o.placedDate)||0)+1);
+      dayTot.set(o.placedDate, (dayTot.get(o.placedDate)||0)+1);
+    }
+
+    const storeTot = new Map(storeIds.map(s => [s, last4.reduce((a,d)=>a+(mat.get(s)?.get(d)||0),0)]));
+    const grandTot = pendOrders.filter(o => last4.includes(o.placedDate)).length;
+
+    // valor total pendente
+    const valorPend = pendOrders
+      .filter(o => last4.includes(o.placedDate))
+      .reduce((a,o) => a+(o.value||0), 0);
+
+    let html = `<table class="dt"><thead><tr>
+      <th>Loja</th>
+      ${last4.map(d=>`<th>${fmtDay(d)}</th>`).join("")}
+      <th class="dt-total">Total</th>
+      <th class="dt-total">R$ Pend.</th>
+    </tr></thead><tbody>`;
+
+    for(const sid of storeIds){
+      const tot = storeTot.get(sid)||0;
+      if(tot === 0) continue;
+      const valorLoja = pendOrders
+        .filter(o => last4.includes(o.placedDate) && o.locationId === sid)
+        .reduce((a,o)=>a+(o.value||0),0);
+      html += `<tr><td>${storeLabel(sid)}</td>`;
+      for(const d of last4){
+        const v = mat.get(sid)?.get(d)||0;
+        html += v > 0
+          ? `<td class="dt-pend">${v}</td>`
+          : `<td class="dt-zero">—</td>`;
+      }
+      html += `<td class="dt-total">${tot}</td>`;
+      html += `<td class="dt-total">${fmtBRL.format(valorLoja)}</td>`;
+      html += `</tr>`;
+    }
+
+    html += `</tbody><tfoot><tr>
+      <td>Total</td>
+      ${last4.map(d=>`<td class="dt-pend">${dayTot.get(d)||0||"—"}</td>`).join("")}
+      <td class="dt-total">${grandTot}</td>
+      <td class="dt-total">${fmtBRL.format(valorPend)}</td>
+    </tr></tfoot></table>`;
+
+    el.innerHTML = html;
+    if(badge) badge.textContent = `${grandTot} pendentes · ${fmtBRL.format(valorPend)}`;
+  })();
+
+  // ── Q3: Status das lojas ─────────────────────────────────
+  (function(){
+    const el    = document.getElementById("dailyLojasGrid");
+    const badge = document.getElementById("dailyLojasBadge");
+    if(!el) return;
+
+    const series = getStoreStatusSeries();
+    // último dia da série
+    const last = series.length ? series[series.length-1] : null;
+
+    if(!last){
+      el.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:11px;">Sem dados de status de lojas.</div>`;
+      return;
+    }
+
+    if(badge) badge.textContent = `${last.open} abertas · ${last.closed} fechadas · ${ymdToBr(last.date)}`;
+
+    // Tabela simples: Data | Abertas | Fechadas — últimos registros
+    const recent = [...series].reverse().slice(0, 14); // até 14 dias
+    let html = `<table class="dt"><thead><tr>
+      <th>Data</th><th>Abertas</th><th>Fechadas</th><th>Total</th>
+    </tr></thead><tbody>`;
+
+    for(const r of recent){
+      const isLast = r.date === last.date;
+      html += `<tr ${isLast ? 'style="background:rgba(255,255,255,.04)"':''}>
+        <td style="text-align:left">${ymdToBr(r.date)}</td>
+        <td><b class="${r.open >= 17 ? "pos" : r.open >= 14 ? "" : "neg"}" style="color:${r.open>=17?"#34d399":r.open>=14?"#fbbf24":"#fb7185"}">${r.open}</b></td>
+        <td style="color:${r.closed>5?"#fb7185":"#fbbf24"}">${r.closed}</td>
+        <td style="color:var(--muted2)">${TOTAL_STORES}</td>
+      </tr>`;
+    }
+
+    html += `</tbody></table>`;
+    el.innerHTML = html;
+  })();
+
+  // ── Q4: Rupturas ─────────────────────────────────────────
+  (function(){
+    const el    = document.getElementById("dailyRuptTabela");
+    const badge = document.getElementById("dailyRuptBadge");
+    if(!el) return;
+
+    if(!rupturasState.length){
+      el.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:11px;">Sem dados de rupturas carregados.</div>`;
+      return;
+    }
+
+    // filtrar rupturas pelos últimos 4 dias (por registeredDate)
+    const ruptRecent = rupturasState.filter(r => last4.includes(r.registeredDate));
+
+    // SKUs totais por loja (não cancelados, últimos 4 dias)
+    const skusByStore = new Map();
+    for(const o of filteredOrders){
+      if(!last4.includes(o.placedDate)) continue;
+      if((o.status||"").includes("cancel")) continue;
+      const lid = o.locationId||"";
+      skusByStore.set(lid, (skusByStore.get(lid)||0)+(o.lineCount||1));
+    }
+    const totalSkus = [...skusByStore.values()].reduce((a,v)=>a+v,0);
+
+    // rupturas por loja
+    const ruptByStore = new Map();
+    for(const r of ruptRecent){
+      const lid = r.locationId||"__unk__";
+      ruptByStore.set(lid, (ruptByStore.get(lid)||0)+1);
+    }
+
+    // valor médio por peça
+    const totalRev = filteredOrders
+      .filter(o=>last4.includes(o.placedDate)&&!(o.status||"").includes("cancel"))
+      .reduce((a,o)=>a+(o.value||0),0);
+    const avgPx = totalSkus>0 ? totalRev/totalSkus : 0;
+
+    // montar linhas — somente lojas com rupturas, ordenar por % desc
+    const rows = storeIds
+      .map(sid => ({
+        sid,
+        skus:  skusByStore.get(sid)||0,
+        rupts: ruptByStore.get(sid)||0,
+      }))
+      .filter(r => r.rupts>0)
+      .sort((a,b) => {
+        const pa = a.skus>0 ? a.rupts/a.skus : 0;
+        const pb = b.skus>0 ? b.rupts/b.skus : 0;
+        return pb-pa;
+      });
+
+    const grandRupt = ruptRecent.length;
+    const pctGrand  = totalSkus>0 ? grandRupt/totalSkus : 0;
+
+    let html = `<table class="dt"><thead><tr>
+      <th>Loja</th><th>Itens</th><th>Rupturas</th><th>% Rupt.</th><th>R$ Rupt.</th>
+    </tr></thead><tbody>`;
+
+    for(const r of rows){
+      const pct   = r.skus>0 ? r.rupts/r.skus : 0;
+      const valor = r.rupts*avgPx;
+      const cls   = pct>=0.05?"crit":pct>=0.02?"warn":"ok";
+      html += `<tr>
+        <td>${storeLabel(r.sid)}</td>
+        <td>${fmtInt.format(r.skus)}</td>
+        <td>${fmtInt.format(r.rupts)}</td>
+        <td><span class="rupt-pct ${cls}">${fmtPct.format(pct)}</span></td>
+        <td>${fmtBRL.format(valor)}</td>
+      </tr>`;
+    }
+
+    html += `</tbody><tfoot><tr>
+      <td>Total</td>
+      <td>${fmtInt.format(totalSkus)}</td>
+      <td>${fmtInt.format(grandRupt)}</td>
+      <td><span class="rupt-pct ${pctGrand>=0.05?"crit":pctGrand>=0.02?"warn":"ok"}">${fmtPct.format(pctGrand)}</span></td>
+      <td>${fmtBRL.format(grandRupt*avgPx)}</td>
+    </tr></tfoot></table>`;
+
+    el.innerHTML = html;
+    if(badge) badge.textContent = `${grandRupt} rupturas · ${fmtPct.format(pctGrand)} · ${fmtBRL.format(grandRupt*avgPx)}`;
+  })();
+}
 </script>
 </body>
 
