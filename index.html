@@ -2759,12 +2759,16 @@ function renderRupturas(filteredOrders){
   const skusByStore = new Map();
   let totalSkusGlobal = 0;
   for(const o of filteredOrders){
+    // ignora pedidos cancelados — não devem entrar no denominador de ruptura
+    if((o.status || "").includes("cancel")) continue;
     const lid = o.locationId || "";
     skusByStore.set(lid, (skusByStore.get(lid) || 0) + (o.lineCount || 1));
     totalSkusGlobal += (o.lineCount || 1);
   }
 
-  const totalRevenue    = filteredOrders.reduce((a, o) => a + (o.value || 0), 0);
+  const totalRevenue    = filteredOrders
+    .filter(o => !(o.status || "").includes("cancel"))
+    .reduce((a, o) => a + (o.value || 0), 0);
   const avgPricePerSku  = totalSkusGlobal > 0 ? totalRevenue / totalSkusGlobal : 0;
 
   // Motivos presentes — para montar as pills
