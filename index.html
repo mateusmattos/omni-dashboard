@@ -398,6 +398,113 @@
     #insights .item.ins-bad  .tag{ border-color: rgba(251,113,133,.30); background: rgba(251,113,133,.10); }
     #insights .item.ins-warn .tag{ border-color: rgba(251,191,36,.30); background: rgba(251,191,36,.10); }
 
+
+    /* ===== ABAS ===== */
+    .tabs{
+      display:flex; gap:6px; margin-top:16px; margin-bottom:0;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      padding-bottom:0;
+    }
+    .tab-btn{
+      padding:10px 20px;
+      border-radius:12px 12px 0 0;
+      border:1px solid transparent;
+      border-bottom:none;
+      background:transparent;
+      color:var(--muted);
+      font-size:13px; font-weight:600; letter-spacing:.2px;
+      cursor:pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      position:relative; bottom:-1px;
+    }
+    .tab-btn:hover{ background:rgba(255,255,255,.06); color:var(--text); }
+    .tab-btn.active{
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+      border-color:rgba(255,255,255,.12);
+      color:var(--accent);
+    }
+    .tab-pane{ display:none; }
+    .tab-pane.active{ display:flex; flex-direction:column; gap:16px; }
+
+    /* ===== REPORT DIÁRIO ===== */
+    .pivot-wrap{
+      overflow-x:auto;
+      border-radius:var(--r2);
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.16);
+    }
+    .pivot-table{
+      width:100%; border-collapse:separate; border-spacing:0;
+      min-width:600px;
+    }
+    .pivot-table thead th{
+      position:sticky; top:0;
+      background:rgba(10,14,30,.92);
+      backdrop-filter:blur(8px);
+      color:rgba(255,255,255,.75);
+      font-size:11.5px; font-weight:600;
+      text-align:center;
+      padding:10px 8px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      white-space:nowrap;
+      letter-spacing:.2px;
+    }
+    .pivot-table thead th.loja-col{
+      text-align:left; padding-left:14px; min-width:130px;
+    }
+    .pivot-table thead th.total-col{
+      background:rgba(125,211,252,.07);
+      color:var(--accent);
+    }
+    .pivot-table tbody td{
+      padding:9px 8px;
+      border-bottom:1px solid rgba(255,255,255,.05);
+      font-size:12.5px;
+      text-align:center;
+      vertical-align:middle;
+    }
+    .pivot-table tbody td.loja-col{
+      text-align:left; padding-left:14px;
+      font-weight:600; color:rgba(255,255,255,.90);
+      white-space:nowrap;
+    }
+    .pivot-table tbody td.total-col{
+      background:rgba(125,211,252,.05);
+      font-weight:700; color:var(--accent);
+    }
+    .pivot-table tbody tr:hover td{ background:rgba(255,255,255,.03); }
+    .pivot-table tfoot td{
+      padding:10px 8px;
+      border-top:1px solid rgba(255,255,255,.12);
+      font-size:12.5px; font-weight:700;
+      text-align:center; color:rgba(255,255,255,.90);
+      background:rgba(10,14,30,.70);
+    }
+    .pivot-table tfoot td.loja-col{ text-align:left; padding-left:14px; }
+    .pivot-table tfoot td.total-col{ color:var(--accent); background:rgba(125,211,252,.07); }
+
+    /* célula com pedidos + pendentes */
+    .cell-val{ font-weight:700; font-size:13px; color:rgba(255,255,255,.92); }
+    .cell-pend{
+      display:inline-block; margin-top:2px;
+      font-size:10.5px; font-weight:600;
+      color:var(--warn); letter-spacing:.1px;
+    }
+    .cell-pend.zero{ color:var(--muted2); font-weight:400; }
+    .cell-empty{ color:rgba(255,255,255,.18); font-size:12px; }
+
+    /* legenda */
+    .report-legend{
+      display:flex; gap:16px; align-items:center;
+      font-size:12px; color:var(--muted);
+      padding:10px 14px;
+      border-top:1px solid rgba(255,255,255,.07);
+    }
+    .legend-item{ display:flex; align-items:center; gap:6px; }
+    .legend-dot{
+      width:8px; height:8px; border-radius:99px;
+    }
+
   </style>
 </head>
 
@@ -534,6 +641,15 @@
       </div>
 
       <div class="content">
+
+        <!-- ABAS -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tab-dashboard">📊 Dashboard</button>
+          <button class="tab-btn" data-tab="tab-report">📋 Report Diário</button>
+        </div>
+
+        <!-- ABA: DASHBOARD (conteúdo original) -->
+        <div class="tab-pane active" id="tab-dashboard">
         <div class="kpis" id="kpis"></div>
 
         <div class="twocol">
@@ -647,9 +763,36 @@
                   </div>
                 </div>
 
+        </div><!-- /tab-pane dashboard -->
 
+        <!-- ABA: REPORT DIÁRIO -->
+        <div class="tab-pane" id="tab-report">
 
-  
+          <!-- Pedidos por dia (pivot) -->
+          <div class="panel">
+            <div class="hd">
+              <h2>Pedidos por dia</h2>
+              <span class="badge" id="reportPeriodBadge">—</span>
+            </div>
+            <div id="reportPivotOrders">
+              <div style="padding:18px;color:var(--muted);font-size:13px;">
+                Carregue os dados e aplique os filtros para ver o report.
+              </div>
+            </div>
+            <div class="report-legend">
+              <span class="legend-item">
+                <span class="legend-dot" style="background:rgba(255,255,255,.80)"></span>
+                Número em cima = total de pedidos
+              </span>
+              <span class="legend-item">
+                <span class="legend-dot" style="background:var(--warn)"></span>
+                Número em laranja = pedidos com status <b>pending</b>
+              </span>
+            </div>
+          </div>
+
+        </div><!-- /tab-pane report -->
+
       </div>
     </div>
   </div>
@@ -1070,6 +1213,8 @@
         const channelId = (r["channelId"] ?? "").toString().trim();
         const locationId = (r["locationId"] ?? "").toString().trim();
         const price = toNumberBR(r["productPrice"]);
+        // captura status do pedido (ex: "pending", "invoiced", etc.)
+        const status = (r["status"] ?? r["orderStatus"] ?? r["order_status"] ?? "").toString().trim().toLowerCase();
 
         if(!byOrder.has(orderId)){
           byOrder.set(orderId, {
@@ -1078,6 +1223,7 @@
             placedAtIso: placedAt.toISOString(),
             channelId,
             locationId,
+            status,
             lineCount: 0,
             value: 0
           });
@@ -1087,6 +1233,8 @@
         o.value += price;
         if(!o.channelId && channelId) o.channelId = channelId;
         if(!o.locationId && locationId) o.locationId = locationId;
+        // atualiza status se ainda não tinha
+        if(!o.status && status) o.status = status;
 
         const existingDt = new Date(o.placedAtIso);
         if(placedAt < existingDt){
@@ -1480,6 +1628,7 @@
       renderDailyTable(daily);
       renderInsights(daily);
       renderStoreStatus();
+      renderReportPivotOrders(filtered); // ← report diário
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -2101,6 +2250,160 @@
   window._omniReload = loadAll;
 
 })();
+</script>
+<script>
+// ============================================================
+//  ABAS — troca entre Dashboard e Report Diário
+// ============================================================
+(function(){
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.tab)?.classList.add("active");
+    });
+  });
+})();
+
+// ============================================================
+//  REPORT DIÁRIO — Tabela pivot: Lojas × Dias
+//  Cada célula: total de pedidos (em cima) + pendentes (laranja)
+// ============================================================
+function renderReportPivotOrders(filteredOrders){
+  const container = document.getElementById("reportPivotOrders");
+  const badge = document.getElementById("reportPeriodBadge");
+  if(!container) return;
+
+  if(!filteredOrders.length){
+    container.innerHTML = `<div style="padding:18px;color:var(--muted);font-size:13px;">Nenhum pedido no filtro selecionado.</div>`;
+    if(badge) badge.textContent = "—";
+    return;
+  }
+
+  // --- Coletar todos os dias únicos (ordenados) ---
+  const daysSet = new Set(filteredOrders.map(o => o.placedDate));
+  const days = [...daysSet].sort();
+
+  // --- Coletar todas as lojas únicas (ordenadas por nome) ---
+  const storeIds = [...new Set(filteredOrders.map(o => o.locationId || ""))];
+  storeIds.sort((a, b) => storeLabel(a).localeCompare(storeLabel(b)));
+
+  // --- Montar matriz: storeId → day → { total, pending } ---
+  const matrix = new Map(); // storeId → Map(day → {total, pending})
+  const dayTotals = new Map(); // day → {total, pending}
+  const storeTotals = new Map(); // storeId → {total, pending}
+
+  for(const sid of storeIds){
+    matrix.set(sid, new Map());
+    storeTotals.set(sid, { total: 0, pending: 0 });
+  }
+  for(const d of days){
+    dayTotals.set(d, { total: 0, pending: 0 });
+  }
+
+  for(const o of filteredOrders){
+    const sid = o.locationId || "";
+    const day = o.placedDate;
+    const isPending = (o.status || "").includes("pending");
+
+    if(!matrix.has(sid)) continue;
+    const storeMap = matrix.get(sid);
+    if(!storeMap.has(day)) storeMap.set(day, { total: 0, pending: 0 });
+
+    storeMap.get(day).total++;
+    if(isPending) storeMap.get(day).pending++;
+
+    dayTotals.get(day).total++;
+    if(isPending) dayTotals.get(day).pending++;
+
+    storeTotals.get(sid).total++;
+    if(isPending) storeTotals.get(sid).pending++;
+  }
+
+  // --- Badge de período ---
+  const startDay = days[0];
+  const endDay   = days[days.length - 1];
+  if(badge) badge.textContent = days.length === 1
+    ? ymdToBr(startDay)
+    : `${ymdToBr(startDay)} → ${ymdToBr(endDay)} (${days.length} dias)`;
+
+  // --- Formatar dia para exibição: dd/mm (abreviado) ---
+  function fmtDayHeader(iso){
+    const [y, m, d] = iso.split("-");
+    const date = new Date(Number(y), Number(m)-1, Number(d));
+    const dow = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][date.getDay()];
+    return `${d}/${m}<br><span style="font-size:10px;font-weight:400;opacity:.65">${dow}</span>`;
+  }
+
+  // --- Montar HTML da tabela ---
+  let html = `<div class="pivot-wrap"><table class="pivot-table">`;
+
+  // Cabeçalho
+  html += `<thead><tr>`;
+  html += `<th class="loja-col">Loja</th>`;
+  for(const d of days){
+    html += `<th>${fmtDayHeader(d)}</th>`;
+  }
+  html += `<th class="total-col">Total</th>`;
+  html += `</tr></thead>`;
+
+  // Corpo
+  html += `<tbody>`;
+  let grandTotal = 0, grandPending = 0;
+
+  for(const sid of storeIds){
+    const storeMap = matrix.get(sid);
+    const st = storeTotals.get(sid);
+    grandTotal   += st.total;
+    grandPending += st.pending;
+
+    html += `<tr>`;
+    html += `<td class="loja-col">${storeLabel(sid)}</td>`;
+
+    for(const d of days){
+      const cell = storeMap.get(d);
+      if(!cell || cell.total === 0){
+        html += `<td><span class="cell-empty">—</span></td>`;
+      } else {
+        const pendClass = cell.pending > 0 ? "" : "zero";
+        html += `<td>
+          <span class="cell-val">${cell.total}</span><br>
+          <span class="cell-pend ${pendClass}">${cell.pending > 0 ? cell.pending + " pend." : "0 pend."}</span>
+        </td>`;
+      }
+    }
+
+    // Total da loja
+    const stPendClass = st.pending > 0 ? "" : "zero";
+    html += `<td class="total-col">
+      <span class="cell-val">${st.total}</span><br>
+      <span class="cell-pend ${stPendClass}">${st.pending > 0 ? st.pending + " pend." : "0 pend."}</span>
+    </td>`;
+    html += `</tr>`;
+  }
+  html += `</tbody>`;
+
+  // Rodapé — totais por dia
+  html += `<tfoot><tr>`;
+  html += `<td class="loja-col">Total Geral</td>`;
+  for(const d of days){
+    const dt = dayTotals.get(d);
+    const pendClass = dt.pending > 0 ? "" : "zero";
+    html += `<td>
+      <span class="cell-val">${dt.total}</span><br>
+      <span class="cell-pend ${pendClass}">${dt.pending > 0 ? dt.pending + " pend." : "—"}</span>
+    </td>`;
+  }
+  html += `<td class="total-col">
+    <span class="cell-val">${grandTotal}</span><br>
+    <span class="cell-pend ${grandPending > 0 ? "" : "zero"}">${grandPending > 0 ? grandPending + " pend." : "—"}</span>
+  </td>`;
+  html += `</tr></tfoot>`;
+
+  html += `</table></div>`;
+  container.innerHTML = html;
+}
 </script>
 </body>
 
