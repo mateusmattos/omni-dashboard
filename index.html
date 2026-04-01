@@ -602,6 +602,47 @@
       color:rgba(255,255,255,.90);
     }
 
+    /* ===== KPI BULLETS — Report Diário ===== */
+    .report-kpis{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:12px;
+      margin-bottom:4px;
+    }
+    @media(max-width:900px){ .report-kpis{ grid-template-columns: repeat(2,minmax(0,1fr)); } }
+    @media(max-width:500px){ .report-kpis{ grid-template-columns: 1fr; } }
+
+    .rkpi{
+      position:relative;
+      padding:16px 16px 14px;
+      border-radius:var(--r2);
+      border:1px solid rgba(255,255,255,.10);
+      background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(0,0,0,.10));
+      box-shadow:0 12px 30px rgba(0,0,0,.18);
+      overflow:hidden;
+    }
+    .rkpi::after{
+      content:"";
+      position:absolute; left:0; top:0; bottom:0; width:5px;
+      background:var(--rkpi-accent, rgba(125,211,252,.6));
+      opacity:.7;
+    }
+    .rkpi .rkpi-label{
+      font-size:12px; color:var(--muted); letter-spacing:.2px;
+      position:relative;
+    }
+    .rkpi .rkpi-value{
+      font-size:26px; font-weight:800; letter-spacing:.1px;
+      line-height:1.1; margin-top:8px; position:relative;
+    }
+    .rkpi .rkpi-sub{
+      font-size:12px; color:var(--muted2); margin-top:6px;
+      line-height:1.35; position:relative;
+    }
+    .rkpi .rkpi-sub b.pos{ color:var(--good); }
+    .rkpi .rkpi-sub b.neg{ color:var(--bad); }
+    .rkpi .rkpi-sub b.warn{ color:var(--warn); }
+
   </style>
 </head>
 
@@ -838,7 +879,19 @@
           </div>
         </div>
 
-        <div class="panel" style="margin-top:14px" id="storeStatusPanel">
+
+        </div><!-- /tab-pane dashboard -->
+
+        <!-- ABA: REPORT DIÁRIO -->
+        <div class="tab-pane" id="tab-report">
+
+          <!-- KPI Bullets -->
+          <div class="report-kpis" id="reportKpis">
+            <!-- preenchido pelo JS ao rodar runFromState -->
+          </div>
+
+          <!-- Status das lojas -->
+          <div class="panel" id="storeStatusPanel">
                   <div class="charthead">
                     <div class="left">
                       <h3>Status das lojas (rede)</h3>
@@ -865,10 +918,6 @@
                   </div>
                 </div>
 
-        </div><!-- /tab-pane dashboard -->
-
-        <!-- ABA: REPORT DIÁRIO -->
-        <div class="tab-pane" id="tab-report">
 
           <!-- Pedidos por dia (pivot) -->
           <div class="panel">
@@ -1770,6 +1819,7 @@
       renderStoreStatus();
       renderReportPivotOrders(filtered); // ← report diário
       renderRupturas(filtered);           // ← rupturas
+      renderReportKpis(filtered);         // ← kpi bullets do report
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -2917,6 +2967,150 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
 
     elMotivo.innerHTML = htmlM;
   }
+}
+</script>
+<script>
+// ============================================================
+//  REPORT DIÁRIO — KPI Bullets operacionais
+// ============================================================
+function renderReportKpis(filteredOrders){
+  const el = document.getElementById("reportKpis");
+  if(!el) return;
+
+  if(!filteredOrders.length){
+    el.innerHTML = "";
+    return;
+  }
+
+  // --- Rupturas ---
+  const periodDates  = [...new Set(filteredOrders.map(o => o.placedDate))].sort();
+  const periodStart  = periodDates[0];
+  const periodEnd    = periodDates[periodDates.length - 1];
+
+  const ruptFiltered = rupturasState.filter(r =>
+    r.registeredDate >= periodStart && r.registeredDate <= periodEnd
+  );
+  const totalRupt    = ruptFiltered.length;
+
+  // denominador: SKUs dos pedidos não-cancelados
+  const totalSkus    = filteredOrders
+    .filter(o => !(o.status || "").includes("cancel"))
+    .reduce((a, o) => a + (o.lineCount || 1), 0);
+  const pctRupt      = totalSkus > 0 ? totalRupt / totalSkus : 0;
+
+  // motivo mais frequente
+  const reasonCount  = new Map();
+  for(const r of ruptFiltered){
+    reasonCount.set(r.reason, (reasonCount.get(r.reason) || 0) + 1);
+  }
+  const topReason    = [...reasonCount.entries()].sort((a,b) => b[1]-a[1])[0];
+  const topReasonMeta= topReason ? reasonMeta(topReason[0]) : null;
+
+  // --- Pedidos pendentes ---
+  const pending      = filteredOrders.filter(o => (o.status || "").includes("pending"));
+  const pendCount    = pending.length;
+  const pctPend      = filteredOrders.length ? pendCount / filteredOrders.length : 0;
+
+  // data do pedido pendente mais antigo
+  const oldestPend   = pending
+    .map(o => o.placedDate)
+    .sort()[0] || null;
+
+  // --- Status das lojas (último dia do período filtrado) ---
+  const storesSeries = getStoreStatusSeries();
+  // pega o registro mais recente dentro do período filtrado
+  const storeInPeriod = storesSeries
+    .filter(r => r.date >= periodStart && r.date <= periodEnd)
+    .sort((a,b) => b.date.localeCompare(a.date));
+  const lastStoreDay  = storeInPeriod[0] || null;
+
+  // média de abertas no período
+  const avgOpen = storeInPeriod.length
+    ? (storeInPeriod.reduce((a, r) => a + r.open, 0) / storeInPeriod.length).toFixed(1)
+    : null;
+
+  // --- Montar cards ---
+  function ruptColor(pct){
+    if(pct >= 0.05) return "neg";
+    if(pct >= 0.02) return "warn";
+    return "pos";
+  }
+  function pendColor(pct){
+    if(pct >= 0.10) return "neg";
+    if(pct >= 0.05) return "warn";
+    return "pos";
+  }
+  function openColor(open){
+    if(open >= 17) return "pos";
+    if(open >= 14) return "warn";
+    return "neg";
+  }
+
+  const kpis = [
+    // 1 — Rupturas
+    {
+      label: "Rupturas no período",
+      value: rupturasState.length
+        ? `${fmtInt.format(totalRupt)} SKUs`
+        : "—",
+      sub: rupturasState.length
+        ? [
+            `<b class="${ruptColor(pctRupt)}">${fmtPct.format(pctRupt)}</b> do total de ${fmtInt.format(totalSkus)} SKUs`,
+            topReasonMeta
+              ? `Principal motivo: <b style="color:${topReasonMeta.color}">${topReasonMeta.label}</b> (${fmtInt.format(topReason[1])})`
+              : ""
+          ].filter(Boolean).join("<br>")
+        : "Configure a URL do arquivo rupturas.csv",
+      accent: pctRupt >= 0.05 ? "rgba(251,113,133,.65)"
+            : pctRupt >= 0.02 ? "rgba(251,191,36,.65)"
+            : "rgba(52,211,153,.65)"
+    },
+
+    // 2 — Pedidos pendentes
+    {
+      label: "Pedidos pendentes",
+      value: `${fmtInt.format(pendCount)}`,
+      sub: [
+        `<b class="${pendColor(pctPend)}">${fmtPct.format(pctPend)}</b> dos pedidos no filtro`,
+        oldestPend
+          ? `Mais antigo: <b>${ymdToBr(oldestPend)}</b>`
+          : ""
+      ].filter(Boolean).join("<br>"),
+      accent: pendCount === 0 ? "rgba(52,211,153,.65)"
+            : pctPend >= 0.10 ? "rgba(251,113,133,.65)"
+            : "rgba(251,191,36,.65)"
+    },
+
+    // 3 — Status das lojas
+    {
+      label: lastStoreDay
+        ? `Lojas em ${ymdToBr(lastStoreDay.date)}`
+        : "Status das lojas",
+      value: lastStoreDay
+        ? `${lastStoreDay.open} abertas`
+        : "—",
+      sub: lastStoreDay
+        ? [
+            `<b class="${openColor(lastStoreDay.open)}">${lastStoreDay.closed}</b> fechada${lastStoreDay.closed !== 1 ? "s" : ""} de ${TOTAL_STORES}`,
+            avgOpen !== null && storeInPeriod.length > 1
+              ? `Média no período: <b>${avgOpen}</b> abertas/dia`
+              : ""
+          ].filter(Boolean).join("<br>")
+        : "Configure a URL do arquivo status_lojas.csv",
+      accent: !lastStoreDay ? "rgba(255,255,255,.2)"
+            : lastStoreDay.open >= 17 ? "rgba(52,211,153,.65)"
+            : lastStoreDay.open >= 14 ? "rgba(251,191,36,.65)"
+            : "rgba(251,113,133,.65)"
+    },
+  ];
+
+  el.innerHTML = kpis.map(k => `
+    <div class="rkpi" style="--rkpi-accent:${k.accent}">
+      <div class="rkpi-label">${k.label}</div>
+      <div class="rkpi-value">${k.value}</div>
+      <div class="rkpi-sub">${k.sub}</div>
+    </div>
+  `).join("");
 }
 </script>
 </body>
