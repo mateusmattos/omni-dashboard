@@ -2633,9 +2633,10 @@ function parseRupturas(rows){
     const totalOrPart = (r["totalOrPartial"] || "").trim().toLowerCase();
     const qty         = parseInt(r["treatmentQuantity"] || "0", 10) || 0;
     if(!sku || !createdRaw) continue;
-    const createdDate = createdRaw.split("T")[0];
+    const createdDate   = createdRaw.split("T")[0];   // data do pedido (referência)
+    const registeredDate = (r["registeredAt"] || "").trim().split("T")[0]; // data de aplicação da ruptura
     const locationId  = ruptLocationToId(locationRaw);
-    out.push({ orderId, createdDate, locationId, locationRaw, sku, reason, totalOrPartial: totalOrPart, qty });
+    out.push({ orderId, createdDate, registeredDate, locationId, locationRaw, sku, reason, totalOrPartial: totalOrPart, qty });
   }
   return out;
 }
@@ -2752,7 +2753,7 @@ function renderRupturas(filteredOrders){
   const periodEnd   = [...periodDates].sort().reverse()[0];
 
   const ruptFiltered = rupturasState.filter(r =>
-    r.createdDate >= periodStart && r.createdDate <= periodEnd
+    r.registeredDate >= periodStart && r.registeredDate <= periodEnd
   );
 
   // SKUs por loja (dos pedidos)
