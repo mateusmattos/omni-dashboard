@@ -1358,7 +1358,7 @@
         const price = toNumberBR(r["productPrice"]);
         const status = (r["status"] ?? r["orderStatus"] ?? r["order_status"] ?? "").toString().trim().toLowerCase();
         // captura SKU do item (para cruzamento com tabela de coleções)
-        const skuRaw = (r["sku"] ?? r["SKU"] ?? r["productSku"] ?? "").toString().trim();
+        const skuRaw = (r["product"] ?? r["sku"] ?? r["SKU"] ?? r["productSku"] ?? "").toString().trim();
 
         if(!byOrder.has(orderId)){
           byOrder.set(orderId, {
@@ -2187,6 +2187,7 @@
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
+        delimiter: "",      // auto-detect: detecta tab, vírgula ou ponto-e-vírgula
         complete: r => resolve(r.data),
         error:    e => reject(new Error(e?.message || String(e)))
       });
