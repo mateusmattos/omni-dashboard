@@ -674,46 +674,9 @@
           <div id="autoLoadStatus" style="padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18);margin-bottom:12px;font-size:12.5px;line-height:1.55;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
               <span id="autoLoadDot" style="width:8px;height:8px;border-radius:99px;background:var(--warn);box-shadow:0 0 0 4px rgba(251,191,36,.12);flex-shrink:0"></span>
-              <b id="autoLoadTitle" style="font-size:13px;">Aguardando configuração...</b>
+              <b id="autoLoadTitle" style="font-size:13px;">Carregando dados...</b>
             </div>
-            <div id="autoLoadMsg" style="color:var(--muted);font-size:12px;">Configure as URLs abaixo para carregar os dados automaticamente.</div>
-          </div>
-
-          <!-- CONFIGURAÇÃO DE URLs -->
-          <div style="margin-bottom:10px;">
-            <div id="toggleConfig" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
-              <span id="toggleConfigIcon" style="font-size:10px;">▶</span>
-              <span>Configurar URLs dos arquivos</span>
-            </div>
-            <div id="configFields" style="display:none;margin-top:10px;">
-              <div class="field">
-                <label>URL — CSV de Pedidos</label>
-                <input id="urlOrders" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
-              </div>
-              <div class="field">
-                <label>URL — CSV de Metas</label>
-                <input id="urlTarget" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
-              </div>
-              <div class="field">
-                <label>URL — CSV de Status das Lojas</label>
-                <input id="urlStoreStatus" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
-                <div class="help">Formato: <span class="mono">data, fechadas</span> — ex.: <span class="mono">2025-03-24, 4</span>. Abertas = 19 − fechadas.</div>
-              </div>
-              <div class="field">
-                <label>URL — CSV de Rupturas</label>
-                <input id="urlRupturas" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
-                <div class="help">Arquivo <span class="mono">rupturas.csv</span> com campos: <span class="mono">createdAt, orderId, location, sku, reason, totalOrPartial</span>.</div>
-              </div>
-              <div class="field">
-                <label>URL — CSV de Coleções (SKUs)</label>
-                <input id="urlColecao" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
-                <div class="help">Arquivo <span class="mono">skus_colecao.csv</span> — colunas: <span class="mono">sku, colecao, categoria, subcategoria</span>.</div>
-              </div>
-              <div class="btnrow">
-                <button id="btnSaveUrls" class="primary" style="flex:1">💾 Salvar e recarregar</button>
-              </div>
-              <div id="configStatus" style="font-size:11.5px;color:var(--muted2);margin-top:6px;min-height:14px;"></div>
-            </div>
+            <div id="autoLoadMsg" style="color:var(--muted);font-size:12px;">Buscando arquivos do repositório.</div>
           </div>
 
           <div class="divider"></div>
@@ -735,7 +698,6 @@
               <input id="startDate" type="date"/>
               <input id="endDate" type="date"/>
             </div>
-            <div class="help">O período impacta KPIs, gráfico, top lojas e tabelas.</div>
           </div>
 
           <div class="btnrow">
@@ -743,42 +705,13 @@
             <button id="clear" class="ghost">Limpar</button>
           </div>
 
-          <div class="divider"></div>
-
-          <!-- UPLOAD LOCAL (fallback) -->
-          <div>
-            <div id="toggleUpload" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted);user-select:none;">
-              <span id="toggleUploadIcon" style="font-size:10px;">▶</span>
-              <span>Upload manual (fallback)</span>
-            </div>
-            <div id="uploadFields" style="display:none;margin-top:10px;">
-              <div class="field">
-                <label>Pedidos (CSV)</label>
-                <input id="fileOrders" type="file" accept=".csv"/>
-              </div>
-              <div class="grid2">
-                <div class="field">
-                  <label>Modo</label>
-                  <select id="ordersLoadMode"><option value="APPEND">Incremental</option><option value="REPLACE">Substituir</option></select>
-                </div>
-                <div class="field">
-                  <label>Deduplicação</label>
-                  <select id="ordersDedupeMode"><option value="KEEP_MAX_LINE">Manter maior linha</option><option value="SUM_LINES">Somar linhas</option></select>
-                </div>
-              </div>
-              <div class="field" style="margin-top:6px;">
-                <label>Metas (CSV)</label>
-                <input id="fileTarget" type="file" accept=".csv"/>
-              </div>
-              <div class="field">
-                <label>Modo (Metas)</label>
-                <select id="targetLoadMode"><option value="REPLACE">Substituir</option><option value="APPEND">Incremental</option></select>
-              </div>
-            </div>
-          </div>
-
           <!-- Inputs stub para compatibilidade com JS original -->
           <div style="display:none">
+            <input id="fileOrders" type="file" accept=".csv"/>
+            <input id="fileTarget" type="file" accept=".csv"/>
+            <select id="ordersLoadMode"><option value="APPEND">Incremental</option></select>
+            <select id="ordersDedupeMode"><option value="KEEP_MAX_LINE">Manter maior linha</option></select>
+            <select id="targetLoadMode"><option value="REPLACE">Substituir</option></select>
             <input id="storeStatusDate" type="date"/>
             <input id="storeClosedInput" type="number"/>
             <button id="storeStatusSave"></button>
@@ -2208,47 +2141,19 @@
 // ============================================================
 (function(){
 
-  const KEY_URL_ORDERS      = "omni_gh_url_orders_v1";
-  const KEY_URL_TARGET      = "omni_gh_url_target_v1";
-  const KEY_URL_STORESTATUS = "omni_gh_url_storestatus_v1";
-  const KEY_URL_RUPTURAS    = "omni_gh_url_rupturas_v1";
-  const KEY_URL_COLECAO     = "omni_gh_url_colecao_v1";
+  // URLs fixas dos arquivos no GitHub — atualizam automaticamente ao recarregar a página
+  const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
+  const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
+  const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
+  const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
+  const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
 
-  // --- UI refs ---
+  // Refs de UI — apenas status de carga
   const elDot    = document.getElementById("autoLoadDot");
   const elTitle  = document.getElementById("autoLoadTitle");
   const elMsg    = document.getElementById("autoLoadMsg");
 
-  const elToggleConfig  = document.getElementById("toggleConfig");
-  const elConfigIcon    = document.getElementById("toggleConfigIcon");
-  const elConfigFields  = document.getElementById("configFields");
-  const elConfigStatus  = document.getElementById("configStatus");
-  const elUrlOrders     = document.getElementById("urlOrders");
-  const elUrlTarget     = document.getElementById("urlTarget");
-  const elUrlStoreStatus= document.getElementById("urlStoreStatus");
-  const elUrlRupturas   = document.getElementById("urlRupturas");
-  const elUrlColecao    = document.getElementById("urlColecao");
-  const elBtnSave       = document.getElementById("btnSaveUrls");
-
-  const elToggleUpload  = document.getElementById("toggleUpload");
-  const elUploadIcon    = document.getElementById("toggleUploadIcon");
-  const elUploadFields  = document.getElementById("uploadFields");
-
-  // --- Toggles ---
-  if(elToggleConfig){
-    elToggleConfig.addEventListener("click", () => {
-      const open = elConfigFields.style.display !== "none";
-      elConfigFields.style.display = open ? "none" : "block";
-      elConfigIcon.textContent = open ? "▶" : "▼";
-    });
-  }
-  if(elToggleUpload){
-    elToggleUpload.addEventListener("click", () => {
-      const open = elUploadFields.style.display !== "none";
-      elUploadFields.style.display = open ? "none" : "block";
-      elUploadIcon.textContent = open ? "▶" : "▼";
-    });
-  }
+  // Sem inputs de URL — configuração é feita diretamente no código
 
   // --- Status helpers ---
   function setStatus(ok, title, msg){
@@ -2264,41 +2169,9 @@
     if(elMsg)   elMsg.innerHTML = msg || "";
   }
 
-  // --- Restaurar inputs ---
-  function restoreInputs(){
-    const uo = localStorage.getItem(KEY_URL_ORDERS) || "";
-    const ut = localStorage.getItem(KEY_URL_TARGET) || "";
-    const us = localStorage.getItem(KEY_URL_STORESTATUS) || "";
-    const ur = localStorage.getItem(KEY_URL_RUPTURAS) || "";
-    const uc = localStorage.getItem(KEY_URL_COLECAO) || "";
-    if(elUrlOrders && uo)      elUrlOrders.value = uo;
-    if(elUrlTarget && ut)      elUrlTarget.value = ut;
-    if(elUrlStoreStatus && us) elUrlStoreStatus.value = us;
-    if(elUrlRupturas && ur)    elUrlRupturas.value = ur;
-    if(elUrlColecao && uc)     elUrlColecao.value = uc;
-  }
-  restoreInputs();
+  // Sem restauração de inputs — URLs são fixas no código
 
-  // --- Salvar e recarregar ---
-  if(elBtnSave){
-    elBtnSave.addEventListener("click", () => {
-      const uo = (elUrlOrders?.value || "").trim();
-      const ut = (elUrlTarget?.value || "").trim();
-      const us = (elUrlStoreStatus?.value || "").trim();
-      const uc = (elUrlColecao?.value || "").trim();
-      if(!uo && !ut && !us && !ur && !uc){
-        if(elConfigStatus){ elConfigStatus.style.color="var(--bad)"; elConfigStatus.textContent="Cole ao menos uma URL antes de salvar."; }
-        return;
-      }
-      uo ? localStorage.setItem(KEY_URL_ORDERS, uo)      : localStorage.removeItem(KEY_URL_ORDERS);
-      ut ? localStorage.setItem(KEY_URL_TARGET, ut)      : localStorage.removeItem(KEY_URL_TARGET);
-      us ? localStorage.setItem(KEY_URL_STORESTATUS, us) : localStorage.removeItem(KEY_URL_STORESTATUS);
-      ur ? localStorage.setItem(KEY_URL_RUPTURAS, ur)    : localStorage.removeItem(KEY_URL_RUPTURAS);
-      uc ? localStorage.setItem(KEY_URL_COLECAO, uc)     : localStorage.removeItem(KEY_URL_COLECAO);
-      if(elConfigStatus){ elConfigStatus.style.color="var(--good)"; elConfigStatus.textContent="URLs salvas! Recarregando..."; }
-      setTimeout(() => loadAll(), 300);
-    });
-  }
+  // Sem botão de salvar — URLs são fixas no código
 
   // --- Fetch com cache-bust ---
   async function fetchCsv(url){
@@ -2422,17 +2295,11 @@
 
   // --- Carga principal ---
   async function loadAll(){
-    const urlOrders      = localStorage.getItem(KEY_URL_ORDERS) || "";
-    const urlTarget      = localStorage.getItem(KEY_URL_TARGET) || "";
-    const urlStoreStatus = localStorage.getItem(KEY_URL_STORESTATUS) || "";
-    const urlRupturas    = localStorage.getItem(KEY_URL_RUPTURAS) || "";
-    const urlColecao     = localStorage.getItem(KEY_URL_COLECAO) || "";
-
-    if(!urlOrders && !urlTarget && !urlStoreStatus && !urlRupturas && !urlColecao){
-      setStatus(null, "URLs não configuradas",
-        'Clique em <b>Configurar URLs dos arquivos</b>, cole as URLs raw do GitHub e salve.');
-      return;
-    }
+    const urlOrders      = URL_ORDERS;
+    const urlTarget      = URL_TARGET;
+    const urlStoreStatus = URL_STORESTATUS;
+    const urlRupturas    = URL_RUPTURAS;
+    const urlColecao     = URL_COLECAO;
 
     setStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
