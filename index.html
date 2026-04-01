@@ -505,6 +505,103 @@
       width:8px; height:8px; border-radius:99px;
     }
 
+    /* ===== RUPTURAS ===== */
+    .rupt-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:16px;
+    }
+    @media(max-width:1100px){ .rupt-grid{ grid-template-columns:1fr; } }
+
+    .rupt-table{ width:100%; border-collapse:separate; border-spacing:0; }
+    .rupt-table thead th{
+      position:sticky; top:0;
+      background:rgba(10,14,30,.92); backdrop-filter:blur(8px);
+      color:rgba(255,255,255,.72); font-size:11.5px; font-weight:600;
+      text-align:right; padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      white-space:nowrap;
+    }
+    .rupt-table thead th:first-child{ text-align:left; }
+    .rupt-table tbody td{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.05);
+      font-size:12.5px; text-align:right;
+      vertical-align:middle;
+    }
+    .rupt-table tbody td:first-child{ text-align:left; font-weight:600; color:rgba(255,255,255,.90); }
+    .rupt-table tbody tr:hover td{ background:rgba(255,255,255,.03); }
+    .rupt-table tfoot td{
+      padding:10px 12px; border-top:1px solid rgba(255,255,255,.12);
+      font-size:12.5px; font-weight:700; text-align:right;
+      background:rgba(10,14,30,.60); color:rgba(255,255,255,.90);
+    }
+    .rupt-table tfoot td:first-child{ text-align:left; }
+
+    /* barra de % ruptura com cor por severidade */
+    .pct-bar-wrap{
+      display:flex; align-items:center; gap:8px; justify-content:flex-end;
+    }
+    .pct-bar-bg{
+      width:60px; height:6px; border-radius:99px;
+      background:rgba(255,255,255,.08); overflow:hidden; flex-shrink:0;
+    }
+    .pct-bar-fill{ height:100%; border-radius:99px; transition:width .3s; }
+    .pct-val{ font-weight:700; font-size:12.5px; min-width:38px; text-align:right; }
+
+    /* motivos */
+    .reason-badge{
+      display:inline-flex; align-items:center; gap:5px;
+      padding:4px 8px; border-radius:999px;
+      font-size:11px; font-weight:600; letter-spacing:.2px;
+    }
+
+    /* ===== FILTRO DE MOTIVOS (multiselect pills) ===== */
+    .motivo-filter-bar{
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.07);
+    }
+    .motivo-filter-bar .filter-label{
+      font-size:12px; color:var(--muted); white-space:nowrap; margin-right:4px;
+    }
+    .motivo-pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:5px 11px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.20);
+      color:rgba(255,255,255,.65);
+      font-size:11.5px; font-weight:600; letter-spacing:.15px;
+      cursor:pointer;
+      transition: background .12s, border-color .12s, color .12s;
+      user-select:none;
+    }
+    .motivo-pill:hover{
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.88);
+    }
+    .motivo-pill.active{
+      color:#fff;
+      border-color: var(--pill-color, rgba(255,255,255,.4));
+      background: color-mix(in srgb, var(--pill-color, #7dd3fc) 18%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--pill-color, #7dd3fc) 35%, transparent);
+    }
+    .motivo-pill .pill-dot{
+      width:7px; height:7px; border-radius:99px;
+      background: var(--pill-color, #7dd3fc);
+      flex-shrink:0;
+    }
+    .motivo-pill-all{
+      border-color:rgba(255,255,255,.18);
+      color:var(--muted);
+    }
+    .motivo-pill-all.active{
+      background:rgba(255,255,255,.10);
+      border-color:rgba(255,255,255,.28);
+      color:rgba(255,255,255,.90);
+    }
+
   </style>
 </head>
 
@@ -560,6 +657,11 @@
                 <label>URL — CSV de Status das Lojas</label>
                 <input id="urlStoreStatus" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
                 <div class="help">Formato: <span class="mono">data, fechadas</span> — ex.: <span class="mono">2025-03-24, 4</span>. Abertas = 19 − fechadas.</div>
+              </div>
+              <div class="field">
+                <label>URL — CSV de Rupturas</label>
+                <input id="urlRupturas" type="url" placeholder="https://raw.githubusercontent.com/..." style="width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);color:var(--text);outline:none;font-size:12px;"/>
+                <div class="help">Arquivo <span class="mono">rupturas.csv</span> com campos: <span class="mono">createdAt, orderId, location, sku, reason, totalOrPartial</span>.</div>
               </div>
               <div class="btnrow">
                 <button id="btnSaveUrls" class="primary" style="flex:1">💾 Salvar e recarregar</button>
@@ -788,6 +890,43 @@
                 <span class="legend-dot" style="background:var(--warn)"></span>
                 Número em laranja = pedidos com status <b>pending</b>
               </span>
+            </div>
+          </div>
+
+          <!-- Rupturas por loja -->
+          <div class="panel">
+            <div class="hd">
+              <h2>Rupturas por loja</h2>
+              <span class="badge" id="ruptBadge">—</span>
+            </div>
+            <!-- Filtro de motivos -->
+            <div class="motivo-filter-bar" id="motivoFilterBar">
+              <span class="filter-label">Motivo:</span>
+              <!-- pills geradas dinamicamente pelo JS -->
+            </div>
+            <div id="reportRupturas">
+              <div style="padding:18px;color:var(--muted);font-size:13px;">
+                Carregue o arquivo <b>rupturas.csv</b> via URL para ver esta visão.
+              </div>
+            </div>
+            <div class="report-legend">
+              <span class="legend-item"><span class="legend-dot" style="background:#34d399"></span> &lt; 2% — dentro do esperado</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> 2%–5% — atenção</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#fb7185"></span> &gt; 5% — crítico</span>
+              <span class="legend-item" style="margin-left:auto;color:var(--muted2);font-size:11px;">% = SKUs em ruptura ÷ total de SKUs dos pedidos no período</span>
+            </div>
+          </div>
+
+          <!-- Rupturas por motivo -->
+          <div class="panel">
+            <div class="hd">
+              <h2>Rupturas por motivo</h2>
+              <span class="badge" id="ruptMotivoBadge">breakdown</span>
+            </div>
+            <div id="reportRupturasMotivo">
+              <div style="padding:18px;color:var(--muted);font-size:13px;">
+                Carregue o arquivo <b>rupturas.csv</b> para ver o breakdown por motivo.
+              </div>
             </div>
           </div>
 
@@ -1148,8 +1287,9 @@
     }
 
     // ---------- State ----------
-    let ordersState = [];  // array {order, placedDate, placedAtIso, channelId, locationId, value, lineCount}
+    let ordersState = [];  // array {order, placedDate, placedAtIso, channelId, locationId, value, lineCount, status}
     let targetsState = {}; // dict isoDate -> targetValue
+    let rupturasState = []; // array de linhas do CSV rupturas
     let trendChart = null;
     let storesChart = null;
 
@@ -1629,6 +1769,7 @@
       renderInsights(daily);
       renderStoreStatus();
       renderReportPivotOrders(filtered); // ← report diário
+      renderRupturas(filtered);           // ← rupturas
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -2007,6 +2148,7 @@
   const KEY_URL_ORDERS      = "omni_gh_url_orders_v1";
   const KEY_URL_TARGET      = "omni_gh_url_target_v1";
   const KEY_URL_STORESTATUS = "omni_gh_url_storestatus_v1";
+  const KEY_URL_RUPTURAS    = "omni_gh_url_rupturas_v1";
 
   // --- UI refs ---
   const elDot    = document.getElementById("autoLoadDot");
@@ -2020,6 +2162,7 @@
   const elUrlOrders     = document.getElementById("urlOrders");
   const elUrlTarget     = document.getElementById("urlTarget");
   const elUrlStoreStatus= document.getElementById("urlStoreStatus");
+  const elUrlRupturas   = document.getElementById("urlRupturas");
   const elBtnSave       = document.getElementById("btnSaveUrls");
 
   const elToggleUpload  = document.getElementById("toggleUpload");
@@ -2061,9 +2204,11 @@
     const uo = localStorage.getItem(KEY_URL_ORDERS) || "";
     const ut = localStorage.getItem(KEY_URL_TARGET) || "";
     const us = localStorage.getItem(KEY_URL_STORESTATUS) || "";
+    const ur = localStorage.getItem(KEY_URL_RUPTURAS) || "";
     if(elUrlOrders && uo)      elUrlOrders.value = uo;
     if(elUrlTarget && ut)      elUrlTarget.value = ut;
     if(elUrlStoreStatus && us) elUrlStoreStatus.value = us;
+    if(elUrlRupturas && ur)    elUrlRupturas.value = ur;
   }
   restoreInputs();
 
@@ -2073,13 +2218,15 @@
       const uo = (elUrlOrders?.value || "").trim();
       const ut = (elUrlTarget?.value || "").trim();
       const us = (elUrlStoreStatus?.value || "").trim();
-      if(!uo && !ut && !us){
+      const ur = (elUrlRupturas?.value || "").trim();
+      if(!uo && !ut && !us && !ur){
         if(elConfigStatus){ elConfigStatus.style.color="var(--bad)"; elConfigStatus.textContent="Cole ao menos uma URL antes de salvar."; }
         return;
       }
       uo ? localStorage.setItem(KEY_URL_ORDERS, uo)      : localStorage.removeItem(KEY_URL_ORDERS);
       ut ? localStorage.setItem(KEY_URL_TARGET, ut)      : localStorage.removeItem(KEY_URL_TARGET);
       us ? localStorage.setItem(KEY_URL_STORESTATUS, us) : localStorage.removeItem(KEY_URL_STORESTATUS);
+      ur ? localStorage.setItem(KEY_URL_RUPTURAS, ur)    : localStorage.removeItem(KEY_URL_RUPTURAS);
       if(elConfigStatus){ elConfigStatus.style.color="var(--good)"; elConfigStatus.textContent="URLs salvas! Recarregando..."; }
       setTimeout(() => loadAll(), 300);
     });
@@ -2180,13 +2327,20 @@
     return parsed.length;
   }
 
+  // --- Injetar rupturas ---
+  function injectRupturas(rows){
+    rupturasState = parseRupturas(rows);
+    return rupturasState.length;
+  }
+
   // --- Carga principal ---
   async function loadAll(){
     const urlOrders      = localStorage.getItem(KEY_URL_ORDERS) || "";
     const urlTarget      = localStorage.getItem(KEY_URL_TARGET) || "";
     const urlStoreStatus = localStorage.getItem(KEY_URL_STORESTATUS) || "";
+    const urlRupturas    = localStorage.getItem(KEY_URL_RUPTURAS) || "";
 
-    if(!urlOrders && !urlTarget && !urlStoreStatus){
+    if(!urlOrders && !urlTarget && !urlStoreStatus && !urlRupturas){
       setStatus(null, "URLs não configuradas",
         'Clique em <b>Configurar URLs dos arquivos</b>, cole as URLs raw do GitHub e salve.');
       return;
@@ -2194,12 +2348,13 @@
 
     setStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
-    ordersState  = [];
-    targetsState = {};
+    ordersState       = [];
+    targetsState      = {};
+    rupturasState     = [];
     STORE_STATUS_DYNAMIC = [];
 
     const erros = [];
-    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0;
+    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0;
 
     if(urlOrders){
       try {
@@ -2222,8 +2377,16 @@
         setStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
         const rows = await parseCsv(await fetchCsv(urlStoreStatus));
         statusLoaded = injectStoreStatus(rows);
-        renderStoreStatus(); // re-renderiza o gráfico/tabela com dados novos
+        renderStoreStatus();
       } catch(e){ erros.push("Status lojas: " + e.message); }
+    }
+
+    if(urlRupturas){
+      try {
+        setStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
+        const rows = await parseCsv(await fetchCsv(urlRupturas));
+        rupturasLoaded = injectRupturas(rows);
+      } catch(e){ erros.push("Rupturas: " + e.message); }
     }
 
     if(erros.length){
@@ -2235,9 +2398,10 @@
 
     const now = new Date().toLocaleString("pt-BR");
     const partes = [];
-    if(ordersLoaded) partes.push(`${ordersLoaded} pedidos`);
-    if(targetsLoaded) partes.push(`${targetsLoaded} dias de meta`);
-    if(statusLoaded) partes.push(`${statusLoaded} dias de status`);
+    if(ordersLoaded)   partes.push(`${ordersLoaded} pedidos`);
+    if(targetsLoaded)  partes.push(`${targetsLoaded} dias de meta`);
+    if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
+    if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
     setStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
 
     if(ordersState.length){
@@ -2403,6 +2567,349 @@ function renderReportPivotOrders(filteredOrders){
 
   html += `</table></div>`;
   container.innerHTML = html;
+}
+</script>
+<script>
+// ============================================================
+//  RUPTURAS — parse, mapeamento de lojas e render
+// ============================================================
+
+// Mapa: fragmento do nome no CSV de rupturas → locationId do CSV de pedidos
+const RUPT_LOCATION_MAP = [
+  { match: "BARIGUI",       id: "2"  },
+  { match: "MUELLER",       id: "25" },
+  { match: "ANALIAFRANCO",  id: "14" },
+  { match: "ANALIA",        id: "14" },
+  { match: "MORUMBI",       id: "17" },
+  { match: "CENTER NORTE",  id: "57" },
+  { match: "RECIFE RECIFE", id: "8"  },
+  { match: "RIO MAR",       id: "24" },
+  { match: "BARRA RIO",     id: "13" },
+  { match: "BARRA SUL",     id: "20" },
+  { match: "IGUATEMI",      id: "3"  },
+  { match: "BH BOULEVARD",  id: "55" },
+  { match: "BELEM",         id: "51" },
+  { match: "BRASILIA",      id: "10" },
+  { match: "CAMPO GRANDE",  id: "50" },
+  { match: "GOIABEIRAS",    id: "19" },
+  { match: "PONTA NEGRA",   id: "21" },
+  { match: "SALVADOR",      id: "9"  },
+  { match: "BALNEARIO",     id: "4"  },
+  { match: "BAL CAMBORIU",  id: "4"  },
+  { match: "CAMBORIU",      id: "4"  },
+];
+
+function ruptLocationToId(locationStr){
+  const up = (locationStr || "").toUpperCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  for(const { match, id } of RUPT_LOCATION_MAP){
+    if(up.includes(match)) return id;
+  }
+  return null;
+}
+
+const REASON_LABELS = {
+  "SYSTEM_ERROR":  { label: "Erro de sistema",     color: "#fb7185" },
+  "NOT_FOUND":     { label: "Não encontrado",       color: "#fbbf24" },
+  "BEFORE_SOLD":   { label: "Vendido antes",        color: "#f97316" },
+  "DEFECT":        { label: "Defeito",              color: "#a78bfa" },
+  "SENDING_TO_DC": { label: "Em transferência",     color: "#7dd3fc" },
+  "RUPTURE":       { label: "Ruptura declarada",    color: "#fb7185" },
+  "":              { label: "Sem motivo (parcial)", color: "#6b7280" },
+};
+
+function reasonMeta(r){
+  return REASON_LABELS[r] || { label: r || "Desconhecido", color: "#6b7280" };
+}
+
+function parseRupturas(rows){
+  const out = [];
+  for(const r of rows){
+    const createdRaw  = (r["createdAt"]  || "").trim();
+    const orderId     = (r["orderId"]    || "").toString().trim();
+    const locationRaw = (r["location"]   || "").trim();
+    const sku         = (r["sku"]        || "").trim();
+    const reason      = (r["reason"]     || "").trim();
+    const totalOrPart = (r["totalOrPartial"] || "").trim().toLowerCase();
+    const qty         = parseInt(r["treatmentQuantity"] || "0", 10) || 0;
+    if(!sku || !createdRaw) continue;
+    const createdDate = createdRaw.split("T")[0];
+    const locationId  = ruptLocationToId(locationRaw);
+    out.push({ orderId, createdDate, locationId, locationRaw, sku, reason, totalOrPartial: totalOrPart, qty });
+  }
+  return out;
+}
+
+function pctColor(pct){
+  if(pct >= 0.05) return "#fb7185";
+  if(pct >= 0.02) return "#fbbf24";
+  return "#34d399";
+}
+
+// ---- Estado do filtro de motivos ----
+// null = todos; Set de strings = motivos selecionados
+let _ruptActiveMotivos = null; // null = "Todos" ativo
+
+// ---- Constrói as pills de motivo com base nos motivos presentes nos dados ----
+function buildMotivoPills(presentReasons){
+  const bar = document.getElementById("motivoFilterBar");
+  if(!bar) return;
+
+  bar.innerHTML = `<span class="filter-label">Motivo:</span>`;
+
+  // Pill "Todos"
+  const allPill = document.createElement("span");
+  allPill.className = "motivo-pill motivo-pill-all" + (_ruptActiveMotivos === null ? " active" : "");
+  allPill.textContent = "Todos";
+  allPill.addEventListener("click", () => {
+    _ruptActiveMotivos = null;
+    bar.querySelectorAll(".motivo-pill").forEach(p => p.classList.remove("active"));
+    allPill.classList.add("active");
+    _reRenderRupturas();
+  });
+  bar.appendChild(allPill);
+
+  // Pills por motivo
+  for(const reason of presentReasons){
+    const meta = reasonMeta(reason);
+    const pill = document.createElement("span");
+    pill.className = "motivo-pill";
+    pill.style.setProperty("--pill-color", meta.color);
+
+    // marca como ativo se estiver no Set
+    if(_ruptActiveMotivos !== null && _ruptActiveMotivos.has(reason)){
+      pill.classList.add("active");
+    }
+
+    pill.innerHTML = `<span class="pill-dot"></span>${meta.label}`;
+    pill.dataset.reason = reason;
+
+    pill.addEventListener("click", () => {
+      // toggle
+      if(_ruptActiveMotivos === null) _ruptActiveMotivos = new Set();
+
+      if(_ruptActiveMotivos.has(reason)){
+        _ruptActiveMotivos.delete(reason);
+      } else {
+        _ruptActiveMotivos.add(reason);
+      }
+
+      // se ficou vazio → volta para "Todos"
+      if(_ruptActiveMotivos.size === 0) _ruptActiveMotivos = null;
+
+      // sincroniza visual de todas as pills
+      bar.querySelectorAll(".motivo-pill[data-reason]").forEach(p => {
+        const isActive = _ruptActiveMotivos !== null && _ruptActiveMotivos.has(p.dataset.reason);
+        p.classList.toggle("active", isActive);
+      });
+      allPill.classList.toggle("active", _ruptActiveMotivos === null);
+
+      _reRenderRupturas();
+    });
+
+    bar.appendChild(pill);
+  }
+}
+
+// Guarda os dados do último render para re-renderizar sem recalcular tudo
+let _lastRuptRender = null;
+
+function _reRenderRupturas(){
+  if(!_lastRuptRender) return;
+  _renderRupturasTabelas(
+    _lastRuptRender.ruptFiltered,
+    _lastRuptRender.filteredOrders,
+    _lastRuptRender.avgPricePerSku,
+    _lastRuptRender.skusByStore,
+    _lastRuptRender.totalSkusGlobal
+  );
+}
+
+// ---- Render principal (chamado pelo runFromState) ----
+function renderRupturas(filteredOrders){
+  const elLoja   = document.getElementById("reportRupturas");
+  const elMotivo = document.getElementById("reportRupturasMotivo");
+  const badge    = document.getElementById("ruptBadge");
+
+  if(!elLoja) return;
+
+  if(!rupturasState.length){
+    const msg = `<div style="padding:18px;color:var(--muted);font-size:13px;">
+      Configure a URL do arquivo <b>rupturas.csv</b> no painel lateral para ver esta visão.
+    </div>`;
+    elLoja.innerHTML = msg;
+    if(elMotivo) elMotivo.innerHTML = msg;
+    if(badge) badge.textContent = "—";
+    return;
+  }
+
+  const periodDates = new Set(filteredOrders.map(o => o.placedDate));
+  if(!periodDates.size){
+    elLoja.innerHTML = `<div style="padding:18px;color:var(--muted);font-size:13px;">Nenhum pedido no filtro selecionado.</div>`;
+    return;
+  }
+  const periodStart = [...periodDates].sort()[0];
+  const periodEnd   = [...periodDates].sort().reverse()[0];
+
+  const ruptFiltered = rupturasState.filter(r =>
+    r.createdDate >= periodStart && r.createdDate <= periodEnd
+  );
+
+  // SKUs por loja (dos pedidos)
+  const skusByStore = new Map();
+  let totalSkusGlobal = 0;
+  for(const o of filteredOrders){
+    const lid = o.locationId || "";
+    skusByStore.set(lid, (skusByStore.get(lid) || 0) + (o.lineCount || 1));
+    totalSkusGlobal += (o.lineCount || 1);
+  }
+
+  const totalRevenue    = filteredOrders.reduce((a, o) => a + (o.value || 0), 0);
+  const avgPricePerSku  = totalSkusGlobal > 0 ? totalRevenue / totalSkusGlobal : 0;
+
+  // Motivos presentes — para montar as pills
+  const presentReasons  = [...new Set(ruptFiltered.map(r => r.reason))].sort();
+  buildMotivoPills(presentReasons);
+
+  // Salva contexto para re-render ao mudar filtro
+  _lastRuptRender = { ruptFiltered, filteredOrders, avgPricePerSku, skusByStore, totalSkusGlobal };
+
+  _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, skusByStore, totalSkusGlobal);
+}
+
+// ---- Render das tabelas (chamado direto ou após mudança de filtro de motivo) ----
+function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, skusByStore, totalSkusGlobal){
+  const elLoja   = document.getElementById("reportRupturas");
+  const elMotivo = document.getElementById("reportRupturasMotivo");
+  const badge    = document.getElementById("ruptBadge");
+  const badgeM   = document.getElementById("ruptMotivoBadge");
+
+  // Aplica filtro de motivos
+  const ruptVisiveis = _ruptActiveMotivos === null
+    ? ruptFiltered
+    : ruptFiltered.filter(r => _ruptActiveMotivos.has(r.reason));
+
+  const totalRupturas = ruptVisiveis.length;
+  const pctGlobal     = totalSkusGlobal > 0 ? totalRupturas / totalSkusGlobal : 0;
+
+  const filtroLabel = _ruptActiveMotivos === null
+    ? "todos os motivos"
+    : [..._ruptActiveMotivos].map(r => reasonMeta(r).label).join(", ");
+
+  if(badge){
+    badge.textContent =
+      `${totalRupturas} rupturas • ${fmtPct.format(pctGlobal)} de ${fmtInt.format(totalSkusGlobal)} SKUs`;
+  }
+  if(badgeM){
+    badgeM.textContent = _ruptActiveMotivos === null
+      ? "todos os motivos"
+      : `${[..._ruptActiveMotivos].length} motivo(s) selecionado(s)`;
+  }
+
+  // ---- Tabela por loja ----
+  const ruptByStore = new Map();
+  for(const r of ruptVisiveis){
+    const lid = r.locationId || "__unknown__";
+    if(!ruptByStore.has(lid)) ruptByStore.set(lid, { total: 0 });
+    ruptByStore.get(lid).total++;
+  }
+
+  const storeIds = [...skusByStore.keys()].filter(id => id !== "");
+  storeIds.sort((a, b) => {
+    const ra = ruptByStore.get(a)?.total || 0;
+    const rb = ruptByStore.get(b)?.total || 0;
+    const sa = skusByStore.get(a) || 1;
+    const sb = skusByStore.get(b) || 1;
+    return (rb / sb) - (ra / sa);
+  });
+
+  let html = `<div class="pivot-wrap"><table class="rupt-table">
+    <thead><tr>
+      <th style="text-align:left">Loja</th>
+      <th>Qtd. Itens</th>
+      <th>Qtd. Rupturas</th>
+      <th>% Ruptura</th>
+      <th>$ Ruptura (est.)</th>
+    </tr></thead><tbody>`;
+
+  let grandItens = 0, grandRupt = 0, grandValor = 0;
+
+  for(const lid of storeIds){
+    const totalItens = skusByStore.get(lid) || 0;
+    const rupt  = ruptByStore.get(lid)?.total || 0;
+    const pct   = totalItens > 0 ? rupt / totalItens : 0;
+    const valor = rupt * avgPricePerSku;
+    const color = pctColor(pct);
+    const barW  = Math.min(100, pct * 100).toFixed(1);
+    grandItens += totalItens; grandRupt += rupt; grandValor += valor;
+
+    html += `<tr>
+      <td>${storeLabel(lid)}</td>
+      <td>${fmtInt.format(totalItens)}</td>
+      <td>${fmtInt.format(rupt)}</td>
+      <td><div class="pct-bar-wrap">
+        <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${barW}%;background:${color}"></div></div>
+        <span class="pct-val" style="color:${color}">${fmtPct.format(pct)}</span>
+      </div></td>
+      <td>${fmtBRL.format(valor)}</td>
+    </tr>`;
+  }
+
+  const pctGrand = grandItens > 0 ? grandRupt / grandItens : 0;
+  html += `</tbody><tfoot><tr>
+    <td>Total Geral</td>
+    <td>${fmtInt.format(grandItens)}</td>
+    <td>${fmtInt.format(grandRupt)}</td>
+    <td><span style="color:${pctColor(pctGrand)};font-weight:700">${fmtPct.format(pctGrand)}</span></td>
+    <td>${fmtBRL.format(grandValor)}</td>
+  </tr></tfoot></table></div>`;
+
+  elLoja.innerHTML = html;
+
+  // ---- Tabela por motivo ----
+  if(elMotivo){
+    const ruptByReason = new Map();
+    for(const r of ruptVisiveis){
+      ruptByReason.set(r.reason, (ruptByReason.get(r.reason) || 0) + 1);
+    }
+
+    const motivos  = [...ruptByReason.entries()].sort((a, b) => b[1] - a[1]);
+    const totalM   = motivos.reduce((s, [, v]) => s + v, 0);
+
+    let htmlM = `<div class="pivot-wrap"><table class="rupt-table">
+      <thead><tr>
+        <th style="text-align:left">Motivo</th>
+        <th>Qtd. SKUs</th>
+        <th>% do total</th>
+        <th>$ Estimado</th>
+      </tr></thead><tbody>`;
+
+    for(const [reason, qty] of motivos){
+      const meta  = reasonMeta(reason);
+      const pctM  = totalM > 0 ? qty / totalM : 0;
+      const valor = qty * avgPricePerSku;
+      const barW  = Math.min(100, pctM * 100).toFixed(1);
+
+      htmlM += `<tr>
+        <td><span class="reason-badge" style="background:${meta.color}22;color:${meta.color};border:1px solid ${meta.color}44">${meta.label}</span></td>
+        <td>${fmtInt.format(qty)}</td>
+        <td><div class="pct-bar-wrap">
+          <div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${barW}%;background:${meta.color}"></div></div>
+          <span class="pct-val" style="color:${meta.color}">${fmtPct.format(pctM)}</span>
+        </div></td>
+        <td>${fmtBRL.format(valor)}</td>
+      </tr>`;
+    }
+
+    htmlM += `</tbody><tfoot><tr>
+      <td>Total${_ruptActiveMotivos !== null ? ` (filtrado)` : ``}</td>
+      <td>${fmtInt.format(totalM)}</td>
+      <td>100,0%</td>
+      <td>${fmtBRL.format(totalM * avgPricePerSku)}</td>
+    </tr></tfoot></table></div>`;
+
+    elMotivo.innerHTML = htmlM;
+  }
 }
 </script>
 </body>
