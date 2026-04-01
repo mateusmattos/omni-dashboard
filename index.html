@@ -1986,13 +1986,14 @@
       els.trendNote.textContent = "";
     });
 
-    // Selects: só change. Inputs de data: change + input (garante disparo ao selecionar no calendário)
+    // Selects
     [els.channelFilter, els.storeFilter].forEach(el => {
-      el.addEventListener("change", () => { if(!els.apply.disabled) runFromState(); });
+      el.addEventListener("change", () => { if(ordersState.length) runFromState(); });
     });
+    // Campos de data: change + input para garantir disparo em todos os browsers
     [els.startDate, els.endDate].forEach(el => {
       ["change", "input"].forEach(evt =>
-        el.addEventListener(evt, () => { if(!els.apply.disabled) runFromState(); })
+        el.addEventListener(evt, () => { if(ordersState.length) runFromState(); })
       );
     });
   
@@ -2025,27 +2026,26 @@
 
 
 <script>
-// Auto-apply unificado — escuta change + input em todos os filtros
-// Substitui os dois blocos legados anteriores
+// Auto-apply unificado
 (function(){
   function tryApply(){
-    const btn = document.getElementById('apply');
-    if(btn && !btn.disabled) btn.click();
+    // usa ordersState diretamente — não depende do estado disabled do botão
+    if(typeof ordersState !== "undefined" && ordersState.length){
+      if(typeof runFromState === "function") runFromState();
+    }
   }
 
-  // Selects e uploads: change
   ['fileOrders','fileTarget','storeFilter','channelFilter',
    'ordersLoadMode','ordersDedupeMode','targetLoadMode'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('change', () => setTimeout(tryApply, 120));
   });
 
-  // Campos de data: change + input (garante disparo ao selecionar no calendário nativo)
   ['startDate','endDate'].forEach(id => {
     const el = document.getElementById(id);
     if(!el) return;
-    el.addEventListener('change', () => setTimeout(tryApply, 120));
-    el.addEventListener('input',  () => setTimeout(tryApply, 120));
+    el.addEventListener('change', () => setTimeout(tryApply, 50));
+    el.addEventListener('input',  () => setTimeout(tryApply, 50));
   });
 
   // Colorização dos KPI cards
