@@ -1986,8 +1986,14 @@
       els.trendNote.textContent = "";
     });
 
-    [els.startDate, els.endDate, els.channelFilter, els.storeFilter].forEach(el => {
+    // Selects: só change. Inputs de data: change + input (garante disparo ao selecionar no calendário)
+    [els.channelFilter, els.storeFilter].forEach(el => {
       el.addEventListener("change", () => { if(!els.apply.disabled) runFromState(); });
+    });
+    [els.startDate, els.endDate].forEach(el => {
+      ["change", "input"].forEach(evt =>
+        el.addEventListener(evt, () => { if(!els.apply.disabled) runFromState(); })
+      );
     });
   
 
@@ -2017,67 +2023,50 @@
 })();
   </script>
 
+
 <script>
-// AUTO-APPLY FIX
+// Auto-apply unificado — escuta change + input em todos os filtros
+// Substitui os dois blocos legados anteriores
 (function(){
-  function autoApply(){
+  function tryApply(){
     const btn = document.getElementById('apply');
-    if(btn){ btn.click(); }
+    if(btn && !btn.disabled) btn.click();
   }
 
-  ['fileOrders','fileTarget'].forEach(id=>{
+  // Selects e uploads: change
+  ['fileOrders','fileTarget','storeFilter','channelFilter',
+   'ordersLoadMode','ordersDedupeMode','targetLoadMode'].forEach(id => {
     const el = document.getElementById(id);
-    if(el){
-      el.addEventListener('change', ()=>{
-        setTimeout(autoApply, 300);
-      });
-    }
+    if(el) el.addEventListener('change', () => setTimeout(tryApply, 120));
   });
-})();
-</script>
 
-<script>
-// Executive helpers: auto-apply + KPI colorization (non-invasive)
-(function(){
-  const autoApply = () => {
-    const btn = document.getElementById('apply');
-    if(btn) btn.click();
-  };
+  // Campos de data: change + input (garante disparo ao selecionar no calendário nativo)
+  ['startDate','endDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', () => setTimeout(tryApply, 120));
+    el.addEventListener('input',  () => setTimeout(tryApply, 120));
+  });
 
-  // auto apply when loading CSVs or changing filters
-  ['fileOrders','fileTarget','storeFilter','channelFilter','startDate','endDate','ordersLoadMode','ordersDedupeMode','targetLoadMode']
-    .forEach(id=>{
-      const el = document.getElementById(id);
-      if(!el) return;
-      el.addEventListener('change', ()=> setTimeout(autoApply, 120));
-    });
-
+  // Colorização dos KPI cards
   function paintKpis(){
-    const kpis = document.querySelectorAll('#kpis .kpi');
-    kpis.forEach(card=>{
+    document.querySelectorAll('#kpis .kpi').forEach(card => {
       card.classList.remove('kpi-good','kpi-bad','kpi-warn');
-      const hasPos = card.querySelector('b.pos');
-      const hasNeg = card.querySelector('b.neg');
-
-      // If this KPI contains attainment %, use warn if < 95% (heuristic)
       const txt = card.textContent || '';
       const m = txt.match(/Atingimento:\s*([0-9]+[.,]?[0-9]*)%/i);
       if(m){
         const val = parseFloat(m[1].replace(',','.'));
-        if(!isNaN(val) && val < 95) { card.classList.add('kpi-warn'); return; }
+        if(!isNaN(val) && val < 95){ card.classList.add('kpi-warn'); return; }
       }
-
-      if(hasPos) card.classList.add('kpi-good');
-      else if(hasNeg) card.classList.add('kpi-bad');
+      if(card.querySelector('b.pos')) card.classList.add('kpi-good');
+      else if(card.querySelector('b.neg')) card.classList.add('kpi-bad');
     });
   }
-
   const kpisEl = document.getElementById('kpis');
-  if(kpisEl){
-    new MutationObserver(()=> paintKpis()).observe(kpisEl, {childList:true, subtree:true});
-  }
+  if(kpisEl) new MutationObserver(paintKpis).observe(kpisEl, {childList:true, subtree:true});
 })();
 </script>
+
 
 <script>
 // Insights visual classifier (non-invasive)
