@@ -149,6 +149,58 @@
     }
     [data-theme="light"] .insights .item b{ color: rgba(0,0,0,.90); }
 
+    /* ── Overrides de texto hardcoded branco ── */
+    [data-theme="light"] .panel .hd h2{ color: rgba(0,0,0,.80); }
+    [data-theme="light"] .badge{ color: rgba(0,0,0,.60); }
+    [data-theme="light"] .charthead .left h3{ color: rgba(0,0,0,.80); }
+    [data-theme="light"] .charthead .left p{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .note{ color: rgba(0,0,0,.50); }
+    [data-theme="light"] .kpi .label{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .kpi .value{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .kpi .delta{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .rkpi .rkpi-label{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .rkpi .rkpi-value{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .rkpi .rkpi-sub{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .pivot-table thead th{ color: rgba(0,0,0,.60); }
+    [data-theme="light"] .pivot-table tbody td{ color: rgba(0,0,0,.80); }
+    [data-theme="light"] .pivot-table tbody td.loja-col{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .pivot-table tfoot td{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .cell-val{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .cell-empty{ color: rgba(0,0,0,.25); }
+    [data-theme="light"] .cell-pend.zero{ color: rgba(0,0,0,.35); }
+    [data-theme="light"] .rupt-table thead th{ color: rgba(0,0,0,.60); }
+    [data-theme="light"] .rupt-table tbody td{ color: rgba(0,0,0,.80); }
+    [data-theme="light"] .rupt-table tbody td:first-child{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .rupt-table tfoot td{ color: rgba(0,0,0,.88); background: rgba(235,238,248,.80); }
+    [data-theme="light"] .report-legend{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .motivo-filter-bar .filter-label{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .dt thead th{ color: rgba(0,0,0,.60); }
+    [data-theme="light"] .dt tbody td{ color: rgba(0,0,0,.80); }
+    [data-theme="light"] .dt tbody td:first-child{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .dt tbody td.dt-zero{ color: rgba(0,0,0,.25); }
+    [data-theme="light"] .dt tfoot td{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .daily-panel .dp-head h3{ color: rgba(0,0,0,.75); }
+    [data-theme="light"] label{ color: rgba(0,0,0,.60); }
+    [data-theme="light"] .help{ color: rgba(0,0,0,.45); }
+    [data-theme="light"] .mono{ color: rgba(0,0,0,.70); }
+    [data-theme="light"] .brand h1{ color: rgba(0,0,0,.88); }
+    [data-theme="light"] .brand p{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] #autoLoadTitle{ color: rgba(0,0,0,.80); }
+    [data-theme="light"] #autoLoadMsg{ color: rgba(0,0,0,.55); }
+    [data-theme="light"] .pill{ color: rgba(0,0,0,.75); border-color: rgba(0,0,0,.12); background: rgba(0,0,0,.05); }
+    [data-theme="light"] .pill.warn{ border-color: rgba(217,119,6,.35); background: rgba(217,119,6,.10); }
+    [data-theme="light"] .dot{ background: var(--warn); }
+    [data-theme="light"] .dot.ok{ background: var(--good); }
+    [data-theme="light"] code{ color: rgba(0,0,0,.70); }
+
+    /* elementos gerados por JS com cores inline */
+    [data-theme="light"] .sc-name{ color: rgba(0,0,0,.82) !important; }
+    [data-theme="light"] .sc-status{ color: rgba(0,0,0,.50) !important; }
+    /* barra de fundo das mini-barras do bullet de coleções */
+    [data-theme="light"] .rkpi-sub div[style*="rgba(255,255,255,.08)"]{
+      background: rgba(0,0,0,.10) !important;
+    }
+
     /* botão de tema */
     #themeToggle{
       display:flex; align-items:center; gap:7px;
@@ -1123,7 +1175,7 @@
             </div>
             <div class="report-legend">
               <span class="legend-item">
-                <span class="legend-dot" style="background:rgba(255,255,255,.80)"></span>
+                <span class="legend-dot" style="background:var(--text);opacity:.8"></span>
                 Número em cima = total de pedidos
               </span>
               <span class="legend-item">
@@ -3364,7 +3416,7 @@ function renderReportKpis(filteredOrders){
         const barW = Math.min(100, pct * 100).toFixed(0);
         return `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
           <span style="font-size:11px;color:var(--muted2);min-width:14px">${i+1}º</span>
-          <div style="flex:1;height:5px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden">
+          <div style="flex:1;height:5px;border-radius:99px;background:var(--border);overflow:hidden">
             <div style="height:100%;width:${barW}%;background:${bars[i]};border-radius:99px"></div>
           </div>
           <span style="font-size:11px;font-weight:700;color:${bars[i]};min-width:38px;text-align:right">${fmtPct.format(pct)}</span>
@@ -3724,10 +3776,10 @@ function renderDaily(filteredOrders){
 
     for(const r of recent){
       const isLast = r.date === last.date;
-      html += `<tr ${isLast ? 'style="background:rgba(255,255,255,.04)"':''}>
+      html += `<tr ${isLast ? 'style="background:var(--panel2)"':''}>
         <td style="text-align:left">${ymdToBr(r.date)}</td>
-        <td><b class="${r.open >= 17 ? "pos" : r.open >= 14 ? "" : "neg"}" style="color:${r.open>=17?"#34d399":r.open>=14?"#fbbf24":"#fb7185"}">${r.open}</b></td>
-        <td style="color:${r.closed>5?"#fb7185":"#fbbf24"}">${r.closed}</td>
+        <td><b style="color:${r.open>=17?"var(--good)":r.open>=14?"var(--warn)":"var(--bad)"}">${r.open}</b></td>
+        <td style="color:${r.closed>5?"var(--bad)":"var(--warn)"}">${r.closed}</td>
         <td style="color:var(--muted2)">${TOTAL_STORES}</td>
       </tr>`;
     }
