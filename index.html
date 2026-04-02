@@ -3901,18 +3901,18 @@ function renderDaily(filteredOrders){
 
   function _injectOrders(rows){
     const incoming = buildOrderBase(rows);
-    ordersState = [];
-    const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
-    ordersState = merged;
-    saveJson(STORAGE_ORDERS_KEY, ordersState);
-    const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
-    const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
+    window.ordersState = [];
+    const { merged, stats } = mergeOrders(window.ordersState, incoming, "KEEP_MAX_LINE");
+    window.ordersState = merged;
+    saveJson(STORAGE_ORDERS_KEY, window.ordersState);
+    const channels = new Set(window.ordersState.map(o => o.channelId).filter(Boolean));
+    const stores   = new Set(window.ordersState.map(o => o.locationId).filter(Boolean));
     setSelectOptions(els.channelFilter, channels);
     setSelectOptions(els.storeFilter, stores, storeLabel);
-    if(ordersState.length){
+    if(window.ordersState.length){
       els.apply.disabled = false;
       els.clear.disabled = false;
-      const range = inferRangeFromOrders(ordersState);
+      const range = inferRangeFromOrders(window.ordersState);
       if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
     }
     return stats.after;
@@ -3920,19 +3920,19 @@ function renderDaily(filteredOrders){
 
   function _injectTargets(rows){
     const incoming = parseTargets(rows);
-    targetsState = incoming;
-    saveJson(STORAGE_TARGETS_KEY, targetsState);
+    window.targetsState = incoming;
+    saveJson(STORAGE_TARGETS_KEY, window.targetsState);
     return Object.keys(incoming).length;
   }
 
   async function loadAll(){
     _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
-    ordersState          = [];
-    targetsState         = {};
-    rupturasState        = [];
-    colecaoMap           = new Map();
-    STORE_STATUS_DYNAMIC = [];
+    window.ordersState          = [];
+    window.targetsState         = {};
+    window.rupturasState        = [];
+    window.colecaoMap           = new Map();
+    window.STORE_STATUS_DYNAMIC = [];
 
     const erros = [];
     let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
@@ -3952,31 +3952,30 @@ function renderDaily(filteredOrders){
     try {
       _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
       const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
-      STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
-      statusLoaded = STORE_STATUS_DYNAMIC.length;
+      window.STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
+      statusLoaded = window.STORE_STATUS_DYNAMIC.length;
       renderStoreStatus();
     } catch(e){ erros.push("Status lojas: " + e.message); }
 
     try {
       _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
       const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
-      rupturasState = parseRupturas(rows);
-      rupturasLoaded = rupturasState.length;
+      window.rupturasState = parseRupturas(rows);
+      rupturasLoaded = window.rupturasState.length;
     } catch(e){ erros.push("Rupturas: " + e.message); }
 
     try {
       _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
       const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
-      colecaoMap = parseColecaoCSV(rows);
-      colecaoLoaded = colecaoMap.size;
+      window.colecaoMap = parseColecaoCSV(rows);
+      colecaoLoaded = window.colecaoMap.size;
     } catch(e){ erros.push("Coleções: " + e.message); }
 
     if(erros.length){
       _setLoadStatus(false, "Erro ao carregar",
         erros.map(e => `⚠️ ${e}`).join("<br>") +
         "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
-      // mesmo com erros em rupturas/coleções, renderizar o que tiver
-      if(ordersState.length) runFromState();
+      if(window.ordersState.length) runFromState();
       return;
     }
 
@@ -3989,7 +3988,7 @@ function renderDaily(filteredOrders){
     if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
     _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
 
-    if(ordersState.length) runFromState();
+    if(window.ordersState.length) runFromState();
   }
 
   window.addEventListener("load", () => setTimeout(loadAll, 400));
