@@ -1418,6 +1418,7 @@
   </div>
         <script>
 
+
     // ---------- Store map (locationId -> nome) ----------
     const STORE_MAP = new Map([
       [4,  "Balneário"],
@@ -2282,424 +2283,7 @@
       setSelectOptions(els.storeFilter, storesSet, (v)=> storeLabel(v));
     }
 
-    // ---------- Init from storage ----------
-    (function init(){
-      ordersState = loadJson(STORAGE_ORDERS_KEY, []);
-      targetsState = loadJson(STORAGE_TARGETS_KEY, {});
 
-      if(ordersState.length){
-        els.apply.disabled = false;
-        els.clear.disabled = false;
-
-        const range = inferRangeFromOrders(ordersState);
-        if(range){
-          els.startDate.value = isoDate(range.min);
-          els.endDate.value = isoDate(range.max);
-        }
-        refreshFiltersFromState();
-
-        const om = loadJson(STORAGE_ORDERS_META, null);
-        const tm = loadJson(STORAGE_TARGETS_META, null);
-
-        setMeta([
-          `Histórico carregado do navegador: <code>${fmtInt.format(ordersState.length)}</code> pedidos`,
-          `Meta carregada: <code>${fmtInt.format(Object.keys(targetsState).length)}</code> dias`,
-          om?.updatedAt ? `Pedidos atualizados: <code>${om.updatedAt}</code>` : `Pedidos atualizados: <code>(n/a)</code>`,
-          tm?.updatedAt ? `Meta atualizada: <code>${tm.updatedAt}</code>` : `Meta atualizada: <code>(n/a)</code>`
-        ]);
-
-        runFromState();
-      }else{
-        setMeta([
-          `Sem histórico salvo ainda`,
-          `Carregue uma base de pedidos (tipo “Base”) e depois use “Incremental” diariamente.`
-        ]);
-      }
-    })();
-
-    // ---------- File handling: Orders ----------
-    function handleOrdersFile(file){
-      Papa.parse(file, {
-        header: true,
-        delimiter: ";",
-        skipEmptyLines: true,
-        complete: (res) => {
-          const rows = res.data || [];
-          const incomingOrders = buildOrderBase(rows);
-
-          const mode = els.ordersLoadMode.value;      // BASE | INCR
-          const dedupeMode = els.ordersDedupeMode.value; // KEEP_MAX | REPLACE
-
-          let mergeInfo = null;
-
-          if(mode === "BASE" || !ordersState.length){
-            ordersState = incomingOrders;
-            mergeInfo = { inserted: incomingOrders.length, replaced: 0, kept: 0, before: 0, after: incomingOrders.length, mode: "BASE" };
-          }else{
-            const { merged, stats } = mergeOrders(ordersState, incomingOrders, dedupeMode);
-            ordersState = merged;
-            mergeInfo = { ...stats, mode: "INCR", dedupeMode };
-          }
-
-          const meta = { updatedAt: nowIso(), lastFile: file.name, lastMode: mode, lastDedupe: dedupeMode, lastMerge: mergeInfo };
-          const saved = saveJson(STORAGE_ORDERS_KEY, ordersState);
-          const savedMeta = saveJson(STORAGE_ORDERS_META, meta);
-
-          if(!saved.ok || !savedMeta.ok){
-            setMetaWarn([
-              `⚠️ Não consegui salvar pedidos no navegador (provável limite de espaço).`,
-              `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
-              `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
-            ]);
-          }
-
-          const range = inferRangeFromOrders(ordersState);
-          if(range){
-            els.startDate.value = isoDate(range.min);
-            els.endDate.value = isoDate(range.max);
-          }
-
-          refreshFiltersFromState();
-          els.apply.disabled = false;
-          els.clear.disabled = false;
-
-          setMeta([
-            `Pedidos: <code>${file.name}</code>`,
-            mode === "BASE"
-              ? `Base: <code>${fmtInt.format(incomingOrders.length)}</code> pedidos`
-              : `Incremental: <code>${fmtInt.format(incomingOrders.length)}</code> • inseridos <code>${fmtInt.format(mergeInfo.inserted)}</code> • substituídos <code>${fmtInt.format(mergeInfo.replaced)}</code>`,
-            `Histórico pedidos: <code>${fmtInt.format(ordersState.length)}</code>`,
-            `Meta dias: <code>${fmtInt.format(Object.keys(targetsState).length)}</code>`,
-            `Atualizado: <code>${meta.updatedAt}</code>`
-          ]);
-
-          runFromState();
-        },
-        error: (err) => alert("Erro ao ler CSV de pedidos.\n\n" + (err?.message || err))
-      });
-    }
-
-    els.fileOrders.addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if(!file) return;
-      handleOrdersFile(file);
-      e.target.value = "";
-    });
-
-    // ---------- File handling: Targets ----------
-    function handleTargetsFile(file){
-      Papa.parse(file, {
-        header: true,
-        delimiter: ";",
-        skipEmptyLines: true,
-        complete: (res) => {
-          const rows = res.data || [];
-          const incoming = parseTargets(rows);
-
-          const mode = els.targetLoadMode.value; // BASE | INCR
-          const { merged, stats } = mergeTargets(targetsState, incoming, mode);
-          targetsState = merged;
-
-          const meta = { updatedAt: nowIso(), lastFile: file.name, lastMode: mode, lastStats: stats };
-          const saved = saveJson(STORAGE_TARGETS_KEY, targetsState);
-          const savedMeta = saveJson(STORAGE_TARGETS_META, meta);
-
-          if(!saved.ok || !savedMeta.ok){
-            setMetaWarn([
-              `⚠️ Não consegui salvar meta no navegador (provável limite de espaço).`,
-              `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
-              `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
-            ]);
-          }else{
-            setMeta([
-              `Meta: <code>${file.name}</code>`,
-              `Modo: <code>${mode}</code> • dias lidos: <code>${fmtInt.format(Object.keys(incoming).length)}</code>`,
-              `Dias de meta total: <code>${fmtInt.format(Object.keys(targetsState).length)}</code>`,
-              `Pedidos no histórico: <code>${fmtInt.format(ordersState.length)}</code>`,
-              `Atualizado: <code>${meta.updatedAt}</code>`
-            ]);
-          }
-
-          if(ordersState.length){
-            els.apply.disabled = false;
-            els.clear.disabled = false;
-            runFromState();
-          }
-        },
-        error: (err) => alert("Erro ao ler CSV de meta.\n\n" + (err?.message || err))
-      });
-    }
-
-    els.fileTarget.addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if(!file) return;
-      handleTargetsFile(file);
-      e.target.value = "";
-    });
-
-    // ---------- Actions ----------
-    setupStoreStatusInputs();
-    renderStoreStatus();
-
-    els.apply.addEventListener("click", runFromState);
-
-    els.clear.addEventListener("click", () => {
-      // Clear all
-      localStorage.removeItem(STORAGE_ORDERS_KEY);
-      localStorage.removeItem(STORAGE_ORDERS_META);
-      localStorage.removeItem(STORAGE_TARGETS_KEY);
-      localStorage.removeItem(STORAGE_TARGETS_META);
-
-      ordersState = [];
-      targetsState = {};
-
-      els.apply.disabled = true;
-      els.clear.disabled = true;
-
-      els.channelFilter.innerHTML = `<option value="__ALL__">Todos</option>`;
-      els.storeFilter.innerHTML = `<option value="__ALL__">Todas</option>`;
-      els.startDate.value = "";
-      els.endDate.value = "";
-
-      setMeta([`Histórico limpo`, `Carregue uma base novamente para recomeçar.`]);
-
-      document.getElementById("kpis").innerHTML = "";
-      document.getElementById("insights").innerHTML = "";
-      document.querySelector("#storesTable tbody").innerHTML = "";
-      document.querySelector("#dailyTable tbody").innerHTML = "";
-      if(trendChart) trendChart.destroy();
-      if(storesChart) storesChart.destroy();
-      els.trendNote.textContent = "";
-    });
-
-    // Selects
-    [els.channelFilter, els.storeFilter].forEach(el => {
-      el.addEventListener("change", () => { if(ordersState.length) runFromState(); });
-    });
-    // Campos de data: change + input para garantir disparo em todos os browsers
-    [els.startDate, els.endDate].forEach(el => {
-      ["change", "input"].forEach(evt =>
-        el.addEventListener(evt, () => { if(ordersState.length) runFromState(); })
-      );
-    });
-  
-
-// --- Small UX helpers (non-invasive) ---
-(function(){
-  const dot = document.getElementById("statusDot");
-  const text = document.getElementById("statusText");
-  const meta = document.getElementById("statusMeta");
-
-  function setStatus(ok, msg, extra){
-    if(dot){ dot.classList.toggle("ok", !!ok); }
-    if(text){ text.textContent = msg || ""; }
-    if(meta){ meta.textContent = extra || "—"; }
-  }
-
-  const kpis = document.getElementById("kpis");
-  const observer = new MutationObserver(() => {
-    const hasCards = kpis && kpis.children && kpis.children.length > 0;
-    if(hasCards){
-      const stamp = new Date().toLocaleString("pt-BR");
-      setStatus(true, "Dados carregados • pronto para analisar", stamp);
-    } else {
-      setStatus(false, "Sem dados carregados", "—");
-    }
-  });
-  if(kpis) observer.observe(kpis, {childList:true, subtree:false});
-})();
-  
-
-
-// ============================================================
-//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
-// ============================================================
-
-  // URLs fixas dos arquivos no GitHub
-  const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
-  const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
-  const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
-  const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
-  const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
-
-  function _setLoadStatus(ok, title, msg){
-    const elDot   = document.getElementById("autoLoadDot");
-    const elTitle = document.getElementById("autoLoadTitle");
-    const elMsg   = document.getElementById("autoLoadMsg");
-    const colors  = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
-    const shadows = {
-      true:  "0 0 0 4px rgba(52,211,153,.12)",
-      false: "0 0 0 4px rgba(251,113,133,.12)",
-      null:  "0 0 0 4px rgba(251,191,36,.12)"
-    };
-    const k = ok === true ? "true" : ok === false ? "false" : "null";
-    if(elDot){ elDot.style.background = colors[k]; elDot.style.boxShadow = shadows[k]; }
-    if(elTitle) elTitle.textContent = title || "";
-    if(elMsg)   elMsg.innerHTML = msg || "";
-  }
-
-  function _fetchCsv(url){
-    const finalUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
-    return fetch(finalUrl, { cache: "no-store" }).then(r => {
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.text();
-    });
-  }
-
-  function _parseCsv(text){
-    return new Promise((resolve, reject) => {
-      Papa.parse(text, {
-        header: true, skipEmptyLines: true, delimiter: "",
-        complete: r => resolve(r.data),
-        error:    e => reject(new Error(e?.message || String(e)))
-      });
-    });
-  }
-
-  function _parseStoreStatusCsv(rows){
-    if(!rows.length) return [];
-    const keys = Object.keys(rows[0]);
-    const kLow = keys.map(k => k.toLowerCase().trim());
-    const dateIdx   = kLow.findIndex(k => k.includes("data") || k.includes("date") || k.includes("dia"));
-    const closedIdx = kLow.findIndex(k => k.includes("fechad") || k.includes("closed") || k.includes("fech"));
-    const dk = keys[dateIdx >= 0 ? dateIdx : 0];
-    const ck = keys[closedIdx >= 0 ? closedIdx : 1];
-    const result = [];
-    for(const r of rows){
-      const rawDate   = (r[dk] || "").toString().trim();
-      const rawClosed = (r[ck] || "").toString().trim();
-      let isoDate = null;
-      if(rawDate.includes("-"))       isoDate = rawDate.split("T")[0];
-      else if(rawDate.includes("/")){
-        const [d, m, y] = rawDate.split("/");
-        if(d && m && y) isoDate = `${y.padStart(4,"0")}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
-      }
-      if(!isoDate) continue;
-      const closed = parseInt(rawClosed, 10);
-      if(isNaN(closed) || closed < 0 || closed > TOTAL_STORES) continue;
-      result.push({ date: isoDate, closed, open: TOTAL_STORES - closed });
-    }
-    return result;
-  }
-
-  function _injectOrders(rows){
-    const incoming = buildOrderBase(rows);
-    ordersState = [];
-    const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
-    ordersState = merged;
-    saveJson(STORAGE_ORDERS_KEY, ordersState);
-    const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
-    const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
-    setSelectOptions(els.channelFilter, channels);
-    setSelectOptions(els.storeFilter, stores, storeLabel);
-    if(ordersState.length){
-      els.apply.disabled = false;
-      els.clear.disabled = false;
-      const range = inferRangeFromOrders(ordersState);
-      if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
-    }
-    return stats.after;
-  }
-
-  function _injectTargets(rows){
-    const incoming = parseTargets(rows);
-    targetsState = incoming;
-    saveJson(STORAGE_TARGETS_KEY, targetsState);
-    return Object.keys(incoming).length;
-  }
-
-  async function loadAll(){
-    _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
-
-    ordersState          = [];
-    targetsState         = {};
-    rupturasState        = [];
-    colecaoMap           = new Map();
-    STORE_STATUS_DYNAMIC = [];
-
-    const erros = [];
-    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
-
-    try {
-      _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
-      const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
-      ordersLoaded = _injectOrders(rows);
-    } catch(e){ erros.push("Pedidos: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
-      const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
-      targetsLoaded = _injectTargets(rows);
-    } catch(e){ erros.push("Metas: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
-      const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
-      STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
-      statusLoaded = STORE_STATUS_DYNAMIC.length;
-      renderStoreStatus();
-    } catch(e){ erros.push("Status lojas: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
-      const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
-      rupturasState = parseRupturas(rows);
-      rupturasLoaded = rupturasState.length;
-    } catch(e){ erros.push("Rupturas: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
-      const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
-      colecaoMap = parseColecaoCSV(rows);
-      colecaoLoaded = colecaoMap.size;
-    } catch(e){ erros.push("Coleções: " + e.message); }
-
-    if(erros.length){
-      _setLoadStatus(false, "Erro ao carregar",
-        erros.map(e => `⚠️ ${e}`).join("<br>") +
-        "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
-      if(ordersState.length) runFromState();
-      return;
-    }
-
-    const now = new Date().toLocaleString("pt-BR");
-    const partes = [];
-    if(ordersLoaded)   partes.push(`${ordersLoaded} pedidos`);
-    if(targetsLoaded)  partes.push(`${targetsLoaded} dias de meta`);
-    if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
-    if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
-    if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
-    _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
-
-    if(ordersState.length) runFromState();
-  }
-
-  window.addEventListener("load", () => setTimeout(loadAll, 400));
-  // fallback: se load já disparou, roda direto
-  if(document.readyState === "complete") setTimeout(loadAll, 100);
-  window._omniReload = loadAll;
-
-
-
-
-// ============================================================
-//  ABAS — troca entre Dashboard e Report Diário
-// ============================================================
-(function(){
-  document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById(btn.dataset.tab)?.classList.add("active");
-    });
-  });
-})();
-
-// ============================================================
-//  REPORT DIÁRIO — Tabela pivot: Lojas × Dias
-//  Cada célula: total de pedidos (em cima) + pendentes (laranja)
-// ============================================================
 function renderReportPivotOrders(filteredOrders){
   const container = document.getElementById("reportPivotOrders");
   const badge = document.getElementById("reportPeriodBadge");
@@ -3853,7 +3437,443 @@ function renderDaily(filteredOrders){
   })();
 }
 
-</script>
+
+
+    // ---------- Init from storage ----------
+    (function init(){
+      ordersState = loadJson(STORAGE_ORDERS_KEY, []);
+      targetsState = loadJson(STORAGE_TARGETS_KEY, {});
+
+      if(ordersState.length){
+        els.apply.disabled = false;
+        els.clear.disabled = false;
+
+        const range = inferRangeFromOrders(ordersState);
+        if(range){
+          els.startDate.value = isoDate(range.min);
+          els.endDate.value = isoDate(range.max);
+        }
+        refreshFiltersFromState();
+
+        const om = loadJson(STORAGE_ORDERS_META, null);
+        const tm = loadJson(STORAGE_TARGETS_META, null);
+
+        setMeta([
+          `Histórico carregado do navegador: <code>${fmtInt.format(ordersState.length)}</code> pedidos`,
+          `Meta carregada: <code>${fmtInt.format(Object.keys(targetsState).length)}</code> dias`,
+          om?.updatedAt ? `Pedidos atualizados: <code>${om.updatedAt}</code>` : `Pedidos atualizados: <code>(n/a)</code>`,
+          tm?.updatedAt ? `Meta atualizada: <code>${tm.updatedAt}</code>` : `Meta atualizada: <code>(n/a)</code>`
+        ]);
+
+        runFromState();
+      }else{
+        setMeta([
+          `Sem histórico salvo ainda`,
+          `Carregue uma base de pedidos (tipo “Base”) e depois use “Incremental” diariamente.`
+        ]);
+      }
+    })();
+
+    // ---------- File handling: Orders ----------
+    function handleOrdersFile(file){
+      Papa.parse(file, {
+        header: true,
+        delimiter: ";",
+        skipEmptyLines: true,
+        complete: (res) => {
+          const rows = res.data || [];
+          const incomingOrders = buildOrderBase(rows);
+
+          const mode = els.ordersLoadMode.value;      // BASE | INCR
+          const dedupeMode = els.ordersDedupeMode.value; // KEEP_MAX | REPLACE
+
+          let mergeInfo = null;
+
+          if(mode === "BASE" || !ordersState.length){
+            ordersState = incomingOrders;
+            mergeInfo = { inserted: incomingOrders.length, replaced: 0, kept: 0, before: 0, after: incomingOrders.length, mode: "BASE" };
+          }else{
+            const { merged, stats } = mergeOrders(ordersState, incomingOrders, dedupeMode);
+            ordersState = merged;
+            mergeInfo = { ...stats, mode: "INCR", dedupeMode };
+          }
+
+          const meta = { updatedAt: nowIso(), lastFile: file.name, lastMode: mode, lastDedupe: dedupeMode, lastMerge: mergeInfo };
+          const saved = saveJson(STORAGE_ORDERS_KEY, ordersState);
+          const savedMeta = saveJson(STORAGE_ORDERS_META, meta);
+
+          if(!saved.ok || !savedMeta.ok){
+            setMetaWarn([
+              `⚠️ Não consegui salvar pedidos no navegador (provável limite de espaço).`,
+              `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
+              `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
+            ]);
+          }
+
+          const range = inferRangeFromOrders(ordersState);
+          if(range){
+            els.startDate.value = isoDate(range.min);
+            els.endDate.value = isoDate(range.max);
+          }
+
+          refreshFiltersFromState();
+          els.apply.disabled = false;
+          els.clear.disabled = false;
+
+          setMeta([
+            `Pedidos: <code>${file.name}</code>`,
+            mode === "BASE"
+              ? `Base: <code>${fmtInt.format(incomingOrders.length)}</code> pedidos`
+              : `Incremental: <code>${fmtInt.format(incomingOrders.length)}</code> • inseridos <code>${fmtInt.format(mergeInfo.inserted)}</code> • substituídos <code>${fmtInt.format(mergeInfo.replaced)}</code>`,
+            `Histórico pedidos: <code>${fmtInt.format(ordersState.length)}</code>`,
+            `Meta dias: <code>${fmtInt.format(Object.keys(targetsState).length)}</code>`,
+            `Atualizado: <code>${meta.updatedAt}</code>`
+          ]);
+
+          runFromState();
+        },
+        error: (err) => alert("Erro ao ler CSV de pedidos.\n\n" + (err?.message || err))
+      });
+    }
+
+    els.fileOrders.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      handleOrdersFile(file);
+      e.target.value = "";
+    });
+
+    // ---------- File handling: Targets ----------
+    function handleTargetsFile(file){
+      Papa.parse(file, {
+        header: true,
+        delimiter: ";",
+        skipEmptyLines: true,
+        complete: (res) => {
+          const rows = res.data || [];
+          const incoming = parseTargets(rows);
+
+          const mode = els.targetLoadMode.value; // BASE | INCR
+          const { merged, stats } = mergeTargets(targetsState, incoming, mode);
+          targetsState = merged;
+
+          const meta = { updatedAt: nowIso(), lastFile: file.name, lastMode: mode, lastStats: stats };
+          const saved = saveJson(STORAGE_TARGETS_KEY, targetsState);
+          const savedMeta = saveJson(STORAGE_TARGETS_META, meta);
+
+          if(!saved.ok || !savedMeta.ok){
+            setMetaWarn([
+              `⚠️ Não consegui salvar meta no navegador (provável limite de espaço).`,
+              `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
+              `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
+            ]);
+          }else{
+            setMeta([
+              `Meta: <code>${file.name}</code>`,
+              `Modo: <code>${mode}</code> • dias lidos: <code>${fmtInt.format(Object.keys(incoming).length)}</code>`,
+              `Dias de meta total: <code>${fmtInt.format(Object.keys(targetsState).length)}</code>`,
+              `Pedidos no histórico: <code>${fmtInt.format(ordersState.length)}</code>`,
+              `Atualizado: <code>${meta.updatedAt}</code>`
+            ]);
+          }
+
+          if(ordersState.length){
+            els.apply.disabled = false;
+            els.clear.disabled = false;
+            runFromState();
+          }
+        },
+        error: (err) => alert("Erro ao ler CSV de meta.\n\n" + (err?.message || err))
+      });
+    }
+
+    els.fileTarget.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      handleTargetsFile(file);
+      e.target.value = "";
+    });
+
+    // ---------- Actions ----------
+    setupStoreStatusInputs();
+    renderStoreStatus();
+
+    els.apply.addEventListener("click", runFromState);
+
+    els.clear.addEventListener("click", () => {
+      // Clear all
+      localStorage.removeItem(STORAGE_ORDERS_KEY);
+      localStorage.removeItem(STORAGE_ORDERS_META);
+      localStorage.removeItem(STORAGE_TARGETS_KEY);
+      localStorage.removeItem(STORAGE_TARGETS_META);
+
+      ordersState = [];
+      targetsState = {};
+
+      els.apply.disabled = true;
+      els.clear.disabled = true;
+
+      els.channelFilter.innerHTML = `<option value="__ALL__">Todos</option>`;
+      els.storeFilter.innerHTML = `<option value="__ALL__">Todas</option>`;
+      els.startDate.value = "";
+      els.endDate.value = "";
+
+      setMeta([`Histórico limpo`, `Carregue uma base novamente para recomeçar.`]);
+
+      document.getElementById("kpis").innerHTML = "";
+      document.getElementById("insights").innerHTML = "";
+      document.querySelector("#storesTable tbody").innerHTML = "";
+      document.querySelector("#dailyTable tbody").innerHTML = "";
+      if(trendChart) trendChart.destroy();
+      if(storesChart) storesChart.destroy();
+      els.trendNote.textContent = "";
+    });
+
+    // Selects
+    [els.channelFilter, els.storeFilter].forEach(el => {
+      el.addEventListener("change", () => { if(ordersState.length) runFromState(); });
+    });
+    // Campos de data: change + input para garantir disparo em todos os browsers
+    [els.startDate, els.endDate].forEach(el => {
+      ["change", "input"].forEach(evt =>
+        el.addEventListener(evt, () => { if(ordersState.length) runFromState(); })
+      );
+    });
+  
+
+// --- Small UX helpers (non-invasive) ---
+(function(){
+  const dot = document.getElementById("statusDot");
+  const text = document.getElementById("statusText");
+  const meta = document.getElementById("statusMeta");
+
+  function setStatus(ok, msg, extra){
+    if(dot){ dot.classList.toggle("ok", !!ok); }
+    if(text){ text.textContent = msg || ""; }
+    if(meta){ meta.textContent = extra || "—"; }
+  }
+
+  const kpis = document.getElementById("kpis");
+  const observer = new MutationObserver(() => {
+    const hasCards = kpis && kpis.children && kpis.children.length > 0;
+    if(hasCards){
+      const stamp = new Date().toLocaleString("pt-BR");
+      setStatus(true, "Dados carregados • pronto para analisar", stamp);
+    } else {
+      setStatus(false, "Sem dados carregados", "—");
+    }
+  });
+  if(kpis) observer.observe(kpis, {childList:true, subtree:false});
+})();
+  
+
+
+// ============================================================
+//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
+// ============================================================
+
+  // URLs fixas dos arquivos no GitHub
+  const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
+  const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
+  const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
+  const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
+  const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
+
+  function _setLoadStatus(ok, title, msg){
+    const elDot   = document.getElementById("autoLoadDot");
+    const elTitle = document.getElementById("autoLoadTitle");
+    const elMsg   = document.getElementById("autoLoadMsg");
+    const colors  = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
+    const shadows = {
+      true:  "0 0 0 4px rgba(52,211,153,.12)",
+      false: "0 0 0 4px rgba(251,113,133,.12)",
+      null:  "0 0 0 4px rgba(251,191,36,.12)"
+    };
+    const k = ok === true ? "true" : ok === false ? "false" : "null";
+    if(elDot){ elDot.style.background = colors[k]; elDot.style.boxShadow = shadows[k]; }
+    if(elTitle) elTitle.textContent = title || "";
+    if(elMsg)   elMsg.innerHTML = msg || "";
+  }
+
+  function _fetchCsv(url){
+    const finalUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    return fetch(finalUrl, { cache: "no-store" }).then(r => {
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    });
+  }
+
+  function _parseCsv(text){
+    return new Promise((resolve, reject) => {
+      Papa.parse(text, {
+        header: true, skipEmptyLines: true, delimiter: "",
+        complete: r => resolve(r.data),
+        error:    e => reject(new Error(e?.message || String(e)))
+      });
+    });
+  }
+
+  function _parseStoreStatusCsv(rows){
+    if(!rows.length) return [];
+    const keys = Object.keys(rows[0]);
+    const kLow = keys.map(k => k.toLowerCase().trim());
+    const dateIdx   = kLow.findIndex(k => k.includes("data") || k.includes("date") || k.includes("dia"));
+    const closedIdx = kLow.findIndex(k => k.includes("fechad") || k.includes("closed") || k.includes("fech"));
+    const dk = keys[dateIdx >= 0 ? dateIdx : 0];
+    const ck = keys[closedIdx >= 0 ? closedIdx : 1];
+    const result = [];
+    for(const r of rows){
+      const rawDate   = (r[dk] || "").toString().trim();
+      const rawClosed = (r[ck] || "").toString().trim();
+      let isoDate = null;
+      if(rawDate.includes("-"))       isoDate = rawDate.split("T")[0];
+      else if(rawDate.includes("/")){
+        const [d, m, y] = rawDate.split("/");
+        if(d && m && y) isoDate = `${y.padStart(4,"0")}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+      }
+      if(!isoDate) continue;
+      const closed = parseInt(rawClosed, 10);
+      if(isNaN(closed) || closed < 0 || closed > TOTAL_STORES) continue;
+      result.push({ date: isoDate, closed, open: TOTAL_STORES - closed });
+    }
+    return result;
+  }
+
+  function _injectOrders(rows){
+    const incoming = buildOrderBase(rows);
+    ordersState = [];
+    const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
+    ordersState = merged;
+    saveJson(STORAGE_ORDERS_KEY, ordersState);
+    const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
+    const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
+    setSelectOptions(els.channelFilter, channels);
+    setSelectOptions(els.storeFilter, stores, storeLabel);
+    if(ordersState.length){
+      els.apply.disabled = false;
+      els.clear.disabled = false;
+      const range = inferRangeFromOrders(ordersState);
+      if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
+    }
+    return stats.after;
+  }
+
+  function _injectTargets(rows){
+    const incoming = parseTargets(rows);
+    targetsState = incoming;
+    saveJson(STORAGE_TARGETS_KEY, targetsState);
+    return Object.keys(incoming).length;
+  }
+
+  async function loadAll(){
+    console.log('[loadAll] iniciando');
+    _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
+
+    ordersState          = [];
+    targetsState         = {};
+    rupturasState        = [];
+    colecaoMap           = new Map();
+    STORE_STATUS_DYNAMIC = [];
+
+    const erros = [];
+    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
+
+    try {
+      console.log('[loadAll] carregando pedidos...');
+      _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
+      console.log('[loadAll] pedidos rows:', rows.length);
+      ordersLoaded = _injectOrders(rows);
+      console.log('[loadAll] ordersState após inject:', ordersState.length);
+    } catch(e){ console.error('[loadAll] ERRO pedidos:', e); erros.push("Pedidos: " + e.message); }
+
+    try {
+      console.log('[loadAll] carregando metas...');
+      _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
+      console.log('[loadAll] metas rows:', rows.length);
+      targetsLoaded = _injectTargets(rows);
+    } catch(e){ console.error('[loadAll] ERRO metas:', e); erros.push("Metas: " + e.message); }
+
+    try {
+      console.log('[loadAll] carregando status...');
+      _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
+      const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
+      STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
+      statusLoaded = STORE_STATUS_DYNAMIC.length;
+      renderStoreStatus();
+    } catch(e){ console.error('[loadAll] ERRO status:', e); erros.push("Status lojas: " + e.message); }
+
+    try {
+      console.log('[loadAll] carregando rupturas...');
+      _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
+      rupturasState = parseRupturas(rows);
+      rupturasLoaded = rupturasState.length;
+      console.log('[loadAll] rupturasState:', rupturasLoaded);
+    } catch(e){ console.error('[loadAll] ERRO rupturas:', e); erros.push("Rupturas: " + e.message); }
+
+    try {
+      console.log('[loadAll] carregando coleções...');
+      _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
+      const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
+      colecaoMap = parseColecaoCSV(rows);
+      colecaoLoaded = colecaoMap.size;
+      console.log('[loadAll] colecaoMap size:', colecaoLoaded);
+    } catch(e){ console.error('[loadAll] ERRO coleções:', e); erros.push("Coleções: " + e.message); }
+
+    console.log('[loadAll] erros:', erros);
+    console.log('[loadAll] ordersState.length final:', ordersState.length);
+
+    if(erros.length){
+      _setLoadStatus(false, "Erro ao carregar",
+        erros.map(e => `⚠️ ${e}`).join("<br>") +
+        "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
+      if(ordersState.length) runFromState();
+      return;
+    }
+
+    const now = new Date().toLocaleString("pt-BR");
+    const partes = [];
+    if(ordersLoaded)   partes.push(`${ordersLoaded} pedidos`);
+    if(targetsLoaded)  partes.push(`${targetsLoaded} dias de meta`);
+    if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
+    if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
+    if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
+    _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
+
+    console.log('[loadAll] chamando runFromState, ordersState.length=', ordersState.length);
+    if(ordersState.length) runFromState();
+    else console.warn('[loadAll] ordersState vazio — runFromState não chamado');
+  }
+
+  window.addEventListener("load", () => setTimeout(loadAll, 400));
+  // fallback: se load já disparou, roda direto
+  if(document.readyState === "complete") setTimeout(loadAll, 100);
+  window._omniReload = loadAll;
+
+
+
+
+// ============================================================
+//  ABAS — troca entre Dashboard e Report Diário
+// ============================================================
+(function(){
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.tab)?.classList.add("active");
+    });
+  });
+})();
+
+// ============================================================
+//  REPORT DIÁRIO — Tabela pivot: Lojas × Dias
+//  Cada célula: total de pedidos (em cima) + pendentes (laranja)
+// ============================================================
+  </script>
 
 
 <script>
