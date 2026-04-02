@@ -930,6 +930,143 @@
     .rupt-pct.warn{ background:rgba(251,191,36,.20);  color:#fbbf24; }
     .rupt-pct.ok  { background:rgba(52,211,153,.20);  color:#34d399; }
 
+    /* ===== IMPRESSÃO / PDF ===== */
+    @media print {
+      /* Reset geral */
+      *, *::before, *::after { box-sizing: border-box !important; }
+
+      html, body {
+        width: 210mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #111 !important;
+        font-family: var(--sans) !important;
+        font-size: 10pt !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Esconder tudo por padrão */
+      body > * { display: none !important; }
+
+      /* Mostrar só o container de impressão */
+      #pdfContainer { display: block !important; }
+
+      /* Cabeçalho */
+      #pdfHeader {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 0 0 10pt 0;
+        border-bottom: 2pt solid #111;
+        margin-bottom: 14pt;
+      }
+      #pdfHeader h1 { margin: 0; font-size: 16pt; font-weight: 800; color: #111; }
+      #pdfHeader p  { margin: 3pt 0 0; font-size: 9pt; color: #555; }
+      #pdfHeader .pdfMeta { text-align: right; font-size: 9pt; color: #555; }
+
+      /* Seções */
+      .pdf-section {
+        margin-bottom: 16pt;
+        page-break-inside: avoid;
+      }
+      .pdf-section-title {
+        font-size: 9pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: #555;
+        margin: 0 0 6pt 0;
+        padding-bottom: 3pt;
+        border-bottom: 1pt solid #ddd;
+      }
+
+      /* KPIs */
+      .pdf-kpis {
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 8pt !important;
+      }
+      .pdf-kpi-card {
+        border: 1pt solid #ddd;
+        border-radius: 6pt;
+        padding: 7pt 8pt;
+        border-left: 3pt solid #111;
+      }
+      .pdf-kpi-card .pk-label { font-size: 7.5pt; color: #666; margin-bottom: 3pt; }
+      .pdf-kpi-card .pk-value { font-size: 13pt; font-weight: 800; color: #111; line-height: 1.1; }
+      .pdf-kpi-card .pk-sub   { font-size: 7.5pt; color: #555; margin-top: 3pt; }
+      .pk-pos { color: #059669 !important; }
+      .pk-neg { color: #dc2626 !important; }
+      .pk-warn{ color: #d97706 !important; }
+
+      /* Tabelas PDF */
+      .pdf-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 8.5pt;
+      }
+      .pdf-table thead th {
+        background: #f3f4f6 !important;
+        color: #374151 !important;
+        padding: 4pt 6pt;
+        text-align: left;
+        font-weight: 700;
+        border-bottom: 1pt solid #d1d5db;
+        font-size: 8pt;
+      }
+      .pdf-table thead th.tc { text-align: center; }
+      .pdf-table thead th.tr { text-align: right; }
+      .pdf-table tbody td {
+        padding: 3.5pt 6pt;
+        border-bottom: .5pt solid #e5e7eb;
+        color: #111;
+      }
+      .pdf-table tbody td.tc { text-align: center; }
+      .pdf-table tbody td.tr { text-align: right; }
+      .pdf-table tbody tr:nth-child(even) td { background: #f9fafb !important; }
+      .pdf-table tfoot td {
+        padding: 4pt 6pt;
+        font-weight: 700;
+        border-top: 1.5pt solid #374151;
+        color: #111;
+      }
+      .pdf-table tfoot td.tr { text-align: right; }
+
+      /* Badge % ruptura */
+      .pdf-pct-crit { color: #dc2626 !important; font-weight: 700; }
+      .pdf-pct-warn { color: #d97706 !important; font-weight: 700; }
+      .pdf-pct-ok   { color: #059669 !important; font-weight: 700; }
+
+      /* Gráfico — canvas vira imagem */
+      .pdf-chart-wrap { width: 100%; height: 160pt; }
+      .pdf-chart-wrap img { width: 100%; height: 100%; object-fit: contain; }
+
+      /* Grid 2 colunas */
+      .pdf-grid2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 12pt !important;
+      }
+
+      /* Rodapé */
+      #pdfFooter {
+        display: block !important;
+        margin-top: 20pt;
+        padding-top: 6pt;
+        border-top: 1pt solid #ddd;
+        font-size: 7.5pt;
+        color: #999;
+        text-align: center;
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: 12mm 12mm 12mm 12mm;
+      }
+    }
+
   </style>
 </head>
 
@@ -945,6 +1082,7 @@
       </div>
       <div class="status">
         <button id="themeToggle" onclick="toggleTheme()">🌙 Escuro</button>
+        <button id="pdfBtn" onclick="exportPDF()" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Exportar PDF</button>
         <span class="chip" id="statusChip"><span class="dot" id="statusDot"></span><span id="statusText">Sem dados carregados</span></span>
         <span class="chip"><span class="mono" id="statusMeta">—</span></span>
       </div>
@@ -3934,6 +4072,246 @@ function renderDaily(filteredOrders){
   const saved = localStorage.getItem(STORAGE_KEY) || "dark";
   applyTheme(saved);
 })();
+</script>
+<div id="pdfContainer" style="display:none"></div>
+
+<script>
+// ============================================================
+//  EXPORTAR PDF — monta container dedicado e aciona impressão
+// ============================================================
+function exportPDF(){
+  const container = document.getElementById("pdfContainer");
+  if(!container){ alert("Erro: container PDF não encontrado."); return; }
+
+  // --- Período ---
+  const startVal = document.getElementById("startDate")?.value || "";
+  const endVal   = document.getElementById("endDate")?.value   || "";
+  function fmtIso(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
+  const periodo = startVal && endVal
+    ? `${fmtIso(startVal)} até ${fmtIso(endVal)}`
+    : startVal ? `A partir de ${fmtIso(startVal)}`
+    : "Período completo";
+
+  const agora = new Date().toLocaleString("pt-BR");
+
+  // --- Capturar gráfico como imagem ---
+  const trendCanvas = document.getElementById("trendChart");
+  const trendImg    = trendCanvas ? trendCanvas.toDataURL("image/png") : null;
+
+  // --- KPIs ---
+  function buildKpis(){
+    const cards = document.querySelectorAll("#kpis .kpi");
+    if(!cards.length) return "<p style='color:#999;font-size:8pt'>Sem dados.</p>";
+    let html = `<div class="pdf-kpis">`;
+    cards.forEach(card => {
+      const label = card.querySelector(".label")?.textContent || "";
+      const value = card.querySelector(".value")?.textContent || "";
+      const delta = card.querySelector(".delta")?.innerHTML  || "";
+      // cor da barra lateral pelo tipo de card
+      const accent = card.classList.contains("kpi-good") ? "#059669"
+                   : card.classList.contains("kpi-bad")  ? "#dc2626"
+                   : card.classList.contains("kpi-warn") ? "#d97706"
+                   : "#374151";
+      html += `<div class="pdf-kpi-card" style="border-left-color:${accent}">
+        <div class="pk-label">${label}</div>
+        <div class="pk-value">${value}</div>
+        <div class="pk-sub">${delta
+          .replace(/class="pos"/g,'class="pk-pos"')
+          .replace(/class="neg"/g,'class="pk-neg"')
+          .replace(/<span[^>]*>|<\/span>/g,'')}</div>
+      </div>`;
+    });
+    return html + `</div>`;
+  }
+
+  // --- Tabela de lojas ---
+  function buildStoresTable(){
+    const tbody = document.querySelector("#storesTable tbody");
+    if(!tbody?.children.length) return "<p style='color:#999;font-size:8pt'>Sem dados.</p>";
+    let html = `<table class="pdf-table"><thead><tr>
+      <th>Loja</th><th class="tr">Receita</th><th class="tc">Pedidos</th><th class="tr">Ticket médio</th>
+    </tr></thead><tbody>`;
+    for(const tr of tbody.querySelectorAll("tr")){
+      const tds = tr.querySelectorAll("td");
+      html += `<tr>${[...tds].map((td,i) => `<td class="${i===0?'':'tr'}">${td.textContent}</td>`).join("")}</tr>`;
+    }
+    return html + `</tbody></table>`;
+  }
+
+  // --- Tabela diária ---
+  function buildDailyTable(){
+    const tbody = document.querySelector("#dailyTable tbody");
+    if(!tbody?.children.length) return "<p style='color:#999;font-size:8pt'>Sem dados.</p>";
+    let html = `<table class="pdf-table"><thead><tr>
+      <th>Data</th><th class="tr">Receita</th><th class="tr">Meta</th><th class="tr">Gap</th><th class="tc">Pedidos</th><th class="tr">Ticket</th>
+    </tr></thead><tbody>`;
+    for(const tr of tbody.querySelectorAll("tr")){
+      const tds = [...tr.querySelectorAll("td")];
+      // cols: Data, Receita, Meta, Gap, %, Pedidos, Peças, Ticket
+      const cols = [tds[0],tds[1],tds[2],tds[3],tds[5],tds[7]];
+      html += `<tr>${cols.map((td,i) => `<td class="${i===0?'':'tr'}">${td?.textContent||'—'}</td>`).join("")}</tr>`;
+    }
+    return html + `</tbody></table>`;
+  }
+
+  // --- Rupturas por loja ---
+  function buildRuptTable(){
+    const wrap = document.getElementById("reportRupturas");
+    const tbody = wrap?.querySelector("tbody");
+    if(!tbody?.children.length) return "<p style='color:#999;font-size:8pt'>Sem dados de rupturas.</p>";
+    const badge = document.getElementById("ruptBadge")?.textContent || "";
+    let html = `<p style="font-size:8pt;color:#555;margin:0 0 5pt">${badge}</p>`;
+    html += `<table class="pdf-table"><thead><tr>
+      <th>Loja</th><th class="tc">Itens</th><th class="tc">Rupturas</th><th class="tc">% Ruptura</th><th class="tr">R$ Ruptura</th>
+    </tr></thead><tbody>`;
+    for(const tr of tbody.querySelectorAll("tr")){
+      const tds = [...tr.querySelectorAll("td")];
+      const pct = tds[3]?.querySelector(".pct-val")?.textContent || tds[3]?.textContent || "—";
+      const pctNum = parseFloat(pct.replace(",",".").replace("%",""))||0;
+      const cls = pctNum>=5?"pdf-pct-crit":pctNum>=2?"pdf-pct-warn":"pdf-pct-ok";
+      html += `<tr>
+        <td>${tds[0]?.textContent||""}</td>
+        <td class="tc">${tds[1]?.textContent||""}</td>
+        <td class="tc">${tds[2]?.textContent||""}</td>
+        <td class="tc"><span class="${cls}">${pct}</span></td>
+        <td class="tr">${tds[4]?.textContent||""}</td>
+      </tr>`;
+    }
+    // tfoot
+    const tfoot = wrap?.querySelector("tfoot tr");
+    if(tfoot){
+      const tds = [...tfoot.querySelectorAll("td")];
+      const pct = tds[3]?.querySelector("span")?.textContent || tds[3]?.textContent || "—";
+      const pctNum = parseFloat(pct.replace(",",".").replace("%",""))||0;
+      const cls = pctNum>=5?"pdf-pct-crit":pctNum>=2?"pdf-pct-warn":"pdf-pct-ok";
+      html += `</tbody><tfoot><tr>
+        <td>${tds[0]?.textContent||""}</td>
+        <td class="tc tr">${tds[1]?.textContent||""}</td>
+        <td class="tc tr">${tds[2]?.textContent||""}</td>
+        <td class="tc"><span class="${cls}">${pct}</span></td>
+        <td class="tr">${tds[4]?.textContent||""}</td>
+      </tr></tfoot>`;
+    }
+    return html + `</table>`;
+  }
+
+  // --- Vendas por coleção ---
+  function buildColecaoTable(){
+    const wrap = document.getElementById("colecaoTabela");
+    const tbody = wrap?.querySelector("tbody");
+    if(!tbody?.children.length) return "<p style='color:#999;font-size:8pt'>Sem dados de coleções.</p>";
+    let html = `<table class="pdf-table"><thead><tr>
+      <th>Coleção</th><th class="tc">Pedidos</th><th class="tc">Peças</th><th class="tr">Receita</th><th class="tr">% Receita</th>
+    </tr></thead><tbody>`;
+    for(const tr of tbody.querySelectorAll("tr")){
+      const tds = [...tr.querySelectorAll("td")];
+      const pct = tds[4]?.querySelector(".pct-val")?.textContent || tds[4]?.textContent || "—";
+      html += `<tr>
+        <td>${tds[0]?.textContent||""}</td>
+        <td class="tc">${tds[1]?.textContent||""}</td>
+        <td class="tc">${tds[2]?.textContent||""}</td>
+        <td class="tr">${tds[3]?.textContent||""}</td>
+        <td class="tr">${pct}</td>
+      </tr>`;
+    }
+    const tfoot = wrap?.querySelector("tfoot tr");
+    if(tfoot){
+      const tds = [...tfoot.querySelectorAll("td")];
+      html += `</tbody><tfoot><tr>
+        <td>${tds[0]?.textContent||""}</td>
+        <td class="tc tr">${tds[1]?.textContent||""}</td>
+        <td class="tc tr">${tds[2]?.textContent||""}</td>
+        <td class="tr">${tds[3]?.textContent||""}</td>
+        <td class="tr">${tds[4]?.textContent||""}</td>
+      </tr></tfoot>`;
+    }
+    return html + `</table>`;
+  }
+
+  // --- Status das lojas ---
+  function buildStatusTable(){
+    const tbody = document.querySelector("#storeStatusTable tbody");
+    if(!tbody?.children.length) return "<p style='color:#999;font-size:8pt'>Sem dados de status.</p>";
+    const badge = document.getElementById("storeStatusBadge")?.textContent || "";
+    let html = `<p style="font-size:8pt;color:#555;margin:0 0 5pt">${badge}</p>`;
+    html += `<table class="pdf-table"><thead><tr>
+      <th>Data</th><th class="tc">Abertas</th><th class="tc">Fechadas</th>
+    </tr></thead><tbody>`;
+    let count = 0;
+    for(const tr of tbody.querySelectorAll("tr")){
+      if(count++ >= 14) break; // limita a 14 linhas para caber na página
+      const tds = [...tr.querySelectorAll("td")];
+      const abertas  = parseInt(tds[1]?.textContent||"0");
+      const fechadas = parseInt(tds[2]?.textContent||"0");
+      const aCls = abertas>=17?"pdf-pct-ok":abertas>=14?"pdf-pct-warn":"pdf-pct-neg";
+      html += `<tr>
+        <td>${tds[0]?.textContent||""}</td>
+        <td class="tc"><span class="${abertas>=17?"pdf-pct-ok":abertas>=14?"pdf-pct-warn":"pdf-pct-crit"}">${abertas}</span></td>
+        <td class="tc"><span class="${fechadas>5?"pdf-pct-crit":"pdf-pct-warn"}">${fechadas}</span></td>
+      </tr>`;
+    }
+    return html + `</tbody></table>`;
+  }
+
+  // --- Montar HTML do container ---
+  container.innerHTML = `
+    <div id="pdfHeader">
+      <div>
+        <h1>OMNI • Dashboard</h1>
+        <p>Período: <strong>${periodo}</strong></p>
+      </div>
+      <div class="pdfMeta">
+        Gerado em: ${agora}
+      </div>
+    </div>
+
+    <div class="pdf-section">
+      <div class="pdf-section-title">Resumo do período</div>
+      ${buildKpis()}
+    </div>
+
+    <div class="pdf-section">
+      <div class="pdf-section-title">Tendência diária</div>
+      ${trendImg
+        ? `<div class="pdf-chart-wrap"><img src="${trendImg}" alt="Tendência diária"/></div>`
+        : `<p style="color:#999;font-size:8pt">Gráfico não disponível.</p>`}
+    </div>
+
+    <div class="pdf-grid2">
+      <div class="pdf-section">
+        <div class="pdf-section-title">Tabela de lojas</div>
+        ${buildStoresTable()}
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">Status das lojas</div>
+        ${buildStatusTable()}
+      </div>
+    </div>
+
+    <div class="pdf-section">
+      <div class="pdf-section-title">Tabela diária</div>
+      ${buildDailyTable()}
+    </div>
+
+    <div class="pdf-grid2">
+      <div class="pdf-section">
+        <div class="pdf-section-title">Rupturas por loja</div>
+        ${buildRuptTable()}
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">Vendas por coleção</div>
+        ${buildColecaoTable()}
+      </div>
+    </div>
+
+    <div id="pdfFooter">
+      OMNI • Dashboard — exportado em ${agora} — período: ${periodo}
+    </div>
+  `;
+
+  // Acionar impressão
+  window.print();
+}
 </script>
 </body>
 
