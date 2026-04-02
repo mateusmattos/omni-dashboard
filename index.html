@@ -3175,13 +3175,13 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
     </tr>`;
   }
 
-  const pctGrand = grandItens > 0 ? grandRupt / grandItens : 0;
+  const pctGrand = grandItens > 0 ? totalRupturas / grandItens : 0;
   html += `</tbody><tfoot><tr>
     <td>Total Geral</td>
     <td>${fmtInt.format(grandItens)}</td>
-    <td>${fmtInt.format(grandRupt)}</td>
+    <td>${fmtInt.format(totalRupturas)}</td>
     <td><span style="color:${pctColor(pctGrand)};font-weight:700">${fmtPct.format(pctGrand)}</span></td>
-    <td>${fmtBRL.format(grandValor)}</td>
+    <td>${fmtBRL.format(totalRupturas * avgPricePerSku)}</td>
   </tr></tfoot></table></div>`;
 
   elLoja.innerHTML = html;
