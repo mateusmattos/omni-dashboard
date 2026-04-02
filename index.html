@@ -2508,113 +2508,180 @@
   });
   if(kpis) observer.observe(kpis, {childList:true, subtree:false});
 })();
-  </script>
+  
 
 
-<script>
-// Auto-apply unificado
-(function(){
-  function tryApply(){
-    // usa ordersState diretamente — não depende do estado disabled do botão
-    if(typeof ordersState !== "undefined" && ordersState.length){
-      if(typeof runFromState === "function") runFromState();
-    }
+// ============================================================
+//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
+// ============================================================
+
+  // URLs fixas dos arquivos no GitHub
+  const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
+  const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
+  const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
+  const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
+  const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
+
+  function _setLoadStatus(ok, title, msg){
+    const elDot   = document.getElementById("autoLoadDot");
+    const elTitle = document.getElementById("autoLoadTitle");
+    const elMsg   = document.getElementById("autoLoadMsg");
+    const colors  = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
+    const shadows = {
+      true:  "0 0 0 4px rgba(52,211,153,.12)",
+      false: "0 0 0 4px rgba(251,113,133,.12)",
+      null:  "0 0 0 4px rgba(251,191,36,.12)"
+    };
+    const k = ok === true ? "true" : ok === false ? "false" : "null";
+    if(elDot){ elDot.style.background = colors[k]; elDot.style.boxShadow = shadows[k]; }
+    if(elTitle) elTitle.textContent = title || "";
+    if(elMsg)   elMsg.innerHTML = msg || "";
   }
 
-  ['fileOrders','fileTarget','storeFilter','channelFilter',
-   'ordersLoadMode','ordersDedupeMode','targetLoadMode'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('change', () => setTimeout(tryApply, 120));
-  });
+  function _fetchCsv(url){
+    const finalUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    return fetch(finalUrl, { cache: "no-store" }).then(r => {
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    });
+  }
 
-  ['startDate','endDate'].forEach(id => {
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.addEventListener('change', () => setTimeout(tryApply, 50));
-    el.addEventListener('input',  () => setTimeout(tryApply, 50));
-  });
+  function _parseCsv(text){
+    return new Promise((resolve, reject) => {
+      Papa.parse(text, {
+        header: true, skipEmptyLines: true, delimiter: "",
+        complete: r => resolve(r.data),
+        error:    e => reject(new Error(e?.message || String(e)))
+      });
+    });
+  }
 
-  // Colorização dos KPI cards
-  function paintKpis(){
-    document.querySelectorAll('#kpis .kpi').forEach(card => {
-      card.classList.remove('kpi-good','kpi-bad','kpi-warn');
-      const txt = card.textContent || '';
-      const m = txt.match(/Atingimento:\s*([0-9]+[.,]?[0-9]*)%/i);
-      if(m){
-        const val = parseFloat(m[1].replace(',','.'));
-        if(!isNaN(val) && val < 95){ card.classList.add('kpi-warn'); return; }
+  function _parseStoreStatusCsv(rows){
+    if(!rows.length) return [];
+    const keys = Object.keys(rows[0]);
+    const kLow = keys.map(k => k.toLowerCase().trim());
+    const dateIdx   = kLow.findIndex(k => k.includes("data") || k.includes("date") || k.includes("dia"));
+    const closedIdx = kLow.findIndex(k => k.includes("fechad") || k.includes("closed") || k.includes("fech"));
+    const dk = keys[dateIdx >= 0 ? dateIdx : 0];
+    const ck = keys[closedIdx >= 0 ? closedIdx : 1];
+    const result = [];
+    for(const r of rows){
+      const rawDate   = (r[dk] || "").toString().trim();
+      const rawClosed = (r[ck] || "").toString().trim();
+      let isoDate = null;
+      if(rawDate.includes("-"))       isoDate = rawDate.split("T")[0];
+      else if(rawDate.includes("/")){
+        const [d, m, y] = rawDate.split("/");
+        if(d && m && y) isoDate = `${y.padStart(4,"0")}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
       }
-      if(card.querySelector('b.pos')) card.classList.add('kpi-good');
-      else if(card.querySelector('b.neg')) card.classList.add('kpi-bad');
-    });
-  }
-  const kpisEl = document.getElementById('kpis');
-  if(kpisEl) new MutationObserver(paintKpis).observe(kpisEl, {childList:true, subtree:true});
-})();
-</script>
-
-
-<script>
-// Insights visual classifier (non-invasive)
-(function(){
-  const root = document.getElementById('insights');
-  if(!root) return;
-
-  const rules = [
-    {cls:'ins-bad',  icon:'▼', tag:'Atenção',  re:/\b(gap|abaixo|queda|pior|cr[ií]tico|atraso|ruptura|reclama|cancel|falha)\b/i},
-    {cls:'ins-warn', icon:'!', tag:'Alerta',   re:/\b(volatil|oscila|inst[aá]vel|varia|press[aã]o|risco|tend[eê]ncia)\b/i},
-    {cls:'ins-good', icon:'▲', tag:'Boa',      re:/\b(acima|alta|cresceu|melhor|recorde|atingiu|superou|evolu[ií]u)\b/i},
-  ];
-
-  function decorate(el){
-    if(el.dataset.decorated === '1') return;
-    el.dataset.decorated = '1';
-
-    // Clean previous classes
-    el.classList.remove('ins-good','ins-bad','ins-warn');
-
-    const text = (el.textContent || '').trim();
-    let picked = {cls:'', icon:'•', tag:'Info'};
-    for(const r of rules){
-      if(r.re.test(text)){ picked = r; break; }
+      if(!isoDate) continue;
+      const closed = parseInt(rawClosed, 10);
+      if(isNaN(closed) || closed < 0 || closed > TOTAL_STORES) continue;
+      result.push({ date: isoDate, closed, open: TOTAL_STORES - closed });
     }
-    if(picked.cls) el.classList.add(picked.cls);
+    return result;
+  }
 
-    // icon
-    const icon = document.createElement('span');
-    icon.className = 'icon';
-    icon.textContent = picked.icon;
-    el.insertBefore(icon, el.firstChild);
-
-    // tag (append to first <b> if exists, else prepend line)
-    const b = el.querySelector('b');
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.textContent = picked.tag;
-    if(b){
-      b.insertAdjacentElement('afterend', tag);
-    }else{
-      el.appendChild(tag);
+  function _injectOrders(rows){
+    const incoming = buildOrderBase(rows);
+    ordersState = [];
+    const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
+    ordersState = merged;
+    saveJson(STORAGE_ORDERS_KEY, ordersState);
+    const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
+    const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
+    setSelectOptions(els.channelFilter, channels);
+    setSelectOptions(els.storeFilter, stores, storeLabel);
+    if(ordersState.length){
+      els.apply.disabled = false;
+      els.clear.disabled = false;
+      const range = inferRangeFromOrders(ordersState);
+      if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
     }
+    return stats.after;
   }
 
-  function run(){
-    const items = root.querySelectorAll('.item');
-    items.forEach(item=>{
-      // remove old icon/tag if re-render happened
-      item.querySelectorAll(':scope > .icon').forEach(n=>n.remove());
-      item.querySelectorAll('.tag').forEach(n=>n.remove());
-      item.dataset.decorated = '0';
-      decorate(item);
-    });
+  function _injectTargets(rows){
+    const incoming = parseTargets(rows);
+    targetsState = incoming;
+    saveJson(STORAGE_TARGETS_KEY, targetsState);
+    return Object.keys(incoming).length;
   }
 
-  new MutationObserver(()=> run()).observe(root, {childList:true, subtree:true});
-  run();
-})();
-</script>
+  async function loadAll(){
+    _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
-<script>
+    ordersState          = [];
+    targetsState         = {};
+    rupturasState        = [];
+    colecaoMap           = new Map();
+    STORE_STATUS_DYNAMIC = [];
+
+    const erros = [];
+    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
+
+    try {
+      _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
+      ordersLoaded = _injectOrders(rows);
+    } catch(e){ erros.push("Pedidos: " + e.message); }
+
+    try {
+      _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
+      targetsLoaded = _injectTargets(rows);
+    } catch(e){ erros.push("Metas: " + e.message); }
+
+    try {
+      _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
+      const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
+      STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
+      statusLoaded = STORE_STATUS_DYNAMIC.length;
+      renderStoreStatus();
+    } catch(e){ erros.push("Status lojas: " + e.message); }
+
+    try {
+      _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
+      rupturasState = parseRupturas(rows);
+      rupturasLoaded = rupturasState.length;
+    } catch(e){ erros.push("Rupturas: " + e.message); }
+
+    try {
+      _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
+      const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
+      colecaoMap = parseColecaoCSV(rows);
+      colecaoLoaded = colecaoMap.size;
+    } catch(e){ erros.push("Coleções: " + e.message); }
+
+    if(erros.length){
+      _setLoadStatus(false, "Erro ao carregar",
+        erros.map(e => `⚠️ ${e}`).join("<br>") +
+        "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
+      if(ordersState.length) runFromState();
+      return;
+    }
+
+    const now = new Date().toLocaleString("pt-BR");
+    const partes = [];
+    if(ordersLoaded)   partes.push(`${ordersLoaded} pedidos`);
+    if(targetsLoaded)  partes.push(`${targetsLoaded} dias de meta`);
+    if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
+    if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
+    if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
+    _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
+
+    if(ordersState.length) runFromState();
+  }
+
+  window.addEventListener("load", () => setTimeout(loadAll, 400));
+  // fallback: se load já disparou, roda direto
+  if(document.readyState === "complete") setTimeout(loadAll, 100);
+  window._omniReload = loadAll;
+
+
+
+
 // ============================================================
 //  ABAS — troca entre Dashboard e Report Diário
 // ============================================================
@@ -2767,8 +2834,9 @@ function renderReportPivotOrders(filteredOrders){
   html += `</table></div>`;
   container.innerHTML = html;
 }
-</script>
-<script>
+
+
+
 // ============================================================
 //  RUPTURAS — parse, mapeamento de lojas e render
 // ============================================================
@@ -3123,8 +3191,9 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
     elMotivo.innerHTML = htmlM;
   }
 }
-</script>
-<script>
+
+
+
 // ============================================================
 //  REPORT DIÁRIO — KPI Bullets operacionais
 // ============================================================
@@ -3339,8 +3408,9 @@ function renderReportKpis(filteredOrders){
     </div>
   `).join("");
 }
-</script>
-<script>
+
+
+
 // ============================================================
 //  VENDAS POR COLEÇÃO — cruzamento SKU × tabela de referência
 // ============================================================
@@ -3501,8 +3571,9 @@ function renderColecao(filteredOrders){
 // Guarda pedidos filtrados para re-render ao mudar categoria
 let _lastColecaoOrders = [];
 const _origRenderColecao = renderColecao;
-</script>
-<script>
+
+
+
 // ============================================================
 //  ABA DAILY — 4 quadrantes compactos (formato slide PPT)
 // ============================================================
@@ -3781,6 +3852,111 @@ function renderDaily(filteredOrders){
     if(badge) badge.textContent = `${grandRupt} rupturas · ${fmtPct.format(pctGrand)} · ${fmtBRL.format(grandRupt*avgPx)}`;
   })();
 }
+
+</script>
+
+
+<script>
+// Auto-apply unificado
+(function(){
+  function tryApply(){
+    // usa ordersState diretamente — não depende do estado disabled do botão
+    if(typeof ordersState !== "undefined" && ordersState.length){
+      if(typeof runFromState === "function") runFromState();
+    }
+  }
+
+  ['fileOrders','fileTarget','storeFilter','channelFilter',
+   'ordersLoadMode','ordersDedupeMode','targetLoadMode'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', () => setTimeout(tryApply, 120));
+  });
+
+  ['startDate','endDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', () => setTimeout(tryApply, 50));
+    el.addEventListener('input',  () => setTimeout(tryApply, 50));
+  });
+
+  // Colorização dos KPI cards
+  function paintKpis(){
+    document.querySelectorAll('#kpis .kpi').forEach(card => {
+      card.classList.remove('kpi-good','kpi-bad','kpi-warn');
+      const txt = card.textContent || '';
+      const m = txt.match(/Atingimento:\s*([0-9]+[.,]?[0-9]*)%/i);
+      if(m){
+        const val = parseFloat(m[1].replace(',','.'));
+        if(!isNaN(val) && val < 95){ card.classList.add('kpi-warn'); return; }
+      }
+      if(card.querySelector('b.pos')) card.classList.add('kpi-good');
+      else if(card.querySelector('b.neg')) card.classList.add('kpi-bad');
+    });
+  }
+  const kpisEl = document.getElementById('kpis');
+  if(kpisEl) new MutationObserver(paintKpis).observe(kpisEl, {childList:true, subtree:true});
+})();
+</script>
+
+
+<script>
+// Insights visual classifier (non-invasive)
+(function(){
+  const root = document.getElementById('insights');
+  if(!root) return;
+
+  const rules = [
+    {cls:'ins-bad',  icon:'▼', tag:'Atenção',  re:/\b(gap|abaixo|queda|pior|cr[ií]tico|atraso|ruptura|reclama|cancel|falha)\b/i},
+    {cls:'ins-warn', icon:'!', tag:'Alerta',   re:/\b(volatil|oscila|inst[aá]vel|varia|press[aã]o|risco|tend[eê]ncia)\b/i},
+    {cls:'ins-good', icon:'▲', tag:'Boa',      re:/\b(acima|alta|cresceu|melhor|recorde|atingiu|superou|evolu[ií]u)\b/i},
+  ];
+
+  function decorate(el){
+    if(el.dataset.decorated === '1') return;
+    el.dataset.decorated = '1';
+
+    // Clean previous classes
+    el.classList.remove('ins-good','ins-bad','ins-warn');
+
+    const text = (el.textContent || '').trim();
+    let picked = {cls:'', icon:'•', tag:'Info'};
+    for(const r of rules){
+      if(r.re.test(text)){ picked = r; break; }
+    }
+    if(picked.cls) el.classList.add(picked.cls);
+
+    // icon
+    const icon = document.createElement('span');
+    icon.className = 'icon';
+    icon.textContent = picked.icon;
+    el.insertBefore(icon, el.firstChild);
+
+    // tag (append to first <b> if exists, else prepend line)
+    const b = el.querySelector('b');
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = picked.tag;
+    if(b){
+      b.insertAdjacentElement('afterend', tag);
+    }else{
+      el.appendChild(tag);
+    }
+  }
+
+  function run(){
+    const items = root.querySelectorAll('.item');
+    items.forEach(item=>{
+      // remove old icon/tag if re-render happened
+      item.querySelectorAll(':scope > .icon').forEach(n=>n.remove());
+      item.querySelectorAll('.tag').forEach(n=>n.remove());
+      item.dataset.decorated = '0';
+      decorate(item);
+    });
+  }
+
+  new MutationObserver(()=> run()).observe(root, {childList:true, subtree:true});
+  run();
+})();
 </script>
 <script>
 // ============================================================
@@ -3827,176 +4003,6 @@ function renderDaily(filteredOrders){
   applyTheme(saved);
 })();
 </script>
-<script>
-// ============================================================
-//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
-// ============================================================
-
-  // URLs fixas dos arquivos no GitHub
-  const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
-  const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
-  const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
-  const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
-  const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
-
-  function _setLoadStatus(ok, title, msg){
-    const elDot   = document.getElementById("autoLoadDot");
-    const elTitle = document.getElementById("autoLoadTitle");
-    const elMsg   = document.getElementById("autoLoadMsg");
-    const colors  = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
-    const shadows = {
-      true:  "0 0 0 4px rgba(52,211,153,.12)",
-      false: "0 0 0 4px rgba(251,113,133,.12)",
-      null:  "0 0 0 4px rgba(251,191,36,.12)"
-    };
-    const k = ok === true ? "true" : ok === false ? "false" : "null";
-    if(elDot){ elDot.style.background = colors[k]; elDot.style.boxShadow = shadows[k]; }
-    if(elTitle) elTitle.textContent = title || "";
-    if(elMsg)   elMsg.innerHTML = msg || "";
-  }
-
-  function _fetchCsv(url){
-    const finalUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
-    return fetch(finalUrl, { cache: "no-store" }).then(r => {
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.text();
-    });
-  }
-
-  function _parseCsv(text){
-    return new Promise((resolve, reject) => {
-      Papa.parse(text, {
-        header: true, skipEmptyLines: true, delimiter: "",
-        complete: r => resolve(r.data),
-        error:    e => reject(new Error(e?.message || String(e)))
-      });
-    });
-  }
-
-  function _parseStoreStatusCsv(rows){
-    if(!rows.length) return [];
-    const keys = Object.keys(rows[0]);
-    const kLow = keys.map(k => k.toLowerCase().trim());
-    const dateIdx   = kLow.findIndex(k => k.includes("data") || k.includes("date") || k.includes("dia"));
-    const closedIdx = kLow.findIndex(k => k.includes("fechad") || k.includes("closed") || k.includes("fech"));
-    const dk = keys[dateIdx >= 0 ? dateIdx : 0];
-    const ck = keys[closedIdx >= 0 ? closedIdx : 1];
-    const result = [];
-    for(const r of rows){
-      const rawDate   = (r[dk] || "").toString().trim();
-      const rawClosed = (r[ck] || "").toString().trim();
-      let isoDate = null;
-      if(rawDate.includes("-"))       isoDate = rawDate.split("T")[0];
-      else if(rawDate.includes("/")){
-        const [d, m, y] = rawDate.split("/");
-        if(d && m && y) isoDate = `${y.padStart(4,"0")}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
-      }
-      if(!isoDate) continue;
-      const closed = parseInt(rawClosed, 10);
-      if(isNaN(closed) || closed < 0 || closed > TOTAL_STORES) continue;
-      result.push({ date: isoDate, closed, open: TOTAL_STORES - closed });
-    }
-    return result;
-  }
-
-  function _injectOrders(rows){
-    const incoming = buildOrderBase(rows);
-    window.ordersState = [];
-    const { merged, stats } = mergeOrders(window.ordersState, incoming, "KEEP_MAX_LINE");
-    window.ordersState = merged;
-    saveJson(STORAGE_ORDERS_KEY, window.ordersState);
-    const channels = new Set(window.ordersState.map(o => o.channelId).filter(Boolean));
-    const stores   = new Set(window.ordersState.map(o => o.locationId).filter(Boolean));
-    setSelectOptions(els.channelFilter, channels);
-    setSelectOptions(els.storeFilter, stores, storeLabel);
-    if(window.ordersState.length){
-      els.apply.disabled = false;
-      els.clear.disabled = false;
-      const range = inferRangeFromOrders(window.ordersState);
-      if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
-    }
-    return stats.after;
-  }
-
-  function _injectTargets(rows){
-    const incoming = parseTargets(rows);
-    window.targetsState = incoming;
-    saveJson(STORAGE_TARGETS_KEY, window.targetsState);
-    return Object.keys(incoming).length;
-  }
-
-  async function loadAll(){
-    _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
-
-    window.ordersState          = [];
-    window.targetsState         = {};
-    window.rupturasState        = [];
-    window.colecaoMap           = new Map();
-    window.STORE_STATUS_DYNAMIC = [];
-
-    const erros = [];
-    let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
-
-    try {
-      _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
-      const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
-      ordersLoaded = _injectOrders(rows);
-    } catch(e){ erros.push("Pedidos: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
-      const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
-      targetsLoaded = _injectTargets(rows);
-    } catch(e){ erros.push("Metas: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
-      const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
-      window.STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
-      statusLoaded = window.STORE_STATUS_DYNAMIC.length;
-      renderStoreStatus();
-    } catch(e){ erros.push("Status lojas: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
-      const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
-      window.rupturasState = parseRupturas(rows);
-      rupturasLoaded = window.rupturasState.length;
-    } catch(e){ erros.push("Rupturas: " + e.message); }
-
-    try {
-      _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
-      const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
-      window.colecaoMap = parseColecaoCSV(rows);
-      colecaoLoaded = window.colecaoMap.size;
-    } catch(e){ erros.push("Coleções: " + e.message); }
-
-    if(erros.length){
-      _setLoadStatus(false, "Erro ao carregar",
-        erros.map(e => `⚠️ ${e}`).join("<br>") +
-        "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
-      if(window.ordersState.length) runFromState();
-      return;
-    }
-
-    const now = new Date().toLocaleString("pt-BR");
-    const partes = [];
-    if(ordersLoaded)   partes.push(`${ordersLoaded} pedidos`);
-    if(targetsLoaded)  partes.push(`${targetsLoaded} dias de meta`);
-    if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
-    if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
-    if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
-    _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
-
-    if(window.ordersState.length) runFromState();
-  }
-
-  window.addEventListener("load", () => setTimeout(loadAll, 400));
-  // fallback: se load já disparou, roda direto
-  if(document.readyState === "complete") setTimeout(loadAll, 100);
-  window._omniReload = loadAll;
-</script>
-
 <div id="pdfContainer" style="display:none"></div>
 
 <script>
