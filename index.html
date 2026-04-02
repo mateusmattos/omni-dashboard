@@ -3974,7 +3974,9 @@ function renderDaily(filteredOrders){
     if(erros.length){
       _setLoadStatus(false, "Erro ao carregar",
         erros.map(e => `⚠️ ${e}`).join("<br>") +
-        "<br><small>Verifique se as URLs são <b>raw</b> do GitHub.</small>");
+        "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
+      // mesmo com erros em rupturas/coleções, renderizar o que tiver
+      if(ordersState.length) runFromState();
       return;
     }
 
@@ -3991,6 +3993,8 @@ function renderDaily(filteredOrders){
   }
 
   window.addEventListener("load", () => setTimeout(loadAll, 400));
+  // fallback: se load já disparou, roda direto
+  if(document.readyState === "complete") setTimeout(loadAll, 100);
   window._omniReload = loadAll;
 </script>
 
