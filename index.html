@@ -3616,8 +3616,11 @@ function renderDaily(filteredOrders){
     const periodEnd   = allDays[allDays.length - 1];
 
     // filtrar rupturas por registeredDate no período completo
+    // excluindo: parciais e erro de sistema
     const ruptPeriod = rupturasState.filter(r =>
-      r.registeredDate >= periodStart && r.registeredDate <= periodEnd
+      r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
+      r.totalOrPartial !== "partial" &&
+      r.reason !== "SYSTEM_ERROR"
     );
 
     // aplicar filtro de motivos se ativo
