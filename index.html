@@ -2615,28 +2615,21 @@
 </script>
 <script>
 // ============================================================
-//  OMNI DASHBOARD v9 — Carregamento automático via GitHub Raw
-//  3 arquivos: pedidos.csv, metas.csv, status_lojas.csv
+//  OMNI DASHBOARD — Carregamento automático via GitHub Raw
 // ============================================================
-(function(){
 
-  // URLs fixas dos arquivos no GitHub — atualizam automaticamente ao recarregar a página
+  // URLs fixas dos arquivos no GitHub
   const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
   const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
   const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
   const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
   const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
 
-  // Refs de UI — apenas status de carga
-  const elDot    = document.getElementById("autoLoadDot");
-  const elTitle  = document.getElementById("autoLoadTitle");
-  const elMsg    = document.getElementById("autoLoadMsg");
-
-  // Sem inputs de URL — configuração é feita diretamente no código
-
-  // --- Status helpers ---
-  function setStatus(ok, title, msg){
-    const colors = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
+  function _setLoadStatus(ok, title, msg){
+    const elDot   = document.getElementById("autoLoadDot");
+    const elTitle = document.getElementById("autoLoadTitle");
+    const elMsg   = document.getElementById("autoLoadMsg");
+    const colors  = { true:"var(--good)", false:"var(--bad)", null:"var(--warn)" };
     const shadows = {
       true:  "0 0 0 4px rgba(52,211,153,.12)",
       false: "0 0 0 4px rgba(251,113,133,.12)",
@@ -2648,140 +2641,78 @@
     if(elMsg)   elMsg.innerHTML = msg || "";
   }
 
-  // Sem restauração de inputs — URLs são fixas no código
-
-  // Sem botão de salvar — URLs são fixas no código
-
-  // --- Fetch com cache-bust ---
-  async function fetchCsv(url){
+  function _fetchCsv(url){
     const finalUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
-    const res = await fetch(finalUrl, { cache: "no-store" });
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
+    return fetch(finalUrl, { cache: "no-store" }).then(r => {
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.text();
+    });
   }
 
-  // --- Parse CSV ---
-  function parseCsv(text){
+  function _parseCsv(text){
     return new Promise((resolve, reject) => {
       Papa.parse(text, {
-        header: true,
-        skipEmptyLines: true,
-        delimiter: "",      // auto-detect: detecta tab, vírgula ou ponto-e-vírgula
+        header: true, skipEmptyLines: true, delimiter: "",
         complete: r => resolve(r.data),
         error:    e => reject(new Error(e?.message || String(e)))
       });
     });
   }
 
-  // --- Parse CSV de status das lojas ---
-  // Aceita: data,fechadas  (colunas podem ter nomes variados, detecta por conteúdo)
-  function parseStoreStatusCsv(rows){
+  function _parseStoreStatusCsv(rows){
     if(!rows.length) return [];
     const keys = Object.keys(rows[0]);
     const kLow = keys.map(k => k.toLowerCase().trim());
-
-    // detecta coluna de data
-    const dateIdx = kLow.findIndex(k =>
-      k.includes("data") || k.includes("date") || k.includes("dia")
-    );
-    // detecta coluna de fechadas
-    const closedIdx = kLow.findIndex(k =>
-      k.includes("fechad") || k.includes("closed") || k.includes("fech")
-    );
-
+    const dateIdx   = kLow.findIndex(k => k.includes("data") || k.includes("date") || k.includes("dia"));
+    const closedIdx = kLow.findIndex(k => k.includes("fechad") || k.includes("closed") || k.includes("fech"));
     const dk = keys[dateIdx >= 0 ? dateIdx : 0];
     const ck = keys[closedIdx >= 0 ? closedIdx : 1];
-
     const result = [];
     for(const r of rows){
-      const rawDate = (r[dk] || "").toString().trim();
+      const rawDate   = (r[dk] || "").toString().trim();
       const rawClosed = (r[ck] || "").toString().trim();
-
-      // aceita yyyy-mm-dd ou dd/mm/yyyy
       let isoDate = null;
-      if(rawDate.includes("-")){
-        isoDate = rawDate.split("T")[0]; // remove hora se houver
-      } else if(rawDate.includes("/")){
+      if(rawDate.includes("-"))       isoDate = rawDate.split("T")[0];
+      else if(rawDate.includes("/")){
         const [d, m, y] = rawDate.split("/");
         if(d && m && y) isoDate = `${y.padStart(4,"0")}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
       }
       if(!isoDate) continue;
-
       const closed = parseInt(rawClosed, 10);
       if(isNaN(closed) || closed < 0 || closed > TOTAL_STORES) continue;
-
-      result.push({
-        date:   isoDate,
-        closed: closed,
-        open:   TOTAL_STORES - closed
-      });
+      result.push({ date: isoDate, closed, open: TOTAL_STORES - closed });
     }
     return result;
   }
 
-  // --- Injetar pedidos ---
-  function injectOrders(rows){
+  function _injectOrders(rows){
     const incoming = buildOrderBase(rows);
     ordersState = [];
     const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
     ordersState = merged;
     saveJson(STORAGE_ORDERS_KEY, ordersState);
-
     const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
     const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
     setSelectOptions(els.channelFilter, channels);
     setSelectOptions(els.storeFilter, stores, storeLabel);
-
-    // Habilita apply e define range de datas para os filtros funcionarem
     if(ordersState.length){
       els.apply.disabled = false;
       els.clear.disabled = false;
       const range = inferRangeFromOrders(ordersState);
-      if(range){
-        els.startDate.value = isoDate(range.min);
-        els.endDate.value   = isoDate(range.max);
-      }
+      if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
     }
-
     return stats.after;
   }
 
-  // --- Injetar metas ---
-  function injectTargets(rows){
+  function _injectTargets(rows){
     const incoming = parseTargets(rows);
     targetsState = incoming;
     saveJson(STORAGE_TARGETS_KEY, targetsState);
     return Object.keys(incoming).length;
   }
 
-  // --- Injetar status das lojas ---
-  function injectStoreStatus(rows){
-    const parsed = parseStoreStatusCsv(rows);
-    STORE_STATUS_DYNAMIC = parsed;
-    return parsed.length;
-  }
-
-  // --- Injetar rupturas ---
-  function injectRupturas(rows){
-    rupturasState = parseRupturas(rows);
-    return rupturasState.length;
-  }
-
-  // --- Injetar coleções ---
-  function injectColecao(rows){
-    colecaoMap = parseColecaoCSV(rows);
-    return colecaoMap.size;
-  }
-
-  // --- Carga principal ---
   async function loadAll(){
-    const urlOrders      = URL_ORDERS;
-    const urlTarget      = URL_TARGET;
-    const urlStoreStatus = URL_STORESTATUS;
-    const urlRupturas    = URL_RUPTURAS;
-    const urlColecao     = URL_COLECAO;
-
-    setStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
+    _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
     ordersState          = [];
     targetsState         = {};
@@ -2792,51 +2723,44 @@
     const erros = [];
     let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
 
-    if(urlOrders){
-      try {
-        setStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
-        const rows = await parseCsv(await fetchCsv(urlOrders));
-        ordersLoaded = injectOrders(rows);
-      } catch(e){ erros.push("Pedidos: " + e.message); }
-    }
+    try {
+      _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
+      ordersLoaded = _injectOrders(rows);
+    } catch(e){ erros.push("Pedidos: " + e.message); }
 
-    if(urlTarget){
-      try {
-        setStatus(null, "Carregando metas...", "Baixando CSV de metas...");
-        const rows = await parseCsv(await fetchCsv(urlTarget));
-        targetsLoaded = injectTargets(rows);
-      } catch(e){ erros.push("Metas: " + e.message); }
-    }
+    try {
+      _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
+      targetsLoaded = _injectTargets(rows);
+    } catch(e){ erros.push("Metas: " + e.message); }
 
-    if(urlStoreStatus){
-      try {
-        setStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
-        const rows = await parseCsv(await fetchCsv(urlStoreStatus));
-        statusLoaded = injectStoreStatus(rows);
-        renderStoreStatus();
-      } catch(e){ erros.push("Status lojas: " + e.message); }
-    }
+    try {
+      _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
+      const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
+      STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
+      statusLoaded = STORE_STATUS_DYNAMIC.length;
+      renderStoreStatus();
+    } catch(e){ erros.push("Status lojas: " + e.message); }
 
-    if(urlRupturas){
-      try {
-        setStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
-        const rows = await parseCsv(await fetchCsv(urlRupturas));
-        rupturasLoaded = injectRupturas(rows);
-      } catch(e){ erros.push("Rupturas: " + e.message); }
-    }
+    try {
+      _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
+      const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
+      rupturasState = parseRupturas(rows);
+      rupturasLoaded = rupturasState.length;
+    } catch(e){ erros.push("Rupturas: " + e.message); }
 
-    if(urlColecao){
-      try {
-        setStatus(null, "Carregando coleções...", "Baixando tabela de referência SKU × coleção...");
-        const rows = await parseCsv(await fetchCsv(urlColecao));
-        colecaoLoaded = injectColecao(rows);
-      } catch(e){ erros.push("Coleções: " + e.message); }
-    }
+    try {
+      _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
+      const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
+      colecaoMap = parseColecaoCSV(rows);
+      colecaoLoaded = colecaoMap.size;
+    } catch(e){ erros.push("Coleções: " + e.message); }
 
     if(erros.length){
-      setStatus(false, "Erro ao carregar",
+      _setLoadStatus(false, "Erro ao carregar",
         erros.map(e => `⚠️ ${e}`).join("<br>") +
-        "<br><small>Verifique se as URLs são <b>raw</b> do GitHub (começam com raw.githubusercontent.com).</small>");
+        "<br><small>Verifique se as URLs são <b>raw</b> do GitHub.</small>");
       return;
     }
 
@@ -2847,18 +2771,13 @@
     if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
     if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
     if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
-    setStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
+    _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
 
-    if(ordersState.length){
-      runFromState();
-    }
+    if(ordersState.length) runFromState();
   }
 
-  // --- Auto-carrega ao abrir ---
   window.addEventListener("load", () => setTimeout(loadAll, 400));
   window._omniReload = loadAll;
-
-})();
 </script>
 <script>
 // ============================================================
