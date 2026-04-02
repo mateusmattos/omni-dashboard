@@ -2891,10 +2891,8 @@ const RUPT_LOCATION_MAP = [
   { match: "CENTER NORTE",  id: "57" },
   { match: "RECIFE RECIFE", id: "8"  },
   { match: "RIO MAR",       id: "24" },
-  { match: "BARRA RIO",            id: "13" },
-  { match: "RIO DE JANEIRO BARRA", id: "13" },
-  { match: "NOVA VENEZA",          id: "6"  },
-  { match: "BARRA SUL",            id: "20" },
+  { match: "BARRA RIO",     id: "13" },
+  { match: "BARRA SUL",     id: "20" },
   { match: "IGUATEMI",      id: "3"  },
   { match: "BH BOULEVARD",  id: "55" },
   { match: "BELEM",         id: "51" },
@@ -3120,7 +3118,7 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
 
   if(badge){
     badge.textContent =
-      `${totalRupturas} rupturas • ${fmtPct.format(pctGlobal)} de ${fmtInt.format(totalSkusGlobal)} SKUs`;
+      `${grandRupt} rupturas • ${fmtPct.format(pctGrand)} de ${fmtInt.format(grandItens)} SKUs`;
   }
   if(badgeM){
     badgeM.textContent = _ruptActiveMotivos === null
@@ -3177,13 +3175,13 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
     </tr>`;
   }
 
-  const pctGrand = grandItens > 0 ? totalRupturas / grandItens : 0;
+  const pctGrand = grandItens > 0 ? grandRupt / grandItens : 0;
   html += `</tbody><tfoot><tr>
     <td>Total Geral</td>
     <td>${fmtInt.format(grandItens)}</td>
-    <td>${fmtInt.format(totalRupturas)}</td>
+    <td>${fmtInt.format(grandRupt)}</td>
     <td><span style="color:${pctColor(pctGrand)};font-weight:700">${fmtPct.format(pctGrand)}</span></td>
-    <td>${fmtBRL.format(totalRupturas * avgPricePerSku)}</td>
+    <td>${fmtBRL.format(grandRupt * avgPricePerSku)}</td>
   </tr></tfoot></table></div>`;
 
   elLoja.innerHTML = html;
@@ -3260,7 +3258,8 @@ function renderReportKpis(filteredOrders){
     ? ruptFiltered
     : ruptFiltered.filter(r => _ruptActiveMotivos.has(r.reason));
 
-  const totalRupt    = ruptVisiveis.length;
+  // conta só rupturas com loja mapeada — consistente com a tabela
+  const totalRupt    = ruptVisiveis.filter(r => r.locationId !== null).length;
   const motivoLabel  = _ruptActiveMotivos === null
     ? null
     : [..._ruptActiveMotivos].map(r => reasonMeta(r).label).join(", ");
@@ -3857,7 +3856,8 @@ function renderDaily(filteredOrders){
         return pb-pa;
       });
 
-    const grandRupt = ruptVisiveis.length;
+    // conta só rupturas com loja mapeada — consistente com tabela e bullet
+    const grandRupt = ruptVisiveis.filter(r => r.locationId !== null).length;
     const pctGrand  = totalSkus>0 ? grandRupt/totalSkus : 0;
 
     let html = `<table class="dt"><thead><tr>
