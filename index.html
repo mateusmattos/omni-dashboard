@@ -4047,9 +4047,31 @@ function exportPDF(){
 
   const agora = new Date().toLocaleString("pt-BR");
 
-  // --- Capturar gráfico como imagem ---
+  // --- Capturar gráfico — garante que o canvas está visível ---
+  // Se a aba Dashboard não estiver ativa, o canvas tem dimensão zero
+  const tabDash = document.getElementById("tab-dashboard");
+  const wasHidden = tabDash && !tabDash.classList.contains("active");
+  if(wasHidden){
+    // Ativa temporariamente a aba dashboard para o canvas ter dimensões
+    document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+    tabDash.classList.add("active");
+  }
   const trendCanvas = document.getElementById("trendChart");
-  const trendImg    = trendCanvas ? trendCanvas.toDataURL("image/png") : null;
+  // Força redraw do Chart.js para garantir que o canvas está pintado
+  if(window.trendChart) window.trendChart.resize();
+  const trendImg = trendCanvas && trendCanvas.width > 0
+    ? trendCanvas.toDataURL("image/png")
+    : null;
+  if(wasHidden){
+    // Restaura estado original das abas
+    tabDash.classList.remove("active");
+    const activeBtn = document.querySelector(".tab-btn.active");
+    if(activeBtn){
+      const activeTabId = activeBtn.getAttribute("data-tab");
+      const activePane  = document.getElementById(activeTabId);
+      if(activePane) activePane.classList.add("active");
+    }
+  }
 
   // --- KPIs ---
   function buildKpis(){
