@@ -2660,10 +2660,6 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
     ? "todos os motivos"
     : [..._ruptActiveMotivos].map(r => reasonMeta(r).label).join(", ");
 
-  if(badge){
-    badge.textContent =
-      `${grandRupt} rupturas • ${fmtPct.format(pctGrand)} de ${fmtInt.format(grandItens)} SKUs`;
-  }
   if(badgeM){
     badgeM.textContent = _ruptActiveMotivos === null
       ? "todos os motivos"
@@ -2720,6 +2716,13 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
   }
 
   const pctGrand = grandItens > 0 ? grandRupt / grandItens : 0;
+
+  // Badge — agora grandRupt e grandItens estão calculados
+  if(badge){
+    badge.textContent =
+      `${grandRupt} rupturas • ${fmtPct.format(pctGrand)} de ${fmtInt.format(grandItens)} SKUs`;
+  }
+
   html += `</tbody><tfoot><tr>
     <td>Total Geral</td>
     <td>${fmtInt.format(grandItens)}</td>
