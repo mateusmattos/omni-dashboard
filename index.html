@@ -2954,6 +2954,11 @@ function pctColor(pct){
   return "#34d399";
 }
 
+// Filtro base de rupturas — exclui parciais e SYSTEM_ERROR em todos os painéis
+function ruptBaseFilter(r){
+  return r.totalOrPartial !== "partial" && r.reason !== "SYSTEM_ERROR";
+}
+
 // ---- Estado do filtro de motivos ----
 // null = todos; Set de strings = motivos selecionados
 let _ruptActiveMotivos = null; // null = "Todos" ativo
@@ -3062,7 +3067,8 @@ function renderRupturas(filteredOrders){
   const periodEnd   = [...periodDates].sort().reverse()[0];
 
   const ruptFiltered = rupturasState.filter(r =>
-    r.registeredDate >= periodStart && r.registeredDate <= periodEnd
+    r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
+    ruptBaseFilter(r)
   );
 
   // SKUs por loja (dos pedidos)
@@ -3245,10 +3251,9 @@ function renderReportKpis(filteredOrders){
   const periodEnd    = periodDates[periodDates.length - 1];
 
   const ruptFiltered = rupturasState.filter(r =>
-    r.registeredDate >= periodStart && r.registeredDate <= periodEnd
+    r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
+    ruptBaseFilter(r)
   );
-
-  // aplica o mesmo filtro de motivos das pills
   const ruptVisiveis = _ruptActiveMotivos === null
     ? ruptFiltered
     : ruptFiltered.filter(r => _ruptActiveMotivos.has(r.reason));
@@ -3803,12 +3808,10 @@ function renderDaily(filteredOrders){
     const periodStart = allDays[0];
     const periodEnd   = allDays[allDays.length - 1];
 
-    // filtrar rupturas por registeredDate no período completo
-    // excluindo: parciais e erro de sistema
+    // filtrar rupturas por registeredDate no período completo — mesma regra base dos outros painéis
     const ruptPeriod = rupturasState.filter(r =>
       r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
-      r.totalOrPartial !== "partial" &&
-      r.reason !== "SYSTEM_ERROR"
+      ruptBaseFilter(r)
     );
 
     // aplicar filtro de motivos se ativo
