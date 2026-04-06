@@ -3926,10 +3926,9 @@ function renderDailyPendLoja(filteredOrders){
 
   function _injectOrders(rows){
     const incoming = buildOrderBase(rows);
-    ordersState = [];
-    const { merged, stats } = mergeOrders(ordersState, incoming, "KEEP_MAX_LINE");
+    // Modo REPLACE — o CSV completo substitui tudo, garantindo status atualizados
+    const { merged, stats } = mergeOrders([], incoming, "REPLACE");
     ordersState = merged;
-    saveJson(STORAGE_ORDERS_KEY, ordersState);
     const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
     const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
     setSelectOptions(els.channelFilter, channels);
@@ -3951,7 +3950,6 @@ function renderDailyPendLoja(filteredOrders){
   }
 
   async function loadAll(){
-    console.log('[loadAll] iniciando');
     _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
     ordersState          = [];
@@ -3964,51 +3962,33 @@ function renderDailyPendLoja(filteredOrders){
     let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
 
     try {
-      console.log('[loadAll] carregando pedidos...');
       _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
       const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
-      console.log('[loadAll] pedidos rows:', rows.length);
       ordersLoaded = _injectOrders(rows);
-      console.log('[loadAll] ordersState após inject:', ordersState.length);
-    } catch(e){ console.error('[loadAll] ERRO pedidos:', e); erros.push("Pedidos: " + e.message); }
 
     try {
-      console.log('[loadAll] carregando metas...');
       _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
       const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
-      console.log('[loadAll] metas rows:', rows.length);
       targetsLoaded = _injectTargets(rows);
-    } catch(e){ console.error('[loadAll] ERRO metas:', e); erros.push("Metas: " + e.message); }
 
     try {
-      console.log('[loadAll] carregando status...');
       _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
       const rows = await _parseCsv(await _fetchCsv(URL_STORESTATUS));
       STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
       statusLoaded = STORE_STATUS_DYNAMIC.length;
       renderStoreStatus();
-    } catch(e){ console.error('[loadAll] ERRO status:', e); erros.push("Status lojas: " + e.message); }
 
     try {
-      console.log('[loadAll] carregando rupturas...');
       _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
       const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
       rupturasState = parseRupturas(rows);
       rupturasLoaded = rupturasState.length;
-      console.log('[loadAll] rupturasState:', rupturasLoaded);
-    } catch(e){ console.error('[loadAll] ERRO rupturas:', e); erros.push("Rupturas: " + e.message); }
 
     try {
-      console.log('[loadAll] carregando coleções...');
       _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
       const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
       colecaoMap = parseColecaoCSV(rows);
       colecaoLoaded = colecaoMap.size;
-      console.log('[loadAll] colecaoMap size:', colecaoLoaded);
-    } catch(e){ console.error('[loadAll] ERRO coleções:', e); erros.push("Coleções: " + e.message); }
-
-    console.log('[loadAll] erros:', erros);
-    console.log('[loadAll] ordersState.length final:', ordersState.length);
 
     if(erros.length){
       _setLoadStatus(false, "Erro ao carregar",
@@ -4026,10 +4006,7 @@ function renderDailyPendLoja(filteredOrders){
     if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
     if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
     _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
-
-    console.log('[loadAll] chamando runFromState, ordersState.length=', ordersState.length);
     if(ordersState.length) runFromState();
-    else console.warn('[loadAll] ordersState vazio — runFromState não chamado');
   }
 
   window.addEventListener("load", () => setTimeout(loadAll, 400));
