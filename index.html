@@ -2670,13 +2670,16 @@ function renderRupturas(filteredOrders){
     return;
   }
 
+  // Período: usa o filtro do usuário se disponível, senão deriva dos pedidos
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
   const periodDates = new Set(filteredOrders.map(o => o.placedDate));
-  if(!periodDates.size){
+  if(!periodDates.size && !startVal){
     elLoja.innerHTML = `<div style="padding:18px;color:var(--muted);font-size:13px;">Nenhum pedido no filtro selecionado.</div>`;
     return;
   }
-  const periodStart = [...periodDates].sort()[0];
-  const periodEnd   = [...periodDates].sort().reverse()[0];
+  const periodStart = startVal || [...periodDates].sort()[0];
+  const periodEnd   = endVal   || [...periodDates].sort().reverse()[0];
 
   const ruptFiltered = rupturasState.filter(r =>
     r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
@@ -2863,8 +2866,10 @@ function renderReportKpis(filteredOrders){
 
   // --- Rupturas ---
   const periodDates  = [...new Set(filteredOrders.map(o => o.placedDate))].sort();
-  const periodStart  = periodDates[0];
-  const periodEnd    = periodDates[periodDates.length - 1];
+  const startVal_r   = els.startDate?.value || "";
+  const endVal_r     = els.endDate?.value   || "";
+  const periodStart  = startVal_r || periodDates[0];
+  const periodEnd    = endVal_r   || periodDates[periodDates.length - 1];
 
   const ruptFiltered = rupturasState.filter(r =>
     r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
@@ -3424,9 +3429,9 @@ function renderDaily(filteredOrders){
       return;
     }
 
-    // período completo dos pedidos filtrados
-    const periodStart = allDays[0];
-    const periodEnd   = allDays[allDays.length - 1];
+    // período: usa filtro do usuário se disponível, senão deriva dos pedidos
+    const periodStart = els.startDate?.value || allDays[0];
+    const periodEnd   = els.endDate?.value   || allDays[allDays.length - 1];
 
     // filtrar rupturas por registeredDate no período completo — mesma regra base dos outros painéis
     const ruptPeriod = rupturasState.filter(r =>
@@ -3517,8 +3522,8 @@ function renderDaily(filteredOrders){
 //  Exclui: shipped, delivered, canceled, stockout, ruptura
 //  Verde = shipment | Azul = pickup
 // ============================================================
-const REGIONAL_1 = new Set([2, 3, 6, 14, 17, 20, 25, 50, 57]); // Barigui, Iguatemi POA, Nações, Anália Franco, Morumbi, Barra Sul, Mueller, Campo Grande, Center Norte
-const REGIONAL_2 = new Set([4, 8, 9, 10, 13, 19, 21, 24, 51, 55]); // Balneário, Recife, Salvador, Brasília, Barra Rio, Goiabeiras, Ponta Negra, Rio Mar, Belém, BH Boulevard
+const REGIONAL_1 = new Set([2, 3, 4, 6, 14, 17, 20, 25, 50, 57]); // Barigui, Iguatemi POA, Balneário, Nações, Anália Franco, Morumbi, Barra Sul, Mueller, Campo Grande, Center Norte
+const REGIONAL_2 = new Set([8, 9, 10, 13, 19, 21, 24, 51, 55]); // Recife, Salvador, Brasília, Barra Rio, Goiabeiras, Ponta Negra, Rio Mar, Belém, BH Boulevard
 
 // Status excluídos do gráfico de pendência
 // Whitelist de status que exigem ação da loja
