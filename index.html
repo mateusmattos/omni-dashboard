@@ -2702,13 +2702,13 @@ function renderRupturas(filteredOrders){
     if(badge) badge.textContent = `0 rupturas no período (${periodStart} a ${periodEnd}) — dados disponíveis: ${ymdToBr(dMin)} a ${ymdToBr(dMax)}`;
   }
 
-  // SKUs por loja (dos pedidos)
+  // SKUs por loja (dos pedidos) — locationId normalizado para string
   const skusByStore = new Map();
   let totalSkusGlobal = 0;
   for(const o of filteredOrders){
-    // ignora pedidos cancelados — não devem entrar no denominador de ruptura
     if((o.status || "").includes("cancel")) continue;
-    const lid = o.locationId || "";
+    const lid = String(o.locationId || "");
+    if(!lid) continue;
     skusByStore.set(lid, (skusByStore.get(lid) || 0) + (o.lineCount || 1));
     totalSkusGlobal += (o.lineCount || 1);
   }
@@ -2756,12 +2756,12 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
   // ---- Tabela por loja ----
   const ruptByStore = new Map();
   for(const r of ruptVisiveis){
-    const lid = r.locationId || "__unknown__";
+    const lid = String(r.locationId || "__unknown__");
     if(!ruptByStore.has(lid)) ruptByStore.set(lid, { total: 0 });
     ruptByStore.get(lid).total++;
   }
 
-  const storeIds = [...skusByStore.keys()].filter(id => id !== "");
+  const storeIds = [...skusByStore.keys()].filter(id => id !== "" && id !== "null" && id !== "undefined");
   storeIds.sort((a, b) => {
     const ra = ruptByStore.get(a)?.total || 0;
     const rb = ruptByStore.get(b)?.total || 0;
@@ -3906,6 +3906,7 @@ function renderDailyPendLoja(filteredOrders){
 // ============================================================
 
   // URLs fixas dos arquivos no GitHub
+  const URL_ORDERS_BASE = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos_base.csv";
   const URL_ORDERS      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/pedidos.csv";
   const URL_TARGET      = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/metas.csv";
   const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
@@ -4009,10 +4010,55 @@ function renderDailyPendLoja(filteredOrders){
     const erros = [];
     let ordersLoaded = 0, targetsLoaded = 0, statusLoaded = 0, rupturasLoaded = 0, colecaoLoaded = 0;
 
+    // --- Pedidos: base histórica + update de status (30 dias) ---
+    // Passo 1: carregar pedidos_base.csv (histórico completo)
+    let baseOrders = [];
     try {
-      _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
+      _setLoadStatus(null, "Carregando base de pedidos...", "Baixando histórico completo...");
+      const rows = await _parseCsv(await _fetchCsv(URL_ORDERS_BASE));
+      baseOrders = buildOrderBase(rows);
+    } catch(e){
+      // base não encontrada — continua só com pedidos.csv
+      _setLoadStatus(null, "pedidos_base.csv não encontrado", "Usando apenas pedidos.csv...");
+    }
+
+    // Passo 2: carregar pedidos.csv (últimos 30 dias) e fazer merge
+    try {
+      _setLoadStatus(null, "Atualizando pedidos...", "Aplicando status recentes e novos pedidos...");
       const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
-      ordersLoaded = _injectOrders(rows);
+      const updateOrders = buildOrderBase(rows);
+
+      // Merge: para cada pedido do update —
+      //   se já existe na base → atualiza o status (e outros campos mutáveis)
+      //   se não existe na base → insere como novo
+      const baseMap = new Map(baseOrders.map(o => [o.order, o]));
+      for(const u of updateOrders){
+        if(baseMap.has(u.order)){
+          // atualiza campos que mudam com o tempo
+          const b = baseMap.get(u.order);
+          b.status    = u.status;
+          b.orderType = u.orderType;
+          b.value     = u.value;
+          b.lineCount = u.lineCount;
+        } else {
+          // pedido novo — adiciona à base
+          baseMap.set(u.order, u);
+        }
+      }
+      ordersState = [...baseMap.values()];
+
+      // atualizar filtros e selects
+      const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
+      const stores   = new Set(ordersState.map(o => o.locationId).filter(Boolean));
+      setSelectOptions(els.channelFilter, channels);
+      setSelectOptions(els.storeFilter, stores, storeLabel);
+      if(ordersState.length){
+        els.apply.disabled = false;
+        els.clear.disabled = false;
+        const range = inferRangeFromOrders(ordersState);
+        if(range){ els.startDate.value = isoDate(range.min); els.endDate.value = isoDate(range.max); }
+      }
+      ordersLoaded = ordersState.length;
     } catch(e){ erros.push("Pedidos: " + e.message); }
 
     try {
