@@ -2694,6 +2694,14 @@ function renderRupturas(filteredOrders){
     ruptBaseFilter(r)
   );
 
+  // Diagnóstico: se vazio, verificar se há rupturas fora do período e avisar
+  const ruptAll = rupturasState.filter(r => ruptBaseFilter(r) && r.locationId !== null);
+  if(ruptFiltered.length === 0 && ruptAll.length > 0){
+    const datesAvail = [...new Set(ruptAll.map(r => r.registeredDate))].sort();
+    const dMin = datesAvail[0], dMax = datesAvail[datesAvail.length-1];
+    if(badge) badge.textContent = `0 rupturas no período (${periodStart} a ${periodEnd}) — dados disponíveis: ${ymdToBr(dMin)} a ${ymdToBr(dMax)}`;
+  }
+
   // SKUs por loja (dos pedidos)
   const skusByStore = new Map();
   let totalSkusGlobal = 0;
