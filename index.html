@@ -2690,14 +2690,14 @@ function renderRupturas(filteredOrders){
   const periodEnd   = endVal   || [...periodDates].sort().reverse()[0];
 
   const ruptFiltered = rupturasState.filter(r =>
-    r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
+    r.createdDate >= periodStart && r.createdDate <= periodEnd &&
     ruptBaseFilter(r)
   );
 
   // Diagnóstico: se vazio, verificar se há rupturas fora do período e avisar
   const ruptAll = rupturasState.filter(r => ruptBaseFilter(r) && r.locationId !== null);
   if(ruptFiltered.length === 0 && ruptAll.length > 0){
-    const datesAvail = [...new Set(ruptAll.map(r => r.registeredDate))].sort();
+    const datesAvail = [...new Set(ruptAll.map(r => r.createdDate))].sort();
     const dMin = datesAvail[0], dMax = datesAvail[datesAvail.length-1];
     if(badge) badge.textContent = `0 rupturas no período (${periodStart} a ${periodEnd}) — dados disponíveis: ${ymdToBr(dMin)} a ${ymdToBr(dMax)}`;
   }
@@ -2888,7 +2888,7 @@ function renderReportKpis(filteredOrders){
   const periodEnd    = endVal_r   || periodDates[periodDates.length - 1];
 
   const ruptFiltered = rupturasState.filter(r =>
-    r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
+    r.createdDate >= periodStart && r.createdDate <= periodEnd &&
     ruptBaseFilter(r)
   );
   const ruptVisiveis = _ruptActiveMotivos === null
@@ -3451,7 +3451,7 @@ function renderDaily(filteredOrders){
 
     // filtrar rupturas por registeredDate no período completo — mesma regra base dos outros painéis
     const ruptPeriod = rupturasState.filter(r =>
-      r.registeredDate >= periodStart && r.registeredDate <= periodEnd &&
+      r.createdDate >= periodStart && r.createdDate <= periodEnd &&
       ruptBaseFilter(r)
     );
 
