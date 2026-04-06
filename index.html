@@ -3042,11 +3042,12 @@ function renderColecao(filteredOrders){
     return;
   }
 
-  // --- Agregar vendas por coleção ---
+  // --- Agregar vendas por coleção — exclui cancelados (igual ao bullet) ---
   const byColecao = new Map();
   let matched = 0, total = 0;
 
   for(const o of filteredOrders){
+    if((o.status || "").includes("cancel")) continue;  // exclui cancelados
     const prefix = skuPrefix(o.sku || "");
     const info   = prefix ? colecaoMap.get(prefix) : null;
     const col    = info?.colecao   || "__sem_colecao__";
