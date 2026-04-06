@@ -1470,7 +1470,7 @@
               <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;font-size:11px;color:var(--muted);">
                 <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4caf50;margin-right:4px;"></span>Envio (Shipment)</span>
                 <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#7dd3fc;margin-right:4px;"></span>Retirada (Pickup)</span>
-                <span style="margin-left:auto;font-size:10px;color:var(--muted2);">Excluídos: shipped · delivered · canceled · stockout</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--muted2);">Waiting · Billing · Picking · Billed · Taxing · Checked · e mais</span>
               </div>
               <div id="dailyPendLojaChart" style="width:100%;"></div>
             </div>
@@ -3521,13 +3521,34 @@ const REGIONAL_1 = new Set([2, 3, 6, 14, 17, 20, 25, 50, 57]); // Barigui, Iguat
 const REGIONAL_2 = new Set([4, 8, 9, 10, 13, 19, 21, 24, 51, 55]); // Balneário, Recife, Salvador, Brasília, Barra Rio, Goiabeiras, Ponta Negra, Rio Mar, Belém, BH Boulevard
 
 // Status excluídos do gráfico de pendência
-// Status considerados "pendente" — ação necessária da loja
+// Whitelist de status que exigem ação da loja
+// Em processamento, Separação, Pendente, Faturado, Aguardando GNRE, Conferido
+const PEND_LOJA_STATUS = new Set([
+  "billing_confirmation", // Em processamento
+  "billing",              // Em Separação
+  "picking",              // Em Separação
+  "invoicing",            // Aguardando Fiscal (Em processamento)
+  "checked",              // Conferido
+  "waiting",              // Pendente
+  "billed",               // Faturado
+  "pickup_paid",          // Anexar Declaração (Faturado)
+  "taxing",               // Aguardando GNRE
+  "pickup_ready",         // Pronto para retirada (Em processamento)
+]);
+
+// Status considerados "pendente" para os painéis de pedidos pendentes
 function isOrderPending(status){
   const s = (status || "").toLowerCase();
   return s.includes("pending") || s.includes("waiting");
 }
 
+// Status que exigem ação da loja (para o gráfico de pendência por loja)
+function isAcaoLoja(status){
+  return PEND_LOJA_STATUS.has((status || "").toLowerCase());
+}
+
 function isPendExcluded(status){
+  // mantido por compatibilidade — não usado no gráfico de pendência
   const s = (status || "").toLowerCase();
   return s.includes("shipped") ||
          s.includes("delivered") ||
@@ -3550,11 +3571,10 @@ function renderDailyPendLoja(filteredOrders){
       .filter(Boolean)
   );
 
-  // Filtrar pedidos com ação pendente da loja:
-  // excluir: shipped, delivered, canceled, stockout, ruptura
+  // Filtrar pedidos com ação pendente da loja — apenas status da whitelist
   // E excluir pedidos que cruzam com o CSV de rupturas
   const pendOrders = filteredOrders.filter(o =>
-    !isPendExcluded(o.status) && !ruptOrderIds.has(o.order)
+    isAcaoLoja(o.status) && !ruptOrderIds.has(o.order)
   );
 
   if(!pendOrders.length){
