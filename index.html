@@ -2387,7 +2387,7 @@ function renderReportPivotOrders(filteredOrders){
   for(const o of filteredOrders){
     const sid = o.locationId || "";
     const day = o.placedDate;
-    const isPending = (o.status || "").includes("pending");
+    const isPending = isOrderPending(o.status);
 
     if(!matrix.has(sid)) continue;
     const storeMap = matrix.get(sid);
@@ -2895,7 +2895,7 @@ function renderReportKpis(filteredOrders){
   const topReasonMeta= topReason ? reasonMeta(topReason[0]) : null;
 
   // --- Pedidos pendentes ---
-  const pending      = filteredOrders.filter(o => (o.status || "").includes("pending"));
+  const pending      = filteredOrders.filter(o => isOrderPending(o.status));
   const pendCount    = pending.length;
   const pctPend      = filteredOrders.length ? pendCount / filteredOrders.length : 0;
 
@@ -3318,7 +3318,7 @@ function renderDaily(filteredOrders){
     const badge = document.getElementById("dailyPendentesBadge");
     if(!el) return;
 
-    const pendOrders = filteredOrders.filter(o => (o.status||"").includes("pending"));
+    const pendOrders = filteredOrders.filter(o => isOrderPending(o.status));
 
     const mat    = new Map();
     const dayTot = new Map(last4.map(d => [d, 0]));
@@ -3521,6 +3521,12 @@ const REGIONAL_1 = new Set([2, 3, 6, 14, 17, 20, 25, 50, 57]); // Barigui, Iguat
 const REGIONAL_2 = new Set([4, 8, 9, 10, 13, 19, 21, 24, 51, 55]); // Balneário, Recife, Salvador, Brasília, Barra Rio, Goiabeiras, Ponta Negra, Rio Mar, Belém, BH Boulevard
 
 // Status excluídos do gráfico de pendência
+// Status considerados "pendente" — ação necessária da loja
+function isOrderPending(status){
+  const s = (status || "").toLowerCase();
+  return s.includes("pending") || s.includes("waiting");
+}
+
 function isPendExcluded(status){
   const s = (status || "").toLowerCase();
   return s.includes("shipped") ||
