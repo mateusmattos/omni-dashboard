@@ -3584,6 +3584,13 @@ function renderDailyPendLoja(filteredOrders){
   const badge = document.getElementById("dailyPendLojaBadge");
   if(!el) return;
 
+  // Sempre filtra os últimos 30 dias — independente do filtro do dashboard
+  const hoje   = new Date();
+  const d30    = new Date(hoje); d30.setDate(hoje.getDate() - 30);
+  const cutoff = d30.toISOString().slice(0, 10); // YYYY-MM-DD
+
+  const base30 = ordersState.filter(o => o.placedDate >= cutoff);
+
   // Montar Set de orderIds que sofreram ruptura (excluindo parciais e SYSTEM_ERROR)
   const ruptOrderIds = new Set(
     rupturasState
@@ -3594,7 +3601,7 @@ function renderDailyPendLoja(filteredOrders){
 
   // Filtrar pedidos com ação pendente da loja — apenas status da whitelist
   // E excluir pedidos que cruzam com o CSV de rupturas
-  const pendOrders = filteredOrders.filter(o =>
+  const pendOrders = base30.filter(o =>
     isAcaoLoja(o.status) && !ruptOrderIds.has(o.order)
   );
 
@@ -3641,7 +3648,7 @@ function renderDailyPendLoja(filteredOrders){
   const totalShip  = allRows.reduce((a, r) => a + r.ship, 0);
   const totalPick  = allRows.reduce((a, r) => a + r.pick, 0);
 
-  if(badge) badge.textContent = `${grandTotal} pendentes · ${totalShip} envio · ${totalPick} retirada`;
+  if(badge) badge.textContent = `${grandTotal} pendentes · ${totalShip} envio · ${totalPick} retirada · últimos 30 dias`;
 
   function renderGroup(rows, label){
     if(!rows.length) return "";
