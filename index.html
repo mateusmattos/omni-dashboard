@@ -1067,6 +1067,54 @@
       }
     }
 
+    /* ===== GRÁFICO PENDÊNCIA POR LOJA ===== */
+    .pend-chart-wrap{ display:flex; flex-direction:column; gap:2px; }
+    .pend-regional-label{
+      font-size:9.5px; font-weight:700; text-transform:uppercase;
+      letter-spacing:.4px; color:var(--muted2);
+      margin:10px 0 4px; padding-left:4px;
+      border-left:3px solid var(--accent2);
+    }
+    .pend-row{
+      display:grid;
+      grid-template-columns: 110px 1fr 36px;
+      align-items:center;
+      gap:8px;
+      min-height:22px;
+    }
+    .pend-row-name{
+      font-size:10.5px; font-weight:700;
+      color:var(--text);
+      text-align:right;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .pend-bar-track{
+      height:18px;
+      border-radius:3px;
+      background:var(--panel2);
+      position:relative;
+      overflow:hidden;
+    }
+    .pend-bar-ship{
+      position:absolute; left:0; top:0; bottom:0;
+      background:#4caf50;
+      border-radius:3px 0 0 3px;
+      transition:width .3s;
+    }
+    .pend-bar-pick{
+      position:absolute; top:0; bottom:0;
+      background:#7dd3fc;
+      border-radius:0 3px 3px 0;
+      transition:width .3s;
+    }
+    .pend-row-val{
+      font-size:11px; font-weight:700;
+      color:var(--text);
+    }
+    [data-theme="light"] .pend-bar-track{ background:rgba(0,0,0,.08); }
+
   </style>
 </head>
 
@@ -1410,7 +1458,24 @@
               </div>
             </div>
 
+          </div><!-- /daily-wrap -->
+
+          <!-- Gráfico: Pendência por loja (largura total) -->
+          <div class="daily-panel" style="margin-top:10px;">
+            <div class="dp-head">
+              <h3>Pendência por loja — ação necessária</h3>
+              <span class="dp-badge" id="dailyPendLojaBadge">—</span>
+            </div>
+            <div class="dp-body" style="padding:16px 20px 12px;">
+              <div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;font-size:11px;color:var(--muted);">
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#4caf50;margin-right:4px;"></span>Envio (Shipment)</span>
+                <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#7dd3fc;margin-right:4px;"></span>Retirada (Pickup)</span>
+                <span style="margin-left:auto;font-size:10px;color:var(--muted2);">Excluídos: shipped · delivered · canceled · stockout</span>
+              </div>
+              <div id="dailyPendLojaChart" style="width:100%;"></div>
+            </div>
           </div>
+
         </div><!-- /tab-pane daily -->
 
       </div>
@@ -1836,6 +1901,7 @@
         const locationId = (r["locationId"] ?? "").toString().trim();
         const price = toNumberBR(r["productPrice"]);
         const status = (r["status"] ?? r["orderStatus"] ?? r["order_status"] ?? "").toString().trim().toLowerCase();
+        const orderType = (r["type"] ?? r["orderType"] ?? "").toString().trim().toUpperCase();
         // captura SKU do item (para cruzamento com tabela de coleções)
         const skuRaw = (r["product"] ?? r["sku"] ?? r["SKU"] ?? r["productSku"] ?? "").toString().trim();
 
@@ -1847,6 +1913,7 @@
             channelId,
             locationId,
             status,
+            orderType,
             sku: skuRaw,
             lineCount: 0,
             value: 0
@@ -1858,6 +1925,7 @@
         if(!o.channelId && channelId) o.channelId = channelId;
         if(!o.locationId && locationId) o.locationId = locationId;
         if(!o.status && status) o.status = status;
+        if(!o.orderType && orderType) o.orderType = orderType;
         if(!o.sku && skuRaw) o.sku = skuRaw;
 
         const existingDt = new Date(o.placedAtIso);
@@ -3439,6 +3507,119 @@ function renderDaily(filteredOrders){
     el.innerHTML = html;
     if(badge) badge.textContent = `${grandRupt} rupturas · ${fmtPct.format(pctGrand)} · ${fmtBRL.format(grandRupt*avgPx)}`;
   })();
+
+  // ── Gráfico de pendência por loja ─────────────────────────
+  renderDailyPendLoja(filteredOrders);
+}
+
+// ============================================================
+//  GRÁFICO PENDÊNCIA POR LOJA
+//  Exclui: shipped, delivered, canceled, stockout, ruptura
+//  Verde = shipment | Azul = pickup
+// ============================================================
+const REGIONAL_1 = new Set([2, 3, 6, 14, 17, 20, 25, 50, 57]); // Barigui, Iguatemi POA, Nações, Anália Franco, Morumbi, Barra Sul, Mueller, Campo Grande, Center Norte
+const REGIONAL_2 = new Set([4, 8, 9, 10, 13, 19, 21, 24, 51, 55]); // Balneário, Recife, Salvador, Brasília, Barra Rio, Goiabeiras, Ponta Negra, Rio Mar, Belém, BH Boulevard
+
+// Status excluídos do gráfico de pendência
+function isPendExcluded(status){
+  const s = (status || "").toLowerCase();
+  return s.includes("shipped") ||
+         s.includes("delivered") ||
+         s.includes("cancel") ||
+         s.includes("stockout") ||
+         s.includes("ruptur");
+}
+
+function renderDailyPendLoja(filteredOrders){
+  const el    = document.getElementById("dailyPendLojaChart");
+  const badge = document.getElementById("dailyPendLojaBadge");
+  if(!el) return;
+
+  // Montar Set de orderIds que sofreram ruptura (excluindo parciais e SYSTEM_ERROR)
+  const ruptOrderIds = new Set(
+    rupturasState
+      .filter(r => ruptBaseFilter(r))
+      .map(r => r.orderId)
+      .filter(Boolean)
+  );
+
+  // Filtrar pedidos com ação pendente da loja:
+  // excluir: shipped, delivered, canceled, stockout, ruptura
+  // E excluir pedidos que cruzam com o CSV de rupturas
+  const pendOrders = filteredOrders.filter(o =>
+    !isPendExcluded(o.status) && !ruptOrderIds.has(o.order)
+  );
+
+  if(!pendOrders.length){
+    el.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:11px;">Sem pedidos pendentes no filtro.</div>`;
+    if(badge) badge.textContent = "0 pendentes";
+    return;
+  }
+
+  // Agregar por loja: { ship: N, pick: N }
+  const byStore = new Map();
+  for(const o of pendOrders){
+    const lid = parseInt(o.locationId) || 0;
+    if(!lid) continue;
+    if(!byStore.has(lid)) byStore.set(lid, { ship: 0, pick: 0 });
+    const b = byStore.get(lid);
+    const t = (o.orderType || "").toUpperCase();
+    if(t === "PICKUP"){
+      b.pick++;
+    } else {
+      b.ship++; // SHIPMENT ou qualquer outro tipo
+    }
+  }
+
+  // Separar por regional e ordenar por total desc
+  const toRow = (lid) => ({
+    lid,
+    name: storeLabel(lid),
+    ship: byStore.get(lid)?.ship || 0,
+    pick: byStore.get(lid)?.pick || 0,
+    total: (byStore.get(lid)?.ship || 0) + (byStore.get(lid)?.pick || 0),
+  });
+
+  const reg1 = [...REGIONAL_1].filter(id => byStore.has(id)).map(toRow).sort((a,b) => b.total - a.total);
+  const reg2 = [...REGIONAL_2].filter(id => byStore.has(id)).map(toRow).sort((a,b) => b.total - a.total);
+  // lojas sem regional definida
+  const other = [...byStore.keys()]
+    .filter(id => !REGIONAL_1.has(id) && !REGIONAL_2.has(id))
+    .map(toRow).sort((a,b) => b.total - a.total);
+
+  const allRows = [...reg1, ...reg2, ...other];
+  const maxVal  = Math.max(...allRows.map(r => r.total), 1);
+  const grandTotal = allRows.reduce((a, r) => a + r.total, 0);
+  const totalShip  = allRows.reduce((a, r) => a + r.ship, 0);
+  const totalPick  = allRows.reduce((a, r) => a + r.pick, 0);
+
+  if(badge) badge.textContent = `${grandTotal} pendentes · ${totalShip} envio · ${totalPick} retirada`;
+
+  function renderGroup(rows, label){
+    if(!rows.length) return "";
+    let html = `<div class="pend-regional-label">${label}</div>`;
+    for(const r of rows){
+      const shipW = (r.ship / maxVal * 100).toFixed(1);
+      const pickW = (r.pick / maxVal * 100).toFixed(1);
+      const pickLeft = parseFloat(shipW);
+      html += `
+        <div class="pend-row">
+          <div class="pend-row-name" title="${r.name}">${r.name}</div>
+          <div class="pend-bar-track">
+            <div class="pend-bar-ship" style="width:${shipW}%"></div>
+            <div class="pend-bar-pick" style="left:${shipW}%;width:${pickW}%"></div>
+          </div>
+          <div class="pend-row-val">${r.total}</div>
+        </div>`;
+    }
+    return html;
+  }
+
+  el.innerHTML = `<div class="pend-chart-wrap">
+    ${reg1.length  ? renderGroup(reg1,  "Regional 1") : ""}
+    ${reg2.length  ? renderGroup(reg2,  "Regional 2") : ""}
+    ${other.length ? renderGroup(other, "Outras")     : ""}
+  </div>`;
 }
 
 
