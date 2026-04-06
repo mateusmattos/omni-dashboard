@@ -4486,7 +4486,59 @@ function exportPDF(){
     return html + `</tbody></table>`;
   }
 
-  // --- Montar HTML do container ---
+  // --- Pedidos pendentes ---
+  function buildPendentesTable(){
+    const wrap = document.getElementById("reportRupturas"); // reusamos o filtro de período
+    // Buscar pedidos pendentes diretamente do ordersState filtrado
+    const startVal = els.startDate?.value || "";
+    const endVal   = els.endDate?.value   || "";
+    const pending  = ordersState.filter(o => {
+      if(!isOrderPending(o.status)) return false;
+      if(startVal && o.placedDate < startVal) return false;
+      if(endVal   && o.placedDate > endVal)   return false;
+      return true;
+    });
+
+    if(!pending.length) return `<p style="color:#999;font-size:8pt">Nenhum pedido pendente no período.</p>`;
+
+    // Agregar por loja
+    const byStore = new Map();
+    for(const o of pending){
+      const lid = o.locationId || "__unknown__";
+      if(!byStore.has(lid)) byStore.set(lid, { count: 0, value: 0 });
+      byStore.get(lid).count++;
+      byStore.get(lid).value += (o.value || 0);
+    }
+
+    const rows = [...byStore.entries()]
+      .sort((a, b) => b[1].count - a[1].count);
+    const grandCount = pending.length;
+    const grandValue = pending.reduce((a, o) => a + (o.value || 0), 0);
+    const oldestDate = pending.map(o => o.placedDate).sort()[0];
+
+    let html = `<p style="font-size:8pt;color:#555;margin:0 0 5pt">${grandCount} pendentes · ${fmtBRL.format(grandValue)} · mais antigo: ${ymdToBr(oldestDate)}</p>`;
+    html += `<table class="pdf-table"><thead><tr>
+      <th>Loja</th><th class="tc">Pedidos</th><th class="tr">R$ Total</th><th class="tr">% do total</th>
+    </tr></thead><tbody>`;
+
+    for(const [lid, v] of rows){
+      const pct = grandValue > 0 ? v.value / grandValue : 0;
+      html += `<tr>
+        <td>${storeLabel(lid)}</td>
+        <td class="tc">${fmtInt.format(v.count)}</td>
+        <td class="tr">${fmtBRL.format(v.value)}</td>
+        <td class="tr">${fmtPct.format(pct)}</td>
+      </tr>`;
+    }
+
+    html += `</tbody><tfoot><tr>
+      <td>Total</td>
+      <td class="tc tr">${fmtInt.format(grandCount)}</td>
+      <td class="tr">${fmtBRL.format(grandValue)}</td>
+      <td class="tr">100,0%</td>
+    </tr></tfoot></table>`;
+    return html;
+  }
   container.innerHTML = `
     <div id="pdfHeader">
       <div>
@@ -4524,6 +4576,11 @@ function exportPDF(){
     <div class="pdf-section">
       <div class="pdf-section-title">Tabela diária</div>
       ${buildDailyTable()}
+    </div>
+
+    <div class="pdf-section">
+      <div class="pdf-section-title">Pedidos pendentes</div>
+      ${buildPendentesTable()}
     </div>
 
     <div class="pdf-grid2">
