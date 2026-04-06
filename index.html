@@ -3965,11 +3965,13 @@ function renderDailyPendLoja(filteredOrders){
       _setLoadStatus(null, "Carregando pedidos...", "Baixando CSV de vendas...");
       const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
       ordersLoaded = _injectOrders(rows);
+    } catch(e){ erros.push("Pedidos: " + e.message); }
 
     try {
       _setLoadStatus(null, "Carregando metas...", "Baixando CSV de metas...");
       const rows = await _parseCsv(await _fetchCsv(URL_TARGET));
       targetsLoaded = _injectTargets(rows);
+    } catch(e){ erros.push("Metas: " + e.message); }
 
     try {
       _setLoadStatus(null, "Carregando status das lojas...", "Baixando CSV de status...");
@@ -3977,23 +3979,26 @@ function renderDailyPendLoja(filteredOrders){
       STORE_STATUS_DYNAMIC = _parseStoreStatusCsv(rows);
       statusLoaded = STORE_STATUS_DYNAMIC.length;
       renderStoreStatus();
+    } catch(e){ erros.push("Status lojas: " + e.message); }
 
     try {
       _setLoadStatus(null, "Carregando rupturas...", "Baixando CSV de rupturas...");
       const rows = await _parseCsv(await _fetchCsv(URL_RUPTURAS));
       rupturasState = parseRupturas(rows);
       rupturasLoaded = rupturasState.length;
+    } catch(e){ erros.push("Rupturas: " + e.message); }
 
     try {
       _setLoadStatus(null, "Carregando coleções...", "Baixando tabela SKU × coleção...");
       const rows = await _parseCsv(await _fetchCsv(URL_COLECAO));
       colecaoMap = parseColecaoCSV(rows);
       colecaoLoaded = colecaoMap.size;
+    } catch(e){ erros.push("Coleções: " + e.message); }
 
     if(erros.length){
       _setLoadStatus(false, "Erro ao carregar",
         erros.map(e => `⚠️ ${e}`).join("<br>") +
-        "<br><small>Se estiver abrindo o arquivo localmente (file://), os dados não carregam por restrição do navegador. Publique no GitHub Pages.</small>");
+        "<br><small>Verifique se as URLs são raw do GitHub.</small>");
       if(ordersState.length) runFromState();
       return;
     }
