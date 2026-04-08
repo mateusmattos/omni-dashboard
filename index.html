@@ -1898,7 +1898,7 @@
 
         const placedDate = isoDate(placedAt);
         const channelId = (r["channelId"] ?? "").toString().trim();
-        const locationId = (r["locationId"] ?? "").toString().trim();
+        const locationId = String(parseInt((r["locationId"] ?? "").toString().trim(), 10) || "").replace("NaN","");
         const price = toNumberBR(r["productPrice"]);
         const status = (r["status"] ?? r["orderStatus"] ?? r["order_status"] ?? "").toString().trim().toLowerCase();
         const orderType = (r["type"] ?? r["orderType"] ?? "").toString().trim().toUpperCase();
@@ -2368,7 +2368,9 @@ function renderReportPivotOrders(filteredOrders){
   const days = [...daysSet].sort();
 
   // --- Coletar todas as lojas únicas (ordenadas por nome) ---
-  const storeIds = [...new Set(filteredOrders.map(o => o.locationId || ""))];
+  const storeIds = [...new Set(
+    filteredOrders.map(o => String(parseInt(o.locationId, 10) || "")).filter(Boolean)
+  )];
   storeIds.sort((a, b) => storeLabel(a).localeCompare(storeLabel(b)));
 
   // --- Montar matriz: storeId → day → { total, pending } ---
@@ -3269,9 +3271,12 @@ function renderDaily(filteredOrders){
     return;
   }
 
-  // Lojas ordenadas por nome
-  const storeIds = [...new Set(filteredOrders.map(o => o.locationId).filter(Boolean))]
-    .sort((a,b) => storeLabel(a).localeCompare(storeLabel(b)));
+  // Lojas ordenadas por nome — deduplica por locationId normalizado
+  const storeIds = [...new Set(
+    filteredOrders
+      .map(o => String(parseInt(o.locationId, 10) || ""))
+      .filter(Boolean)
+  )].sort((a,b) => storeLabel(a).localeCompare(storeLabel(b)));
 
   // Formatar dia: dd/MM (dom, seg...)
   const DOW = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
@@ -4035,21 +4040,21 @@ function renderDailyPendLoja(filteredOrders){
       const rows = await _parseCsv(await _fetchCsv(URL_ORDERS));
       const updateOrders = buildOrderBase(rows);
 
-      // Merge: para cada pedido do update —
-      //   se já existe na base → atualiza o status (e outros campos mutáveis)
-      //   se não existe na base → insere como novo
-      const baseMap = new Map(baseOrders.map(o => [o.order, o]));
+      // Merge: chave normalizada (orderId sem espaços extras)
+      // base → chave = o.order (já normalizado pelo buildOrderBase)
+      // update → mesmo formato
+      const baseMap = new Map(baseOrders.map(o => [o.order.trim(), o]));
       for(const u of updateOrders){
-        if(baseMap.has(u.order)){
+        const key = u.order.trim();
+        if(baseMap.has(key)){
           // atualiza campos que mudam com o tempo
-          const b = baseMap.get(u.order);
+          const b = baseMap.get(key);
           b.status    = u.status;
           b.orderType = u.orderType;
           b.value     = u.value;
           b.lineCount = u.lineCount;
         } else {
-          // pedido novo — adiciona à base
-          baseMap.set(u.order, u);
+          baseMap.set(key, u);
         }
       }
       ordersState = [...baseMap.values()];
