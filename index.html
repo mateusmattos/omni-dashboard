@@ -1412,6 +1412,12 @@
 
         <!-- ABA: DAILY -->
         <div class="tab-pane" id="tab-daily">
+
+          <!-- Botão exportar PDF Daily -->
+          <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+            <button onclick="exportDailyPDF()" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Exportar Daily PDF</button>
+          </div>
+
           <div class="daily-wrap">
 
             <!-- Q1: Pedidos por dia (últimos 4 dias) -->
@@ -4613,6 +4619,101 @@ function exportPDF(){
 
   // Acionar impressão
   window.print();
+}
+
+function exportDailyPDF(){
+  const container = document.getElementById("pdfContainer");
+  if(!container) return;
+
+  const agora  = new Date().toLocaleString("pt-BR");
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  function fmtIso(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
+  const periodo = startVal && endVal
+    ? `${fmtIso(startVal)} até ${fmtIso(endVal)}`
+    : "Período completo";
+
+  // Capturar conteúdo dos 4 quadrantes + gráfico de pendência
+  function clonePanel(id){
+    const el = document.getElementById(id);
+    if(!el) return "<p style='color:#999;font-size:8pt'>Sem dados.</p>";
+    return el.innerHTML || "<p style='color:#999;font-size:8pt'>Sem dados.</p>";
+  }
+
+  function panelHead(id){
+    const panel = document.getElementById(id)?.closest(".daily-panel");
+    return panel?.querySelector(".dp-head h3")?.textContent || "";
+  }
+
+  function badgeText(id){
+    const el = document.getElementById(id);
+    return el?.textContent ? `<span style="font-size:8pt;color:#555">${el.textContent}</span>` : "";
+  }
+
+  container.innerHTML = `
+    <div id="pdfHeader">
+      <div>
+        <h1>OMNI • Daily</h1>
+        <p>Período: <strong>${periodo}</strong></p>
+      </div>
+      <div class="pdfMeta">Gerado em: ${agora}</div>
+    </div>
+
+    <div class="pdf-grid2">
+      <div class="pdf-section">
+        <div class="pdf-section-title">Pedidos por dia ${badgeText("dailyPedidosBadge")}</div>
+        <div class="pdf-daily-table">${clonePanel("dailyPedidosTabela")}</div>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">Pedidos pendentes ${badgeText("dailyPendentesBadge")}</div>
+        <div class="pdf-daily-table">${clonePanel("dailyPendentesTabela")}</div>
+      </div>
+    </div>
+
+    <div class="pdf-grid2">
+      <div class="pdf-section">
+        <div class="pdf-section-title">Status das lojas ${badgeText("dailyLojasBadge")}</div>
+        <div class="pdf-daily-table">${clonePanel("dailyLojasGrid")}</div>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">Rupturas ${badgeText("dailyRuptBadge")}</div>
+        <div class="pdf-daily-table">${clonePanel("dailyRuptTabela")}</div>
+      </div>
+    </div>
+
+    <div class="pdf-section">
+      <div class="pdf-section-title">Pendência por loja — ação necessária ${badgeText("dailyPendLojaBadge")}</div>
+      <div class="pdf-daily-pend">${clonePanel("dailyPendLojaChart")}</div>
+    </div>
+
+    <div id="pdfFooter">OMNI • Daily — exportado em ${agora} — período: ${periodo}</div>
+  `;
+
+  // Forçar landscape para o Daily
+  const styleEl = document.getElementById("_dailyPrintStyle") || document.createElement("style");
+  styleEl.id = "_dailyPrintStyle";
+  styleEl.textContent = `
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+      .pdf-daily-table table { font-size: 8pt !important; }
+      .pdf-daily-table .dt thead th,
+      .pdf-daily-table .dt tbody td,
+      .pdf-daily-table .dt tfoot td { padding: 3pt 5pt !important; font-size: 8pt !important; }
+      .pdf-daily-pend .pend-chart-wrap { font-size: 8pt; }
+      .pdf-daily-pend .pend-row { grid-template-columns: 120px 1fr 30px !important; }
+      .pdf-daily-pend .pend-row-name { font-size: 8pt !important; }
+      .pdf-daily-pend .pend-row-val  { font-size: 8pt !important; }
+      .pdf-daily-pend .pend-regional-label { font-size: 8pt !important; }
+    }
+  `;
+  document.head.appendChild(styleEl);
+
+  window.print();
+
+  // Restaurar orientação para retrato após impressão
+  setTimeout(() => {
+    styleEl.textContent = styleEl.textContent.replace("landscape", "portrait");
+  }, 1000);
 }
 </script>
 </body>
