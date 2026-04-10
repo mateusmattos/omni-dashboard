@@ -1408,6 +1408,29 @@
             </div>
           </div>
 
+          <!-- Aging de Pedidos — Farol -->
+          <div class="panel">
+            <div class="hd">
+              <div>
+                <h2>Aging de pedidos — ação necessária</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Pedidos nos status de ação da loja, agrupados por dias desde a criação</p>
+              </div>
+              <span class="badge" id="agingBadge">—</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;padding:10px 16px 4px;flex-wrap:wrap;">
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted)">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399"></span> ≤ 3 dias — dentro do prazo
+              </span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted)">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fbbf24"></span> 4 dias — atenção
+              </span>
+              <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted)">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fb7185"></span> ≥ 5 dias — cancelar
+              </span>
+            </div>
+            <div id="reportAging"></div>
+          </div>
+
         </div><!-- /tab-pane report -->
 
         <!-- ABA: DAILY -->
@@ -2331,6 +2354,7 @@
       renderReportKpis(filtered);         // ← kpi bullets do report
       renderColecao(filtered);            // ← vendas por coleção
       renderDaily(filtered);             // ← aba daily
+      renderAging(filtered);             // ← aging de pedidos
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4717,6 +4741,123 @@ function exportDailyPDF(){
   setTimeout(() => {
     styleEl.textContent = styleEl.textContent.replace("landscape", "portrait");
   }, 1000);
+}
+
+// ============================================================
+//  AGING DE PEDIDOS — Farol por dias desde a criação
+// ============================================================
+function renderAging(filteredOrders){
+  const el    = document.getElementById("reportAging");
+  const badge = document.getElementById("agingBadge");
+  if(!el) return;
+
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+
+  function diasDesde(isoDate){
+    if(!isoDate) return 0;
+    const d = new Date(isoDate + "T00:00:00");
+    return Math.floor((hoje - d) / 86400000);
+  }
+
+  function agingClass(dias){
+    if(dias >= 5) return "crit";
+    if(dias === 4) return "warn";
+    return "ok";
+  }
+  function agingColor(dias){
+    if(dias >= 5) return "#fb7185";
+    if(dias === 4) return "#fbbf24";
+    return "#34d399";
+  }
+  function agingLabel(dias){
+    if(dias >= 5) return `${dias}d 🔴`;
+    if(dias === 4) return `${dias}d 🟡`;
+    return `${dias}d 🟢`;
+  }
+
+  // Filtrar pedidos nos status de ação da loja
+  const agingOrders = filteredOrders.filter(o => isAcaoLoja(o.status));
+
+  if(!agingOrders.length){
+    el.innerHTML = `<div style="padding:18px;color:var(--muted);font-size:13px;">Nenhum pedido nos status de ação da loja no período filtrado.</div>`;
+    if(badge) badge.textContent = "0 pedidos";
+    return;
+  }
+
+  // Agrupar por loja
+  const byStore = new Map();
+  for(const o of agingOrders){
+    const lid  = String(parseInt(o.locationId, 10) || "");
+    if(!lid) continue;
+    if(!byStore.has(lid)) byStore.set(lid, []);
+    byStore.get(lid).push(o);
+  }
+
+  // Contagens para badge
+  const tot3  = agingOrders.filter(o => diasDesde(o.placedDate) <= 3).length;
+  const tot4  = agingOrders.filter(o => diasDesde(o.placedDate) === 4).length;
+  const tot5p = agingOrders.filter(o => diasDesde(o.placedDate) >= 5).length;
+  if(badge) badge.textContent = `${agingOrders.length} pedidos · 🟢 ${tot3} · 🟡 ${tot4} · 🔴 ${tot5p}`;
+
+  // Ordenar lojas por qtd de pedidos críticos (≥5 dias) desc
+  const storesSorted = [...byStore.entries()].sort((a, b) => {
+    const ca = a[1].filter(o => diasDesde(o.placedDate) >= 5).length;
+    const cb = b[1].filter(o => diasDesde(o.placedDate) >= 5).length;
+    return cb - ca || b[1].length - a[1].length;
+  });
+
+  let html = `<div style="overflow-x:auto;">
+  <table class="rupt-table" style="width:100%">
+    <thead><tr>
+      <th style="text-align:left;min-width:130px">Loja</th>
+      <th style="text-align:center;color:#34d399">≤ 3 dias 🟢</th>
+      <th style="text-align:center;color:#fbbf24">4 dias 🟡</th>
+      <th style="text-align:center;color:#fb7185">≥ 5 dias 🔴</th>
+      <th style="text-align:center">Total</th>
+      <th style="text-align:left">Pedidos ≥ 4 dias (números)</th>
+    </tr></thead><tbody>`;
+
+  let gTot3=0, gTot4=0, gTot5=0;
+
+  for(const [lid, orders] of storesSorted){
+    const o3  = orders.filter(o => diasDesde(o.placedDate) <= 3);
+    const o4  = orders.filter(o => diasDesde(o.placedDate) === 4);
+    const o5p = orders.filter(o => diasDesde(o.placedDate) >= 5);
+    gTot3 += o3.length; gTot4 += o4.length; gTot5 += o5p.length;
+
+    // Montar lista de pedidos ≥ 4 dias com farol
+    const alertOrders = [...o4, ...o5p.sort((a,b) => diasDesde(b.placedDate) - diasDesde(a.placedDate))];
+    const alertHtml = alertOrders.length
+      ? alertOrders.map(o => {
+          const dias = diasDesde(o.placedDate);
+          const cor  = agingColor(dias);
+          return `<span style="display:inline-flex;align-items:center;gap:3px;margin:1px 3px;padding:2px 6px;border-radius:5px;background:${cor}22;border:1px solid ${cor}55;font-size:11px;color:${cor};font-weight:600;white-space:nowrap">
+            ${o.order} <span style="opacity:.7">${agingLabel(dias)}</span>
+          </span>`;
+        }).join("")
+      : `<span style="color:var(--muted);font-size:11px">—</span>`;
+
+    html += `<tr>
+      <td style="font-weight:700">${storeLabel(lid)}</td>
+      <td style="text-align:center;color:#34d399;font-weight:700">${o3.length || "—"}</td>
+      <td style="text-align:center;color:#fbbf24;font-weight:700">${o4.length || "—"}</td>
+      <td style="text-align:center;color:#fb7185;font-weight:700">${o5p.length || "—"}</td>
+      <td style="text-align:center;font-weight:700">${orders.length}</td>
+      <td style="max-width:500px;line-height:1.8">${alertHtml}</td>
+    </tr>`;
+  }
+
+  html += `</tbody><tfoot><tr>
+    <td style="text-align:left">Total</td>
+    <td style="text-align:center;color:#34d399;font-weight:700">${gTot3}</td>
+    <td style="text-align:center;color:#fbbf24;font-weight:700">${gTot4}</td>
+    <td style="text-align:center;color:#fb7185;font-weight:700">${gTot5}</td>
+    <td style="text-align:center;font-weight:700">${gTot3+gTot4+gTot5}</td>
+    <td></td>
+  </tr></tfoot></table></div>`;
+
+  el.innerHTML = html;
 }
 
 function _showPrintToast(){
