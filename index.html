@@ -1375,7 +1375,19 @@
           <div class="panel">
             <div class="hd">
               <h2>Rupturas por loja</h2>
-              <span class="badge" id="ruptBadge">—</span>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <button id="toggleRuptParcial" onclick="toggleRuptFiltro('parcial')"
+                  style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,.15);color:var(--muted);transition:all .15s;"
+                  title="Incluir/excluir rupturas parciais">
+                  ⊘ Parciais
+                </button>
+                <button id="toggleRuptSysErr" onclick="toggleRuptFiltro('syserr')"
+                  style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,.15);color:var(--muted);transition:all .15s;"
+                  title="Incluir/excluir erros de sistema">
+                  ⊘ Erro sistema
+                </button>
+                <span class="badge" id="ruptBadge">—</span>
+              </div>
             </div>
             <!-- Filtro de motivos -->
             <div class="motivo-filter-bar" id="motivoFilterBar">
@@ -2607,8 +2619,43 @@ function pctColor(pct){
 }
 
 // Filtro base de rupturas — exclui parciais e SYSTEM_ERROR em todos os painéis
+// Estado dos toggles de filtro base — true = excluir (padrão)
+var _ruptExcluiParcial = true;
+var _ruptExcluiSysErr  = true;
+
 function ruptBaseFilter(r){
-  return r.totalOrPartial !== "partial" && r.reason !== "SYSTEM_ERROR";
+  if(_ruptExcluiParcial && r.totalOrPartial === "partial") return false;
+  if(_ruptExcluiSysErr  && r.reason === "SYSTEM_ERROR")   return false;
+  return true;
+}
+
+function toggleRuptFiltro(tipo){
+  if(tipo === "parcial") _ruptExcluiParcial = !_ruptExcluiParcial;
+  if(tipo === "syserr")  _ruptExcluiSysErr  = !_ruptExcluiSysErr;
+  _updateRuptToggleBtns();
+  // re-renderizar rupturas com o novo filtro
+  if(_lastRuptRender){
+    _reRenderRupturas();
+  }
+}
+
+function _updateRuptToggleBtns(){
+  const btnP = document.getElementById("toggleRuptParcial");
+  const btnS = document.getElementById("toggleRuptSysErr");
+  if(btnP){
+    const excluindo = _ruptExcluiParcial;
+    btnP.textContent = excluindo ? "⊘ Parciais" : "✓ Parciais";
+    btnP.style.background  = excluindo ? "rgba(0,0,0,.15)"       : "rgba(251,191,36,.20)";
+    btnP.style.borderColor = excluindo ? "var(--border)"          : "#fbbf24";
+    btnP.style.color       = excluindo ? "var(--muted)"           : "#fbbf24";
+  }
+  if(btnS){
+    const excluindo = _ruptExcluiSysErr;
+    btnS.textContent = excluindo ? "⊘ Erro sistema" : "✓ Erro sistema";
+    btnS.style.background  = excluindo ? "rgba(0,0,0,.15)"       : "rgba(251,113,133,.20)";
+    btnS.style.borderColor = excluindo ? "var(--border)"          : "#fb7185";
+    btnS.style.color       = excluindo ? "var(--muted)"           : "#fb7185";
+  }
 }
 
 // ---- Estado do filtro de motivos ----
@@ -2681,19 +2728,24 @@ let _lastRuptRender = null;
 
 function _reRenderRupturas(){
   if(!_lastRuptRender) return;
-  _renderRupturasTabelas(
-    _lastRuptRender.ruptFiltered,
-    _lastRuptRender.filteredOrders,
-    _lastRuptRender.avgPricePerSku,
-    _lastRuptRender.skusByStore,
-    _lastRuptRender.totalSkusGlobal
+  // Recalcula ruptFiltered com o estado atual dos toggles
+  const { filteredOrders, avgPricePerSku, skusByStore, totalSkusGlobal } = _lastRuptRender;
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  const periodDates = new Set(filteredOrders.map(o => o.placedDate));
+  const periodStart = startVal || [...periodDates].sort()[0];
+  const periodEnd   = endVal   || [...periodDates].sort().reverse()[0];
+  const ruptFiltered = rupturasState.filter(r =>
+    r.createdDate >= periodStart && r.createdDate <= periodEnd &&
+    ruptBaseFilter(r)
   );
-  // atualiza o bullet de rupturas com o filtro de motivo aplicado
-  renderReportKpis(_lastRuptRender.filteredOrders);
+  _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, skusByStore, totalSkusGlobal);
+  renderReportKpis(filteredOrders);
 }
 
 // ---- Render principal (chamado pelo runFromState) ----
 function renderRupturas(filteredOrders){
+  _updateRuptToggleBtns(); // sincroniza visual dos toggles
   const elLoja   = document.getElementById("reportRupturas");
   const elMotivo = document.getElementById("reportRupturasMotivo");
   const badge    = document.getElementById("ruptBadge");
