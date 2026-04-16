@@ -4129,7 +4129,9 @@ function renderAging(filteredOrders){
   }
 
   // Filtrar pedidos nos status de ação da loja
-  const agingOrders = filteredOrders.filter(o => isAcaoLoja(o.status));
+  const agingOrders = filteredOrders.filter(o =>
+    isAcaoLoja(o.status) && (o.orderType || "").toUpperCase() !== "PICKUP"
+  );
 
   if(!agingOrders.length){
     el.innerHTML = `<div style="padding:18px;color:var(--muted);font-size:13px;">Nenhum pedido nos status de ação da loja no período filtrado.</div>`;
