@@ -1427,7 +1427,10 @@
                 <h2>Aging de pedidos — ação necessária</h2>
                 <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Pedidos nos status de ação da loja, agrupados por dias desde a criação</p>
               </div>
-              <span class="badge" id="agingBadge">—</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button onclick="exportAgingPDF()" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--muted);font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ PDF</button>
+                <span class="badge" id="agingBadge">—</span>
+              </div>
             </div>
             <div style="display:flex;gap:10px;align-items:center;padding:10px 16px 4px;flex-wrap:wrap;">
               <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted)">
@@ -4913,6 +4916,106 @@ function exportDailyPDF(){
 }
 
 
+
+function exportAgingPDF(){
+  const container = document.getElementById("pdfContainer");
+  if(!container) return;
+
+  const agingEl  = document.getElementById("reportAging");
+  const badgeEl  = document.getElementById("agingBadge");
+  if(!agingEl?.innerHTML){ alert("Sem dados de aging para exportar."); return; }
+
+  const agora    = new Date().toLocaleString("pt-BR");
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  function fmtIso(iso){ if(!iso) return "—"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
+  const periodo  = startVal && endVal
+    ? `${fmtIso(startVal)} até ${fmtIso(endVal)}`
+    : "Período completo";
+  const badge    = badgeEl?.textContent || "";
+
+  container.innerHTML = `
+    <div id="pdfHeader">
+      <div>
+        <h1>OMNI • Aging de Pedidos</h1>
+        <p>Período: <strong>${periodo}</strong></p>
+      </div>
+      <div class="pdfMeta">Gerado em: ${agora}</div>
+    </div>
+
+    <div class="pdf-section">
+      <div class="pdf-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Aging de pedidos — ação necessária</span>
+        <span style="font-size:8pt;color:#555;font-weight:normal">${badge}</span>
+      </div>
+
+      <!-- Legenda -->
+      <div style="display:flex;gap:18pt;margin:6pt 0 10pt;font-size:8pt;color:#555;">
+        <span><span style="display:inline-block;width:8pt;height:8pt;border-radius:50%;background:#34d399;margin-right:4pt;vertical-align:middle;"></span>≤ 3 dias — dentro do prazo</span>
+        <span><span style="display:inline-block;width:8pt;height:8pt;border-radius:50%;background:#fbbf24;margin-right:4pt;vertical-align:middle;"></span>4 dias — atenção</span>
+        <span><span style="display:inline-block;width:8pt;height:8pt;border-radius:50%;background:#fb7185;margin-right:4pt;vertical-align:middle;"></span>≥ 5 dias — cancelar</span>
+      </div>
+
+      <!-- Tabela de aging -->
+      <div class="pdf-aging-wrap">${agingEl.innerHTML}</div>
+    </div>
+
+    <div id="pdfFooter">OMNI • Aging de Pedidos — exportado em ${agora} — período: ${periodo}</div>
+  `;
+
+  // CSS específico para o aging PDF
+  const styleEl = document.getElementById("_agingPrintStyle") || document.createElement("style");
+  styleEl.id = "_agingPrintStyle";
+  styleEl.textContent = `
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+
+      /* Tabela de aging */
+      .pdf-aging-wrap table {
+        width: 100% !important;
+        font-size: 8pt !important;
+        border-collapse: collapse !important;
+      }
+      .pdf-aging-wrap thead th {
+        background: #1f4e79 !important;
+        color: #fff !important;
+        padding: 4pt 6pt !important;
+        font-size: 8pt !important;
+        border: 0.5pt solid #ccc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .pdf-aging-wrap tbody td {
+        padding: 3pt 6pt !important;
+        font-size: 8pt !important;
+        border: 0.5pt solid #e0e0e0 !important;
+      }
+      .pdf-aging-wrap tfoot td {
+        padding: 4pt 6pt !important;
+        font-size: 8pt !important;
+        font-weight: bold !important;
+        border-top: 1pt solid #333 !important;
+        background: #f5f5f5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      /* Badges de pedido no aging */
+      .pdf-aging-wrap span[style*="border-radius:5px"] {
+        font-size: 7pt !important;
+        padding: 1pt 3pt !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  `;
+  document.head.appendChild(styleEl);
+
+  _showPrintToast();
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => styleEl.remove(), 1500);
+  }, 400);
+}
 
 function _showPrintToast(){
   let toast = document.getElementById("_printToast");
