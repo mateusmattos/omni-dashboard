@@ -1115,6 +1115,48 @@
     }
     [data-theme="light"] .pend-bar-track{ background:rgba(0,0,0,.08); }
 
+    /* ===== INSIGHTS IA ===== */
+    .insights-spinner{
+      width:18px;height:18px;border-radius:50%;
+      border:2px solid rgba(125,211,252,.25);
+      border-top-color:var(--accent);
+      animation:spin .7s linear infinite;flex-shrink:0;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+
+    .insight-block{
+      margin:12px 16px 0;
+      padding:16px 18px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:var(--panel);
+    }
+    .insight-block .ib-label{
+      font-size:10.5px;font-weight:700;letter-spacing:.4px;
+      text-transform:uppercase;color:var(--accent);
+      margin-bottom:8px;
+    }
+    .insight-summary{
+      margin:12px 16px 0;
+      padding:16px 18px;
+      border-radius:14px;
+      border:1px solid rgba(125,211,252,.30);
+      background:rgba(125,211,252,.06);
+      font-size:13.5px;line-height:1.7;color:var(--text);
+    }
+    .insight-summary strong{ color:var(--accent); }
+    .insight-block p{ margin:0 0 8px;font-size:13px;line-height:1.7;color:var(--text); }
+    .insight-block p:last-child{ margin-bottom:0; }
+    .insight-block ul{ margin:4px 0;padding-left:18px; }
+    .insight-block li{ font-size:13px;line-height:1.7;color:var(--text);margin-bottom:2px; }
+    .insight-block strong{ color:var(--text); }
+    .insight-cursor{ display:inline-block;width:2px;height:14px;background:var(--accent);animation:blink .8s step-end infinite;vertical-align:text-bottom;margin-left:1px; }
+    @keyframes blink{ 0%,100%{opacity:1} 50%{opacity:0} }
+
+    [data-theme="light"] .insight-block{ background:rgba(255,255,255,.85); }
+    [data-theme="light"] .insight-summary{ background:rgba(2,132,199,.06);border-color:rgba(2,132,199,.25); }
+    [data-theme="light"] .insight-summary strong{ color:var(--accent); }
+
   </style>
 </head>
 
@@ -1202,6 +1244,7 @@
           <button class="tab-btn active" data-tab="tab-dashboard">📊 Dashboard</button>
           <button class="tab-btn" data-tab="tab-report">📋 Report Diário</button>
           <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
+          <button class="tab-btn" data-tab="tab-insights">🤖 Insights IA</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1521,6 +1564,42 @@
           </div>
 
         </div><!-- /tab-pane daily -->
+
+        <!-- ABA: INSIGHTS IA -->
+        <div class="tab-pane" id="tab-insights">
+          <div class="panel" style="max-width:860px;margin:0 auto;">
+            <div class="hd">
+              <div>
+                <h2>Insights gerados por IA</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Análise do período filtrado — receita, meta, tendência e vendas por coleção</p>
+              </div>
+              <button id="btnGerarInsights" onclick="gerarInsights()" style="display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:999px;border:1px solid var(--accent);background:rgba(125,211,252,.10);color:var(--accent);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s;">
+                ✦ Gerar análise
+              </button>
+            </div>
+
+            <!-- Estado inicial -->
+            <div id="insightsEmpty" style="padding:40px 20px;text-align:center;color:var(--muted);">
+              <div style="font-size:32px;margin-bottom:12px;opacity:.4">🤖</div>
+              <div style="font-size:14px;margin-bottom:6px;">Clique em <strong>Gerar análise</strong> para obter insights do período filtrado.</div>
+              <div style="font-size:12px;opacity:.7">A análise usa os dados já carregados no dashboard — sem enviar informações sensíveis.</div>
+            </div>
+
+            <!-- Loading -->
+            <div id="insightsLoading" style="display:none;padding:32px 20px;">
+              <div style="display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;">
+                <span class="insights-spinner"></span>
+                <span id="insightsLoadingMsg">Analisando dados do período...</span>
+              </div>
+            </div>
+
+            <!-- Resultado -->
+            <div id="insightsResult" style="display:none;padding:4px 0 16px;"></div>
+
+            <!-- Erro -->
+            <div id="insightsError" style="display:none;padding:16px 20px;color:var(--bad);font-size:13px;"></div>
+          </div>
+        </div><!-- /tab-pane insights -->
 
       </div>
     </div>
@@ -5017,6 +5096,248 @@ function exportAgingPDF(){
     window.print();
     setTimeout(() => styleEl.remove(), 1500);
   }, 400);
+}
+
+// ============================================================
+//  INSIGHTS IA — Análise em tempo real via API do Claude
+// ============================================================
+async function gerarInsights(){
+  const btn      = document.getElementById("btnGerarInsights");
+  const elEmpty  = document.getElementById("insightsEmpty");
+  const elLoad   = document.getElementById("insightsLoading");
+  const elResult = document.getElementById("insightsResult");
+  const elError  = document.getElementById("insightsError");
+  const elMsg    = document.getElementById("insightsLoadingMsg");
+
+  // Esconder estados anteriores
+  elEmpty.style.display  = "none";
+  elError.style.display  = "none";
+  elResult.style.display = "none";
+  elLoad.style.display   = "block";
+  btn.disabled = true;
+  btn.style.opacity = ".5";
+
+  // ── Coletar dados do dashboard ──────────────────────────────
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  function fmtIso(iso){ if(!iso) return "?"; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
+  const periodo = startVal && endVal ? `${fmtIso(startVal)} a ${fmtIso(endVal)}` : "período completo";
+
+  const filtered = filterOrders(ordersState);
+  const daily    = buildDaily(filtered);
+  const stores   = buildStores(filtered);
+
+  // KPIs
+  const receitaTotal = filtered
+    .filter(o => !(o.status||"").includes("cancel"))
+    .reduce((a,o) => a + (o.value||0), 0);
+  const totalPedidos = new Set(filtered.map(o=>o.order)).size;
+  const ticketMedio  = totalPedidos > 0 ? receitaTotal / totalPedidos : 0;
+
+  // Meta
+  const metaTotal = Object.entries(targetsState)
+    .filter(([d]) => (!startVal || d >= startVal) && (!endVal || d <= endVal))
+    .reduce((a,[,v]) => a + v, 0);
+  const atingimento = metaTotal > 0 ? (receitaTotal / metaTotal * 100).toFixed(1) : null;
+
+  // Tendência — últimos 7 dias vs 7 anteriores
+  const diasOrdenados = [...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const ultimos7  = diasOrdenados.slice(-7).map(([d,v])=>({data:d, receita:v.revenue||0}));
+  const ant7      = diasOrdenados.slice(-14,-7).map(([d,v])=>({data:d, receita:v.revenue||0}));
+  const somaUlt7  = ultimos7.reduce((a,v)=>a+v.receita,0);
+  const somaAnt7  = ant7.reduce((a,v)=>a+v.receita,0);
+  const varTendencia = somaAnt7 > 0 ? ((somaUlt7-somaAnt7)/somaAnt7*100).toFixed(1) : null;
+
+  // Top lojas
+  const topLojas = [...stores.entries()]
+    .sort((a,b)=>b[1].revenue-a[1].revenue)
+    .slice(0,5)
+    .map(([lid,v]) => `${storeLabel(lid)}: ${fmtBRL.format(v.revenue)} (${v.orders} pedidos)`);
+
+  // Coleções
+  const colData = [];
+  if(colecaoMap.size){
+    const byCol = new Map();
+    for(const o of filtered){
+      if((o.status||"").includes("cancel")) continue;
+      const prefix = skuPrefix(o.sku||"");
+      const info   = prefix ? colecaoMap.get(prefix) : null;
+      if(!info) continue;
+      const col = info.colecao;
+      if(!byCol.has(col)) byCol.set(col, {receita:0, pedidos:0});
+      byCol.get(col).receita += (o.value||0);
+      byCol.get(col).pedidos++;
+    }
+    const totalCol = [...byCol.values()].reduce((a,v)=>a+v.receita,0);
+    [...byCol.entries()]
+      .filter(([,v]) => totalCol > 0 && v.receita/totalCol >= 0.01)
+      .sort((a,b)=>b[1].receita-a[1].receita)
+      .slice(0,8)
+      .forEach(([col,v]) => {
+        const pct = totalCol > 0 ? (v.receita/totalCol*100).toFixed(1) : 0;
+        colData.push(`${col}: ${fmtBRL.format(v.receita)} (${pct}% da receita, ${v.pedidos} pedidos)`);
+      });
+  }
+
+  // ── Montar prompt ───────────────────────────────────────────
+  const prompt = `Você é um analista de varejo especialista em omnichannel. Analise os dados abaixo do canal OMNI de uma rede de moda e gere insights executivos em português brasileiro.
+
+PERÍODO: ${periodo}
+
+## KPIs DO PERÍODO
+- Receita total: ${fmtBRL.format(receitaTotal)}
+- Total de pedidos: ${fmtInt.format(totalPedidos)}
+- Ticket médio: ${fmtBRL.format(ticketMedio)}
+${metaTotal > 0 ? `- Meta do período: ${fmtBRL.format(metaTotal)}\n- Atingimento: ${atingimento}%` : "- Meta: não configurada"}
+${varTendencia !== null ? `- Variação dos últimos 7 dias vs 7 anteriores: ${varTendencia > 0 ? "+" : ""}${varTendencia}%` : ""}
+
+## TOP 5 LOJAS POR RECEITA
+${topLojas.length ? topLojas.map((l,i)=>`${i+1}. ${l}`).join("\n") : "Dados não disponíveis"}
+
+## VENDAS POR COLEÇÃO (≥1% participação)
+${colData.length ? colData.join("\n") : "Dados de coleção não disponíveis"}
+
+---
+
+Gere uma análise estruturada com:
+
+1. **Sumário executivo** (2-3 frases): visão geral do desempenho do período, destacando se a meta foi atingida e a tendência recente.
+
+2. **Receita e meta** (tópicos): análise do atingimento, variação de tendência e destaques de lojas.
+
+3. **Vendas por coleção** (tópicos): coleções de maior destaque, concentração de receita e eventuais pontos de atenção.
+
+4. **Recomendações** (2-3 ações concretas): baseadas nos dados apresentados.
+
+Seja direto, objetivo e use os números do contexto. Não invente dados que não foram fornecidos.`;
+
+  // ── Chamar API com streaming ────────────────────────────────
+  try {
+    elMsg.textContent = "Conectando à API...";
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        stream: true,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    if(!response.ok){
+      throw new Error(`Erro HTTP ${response.status}`);
+    }
+
+    elLoad.style.display   = "none";
+    elResult.style.display = "block";
+    elResult.innerHTML     = "";
+
+    elMsg.textContent = "Gerando análise...";
+
+    // Processar stream
+    const reader  = response.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = "";
+    let   fullText = "";
+
+    // Cursor piscante temporário
+    const cursorEl = document.createElement("span");
+    cursorEl.className = "insight-cursor";
+    elResult.appendChild(cursorEl);
+
+    while(true){
+      const { done, value } = await reader.read();
+      if(done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for(const line of lines){
+        if(!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if(data === "[DONE]") break;
+        try{
+          const parsed = JSON.parse(data);
+          const delta  = parsed?.delta?.text || "";
+          if(delta) fullText += delta;
+        }catch(_){}
+      }
+
+      // Renderizar markdown simples em tempo real
+      cursorEl.remove();
+      elResult.innerHTML = renderInsightMarkdown(fullText);
+      elResult.appendChild(cursorEl);
+    }
+
+    // Remover cursor e renderizar final
+    cursorEl.remove();
+    elResult.innerHTML = renderInsightMarkdown(fullText);
+
+  } catch(err){
+    elLoad.style.display  = "none";
+    elError.style.display = "block";
+    elError.innerHTML = `<strong>Erro ao gerar análise:</strong> ${err.message}<br><small style="opacity:.7">Verifique se a API key está configurada no ambiente.</small>`;
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = "1";
+  }
+}
+
+// Converte markdown simples em HTML para os insights
+function renderInsightMarkdown(text){
+  if(!text) return "";
+
+  // Separar em seções por títulos **Título**:
+  const sections = [];
+  const lines = text.split("\n");
+  let current = null;
+
+  for(const line of lines){
+    const h2match = line.match(/^#{1,2}\s+\*{0,2}(.+?)\*{0,2}$/);
+    const boldTitle = line.match(/^\*{1,2}(.+?)\*{1,2}[:\s]*$/);
+
+    if(h2match || (boldTitle && line.trim().length < 80)){
+      if(current) sections.push(current);
+      const label = (h2match ? h2match[1] : boldTitle[1]).trim();
+      // Sumário executivo → bloco especial
+      current = { label, body: [], isSummary: /sum[aá]rio|executivo/i.test(label) };
+    } else if(current){
+      current.body.push(line);
+    } else {
+      // Texto antes do primeiro título
+      if(!sections.length) sections.push({ label: "", body: [line], isSummary: true });
+      else sections[0].body.push(line);
+    }
+  }
+  if(current) sections.push(current);
+
+  let html = "";
+  for(const sec of sections){
+    if(!sec.body.join("").trim() && !sec.label) continue;
+
+    const bodyHtml = sec.body
+      .join("\n")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/^- (.+)$/gm, "<li>$1</li>")
+      .replace(/(<li>.*<\/li>)/gs, m => `<ul>${m}</ul>`)
+      .replace(/\n{2,}/g, "</p><p>")
+      .replace(/^(?!<[ul])/gm, "")
+      .trim();
+
+    const wrapped = bodyHtml.startsWith("<ul>") ? bodyHtml : `<p>${bodyHtml}</p>`;
+
+    if(sec.isSummary && !sec.label){
+      html += `<div class="insight-summary">${wrapped}</div>`;
+    } else if(sec.isSummary){
+      html += `<div class="insight-summary"><div class="ib-label">${sec.label}</div>${wrapped}</div>`;
+    } else {
+      html += `<div class="insight-block"><div class="ib-label">${sec.label}</div>${wrapped}</div>`;
+    }
+  }
+  return html || `<div class="insight-summary">${text.replace(/\n/g,"<br>")}</div>`;
 }
 
 function _showPrintToast(){
