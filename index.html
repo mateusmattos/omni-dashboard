@@ -2890,7 +2890,11 @@ function _renderRupturasTabelas(ruptFiltered, filteredOrders, avgPricePerSku, sk
     ruptByStore.get(lid).total++;
   }
 
-  const storeIds = [...skusByStore.keys()].filter(id => id !== "" && id !== "null" && id !== "undefined");
+  // storeIds = união de lojas com pedidos E lojas com rupturas no período
+  const storeIds = [...new Set([
+    ...[...skusByStore.keys()].filter(id => id !== "" && id !== "null" && id !== "undefined"),
+    ...[...ruptByStore.keys()].filter(id => id !== "" && id !== "null" && id !== "__unknown__")
+  ])];
   storeIds.sort((a, b) => {
     const ra = ruptByStore.get(a)?.total || 0;
     const rb = ruptByStore.get(b)?.total || 0;
