@@ -1413,6 +1413,26 @@
             </div>
           </div>
 
+          <!-- Gráfico diarizado de rupturas -->
+          <div class="panel">
+            <div class="hd">
+              <div>
+                <h2>Rupturas por dia</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Quantidade de SKUs em ruptura no período</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <button id="ruptChartModeBtn" onclick="toggleRuptChartMode()"
+                  style="font-size:11px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--accent);background:rgba(125,211,252,.10);color:var(--accent);transition:all .15s;white-space:nowrap;">
+                  📊 Por loja
+                </button>
+                <span class="badge" id="ruptChartBadge">—</span>
+              </div>
+            </div>
+            <div style="padding:8px 16px 16px;">
+              <canvas id="ruptDiarioChart" height="90"></canvas>
+            </div>
+          </div>
+
           <!-- Rupturas por loja -->
           <div class="panel">
             <div class="hd">
@@ -1925,6 +1945,8 @@
     var rupturasState = [];
     var trendChart = null;
     var storesChart = null;
+    var ruptDiarioChart = null;
+    var _ruptChartPorLoja = false; // false = visão consolidada, true = por loja
 
     const els = {
       fileOrders: document.getElementById("fileOrders"),
@@ -2412,6 +2434,7 @@
       renderColecao(filtered);            // ← vendas por coleção
       renderDaily(filtered);             // ← aba daily
       renderAging(filtered);             // ← aging de pedidos
+      renderRuptDiarioChart(filtered);   // ← gráfico diarizado de rupturas
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4260,6 +4283,162 @@ function renderAging(filteredOrders){
   el.innerHTML = html;
 }
 
+// ============================================================
+//  GRÁFICO DIARIZADO DE RUPTURAS
+// ============================================================
+var _lastRuptChartData = null; // cache para o toggle
+
+function toggleRuptChartMode(){
+  _ruptChartPorLoja = !_ruptChartPorLoja;
+  const btn = document.getElementById("ruptChartModeBtn");
+  if(btn) btn.textContent = _ruptChartPorLoja ? "📈 Consolidado" : "📊 Por loja";
+  if(_lastRuptChartData) _drawRuptDiarioChart(_lastRuptChartData);
+}
+
+function renderRuptDiarioChart(filteredOrders){
+  const canvas = document.getElementById("ruptDiarioChart");
+  const badge  = document.getElementById("ruptChartBadge");
+  if(!canvas) return;
+
+  // Período do filtro
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  const periodDates = new Set(filteredOrders.map(o => o.placedDate));
+  const periodStart = startVal || [...periodDates].sort()[0];
+  const periodEnd   = endVal   || [...periodDates].sort().reverse()[0];
+
+  // Rupturas filtradas (respeita toggles de parcial/syserr)
+  const ruptF = rupturasState.filter(r =>
+    r.createdDate >= periodStart && r.createdDate <= periodEnd && ruptBaseFilter(r)
+  );
+
+  if(!ruptF.length){
+    if(badge) badge.textContent = "sem dados";
+    if(ruptDiarioChart){ ruptDiarioChart.destroy(); ruptDiarioChart = null; }
+    return;
+  }
+
+  // Construir lista de datas do período
+  const allDays = [];
+  const cur = new Date(periodStart + "T00:00:00");
+  const end = new Date(periodEnd   + "T00:00:00");
+  while(cur <= end){ allDays.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+
+  // Agregar rupturas por dia (e por loja se necessário)
+  const byDayTotal = new Map(); // dia → count
+  const byDayLoja  = new Map(); // dia → Map(lid → count)
+  const lojaSet    = new Set();
+
+  for(const r of ruptF){
+    const d   = r.createdDate;
+    const lid = r.locationId || "__desconhecida__";
+    byDayTotal.set(d, (byDayTotal.get(d) || 0) + 1);
+    if(!byDayLoja.has(d)) byDayLoja.set(d, new Map());
+    byDayLoja.get(d).set(lid, (byDayLoja.get(d).get(lid) || 0) + 1);
+    lojaSet.add(lid);
+  }
+
+  if(badge) badge.textContent = `${ruptF.length} rupturas · ${allDays.length} dias`;
+
+  // Cachear para o toggle
+  _lastRuptChartData = { allDays, byDayTotal, byDayLoja, lojaSet: [...lojaSet].filter(l => l !== "__desconhecida__") };
+  _drawRuptDiarioChart(_lastRuptChartData);
+}
+
+function _drawRuptDiarioChart({ allDays, byDayTotal, byDayLoja, lojaSet }){
+  const canvas = document.getElementById("ruptDiarioChart");
+  if(!canvas) return;
+
+  // Destruir gráfico anterior
+  if(ruptDiarioChart){ ruptDiarioChart.destroy(); ruptDiarioChart = null; }
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  // Formatar label dos dias
+  const DOW = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  function fmtLabel(iso){
+    const [y,m,d] = iso.split("-");
+    const dow = DOW[new Date(+y,+m-1,+d).getDay()];
+    return `${d}/${m} ${dow}`;
+  }
+  const labels = allDays.map(fmtLabel);
+
+  // Paleta de cores para lojas
+  const PALETTE = [
+    "#7dd3fc","#34d399","#fbbf24","#fb7185","#a78bfa",
+    "#f97316","#38bdf8","#4ade80","#facc15","#f472b6",
+    "#818cf8","#2dd4bf","#fb923c","#e879f9","#60a5fa"
+  ];
+
+  let datasets;
+
+  if(!_ruptChartPorLoja){
+    // Visão consolidada — linha única
+    datasets = [{
+      label: "Total rupturas",
+      data: allDays.map(d => byDayTotal.get(d) || 0),
+      borderColor: "#7dd3fc",
+      backgroundColor: "rgba(125,211,252,.15)",
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      fill: true,
+      tension: 0.35,
+    }];
+  } else {
+    // Visão por loja — colunas empilhadas
+    datasets = lojaSet.map((lid, i) => ({
+      label: storeLabel(lid),
+      data: allDays.map(d => byDayLoja.get(d)?.get(lid) || 0),
+      backgroundColor: PALETTE[i % PALETTE.length] + "CC",
+      borderColor:     PALETTE[i % PALETTE.length],
+      borderWidth: 1,
+      borderRadius: 3,
+    }));
+  }
+
+  ruptDiarioChart = new Chart(canvas, {
+    type: _ruptChartPorLoja ? "bar" : "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: _ruptChartPorLoja,
+          position: "bottom",
+          labels: { color: txtCol, font: { size: 11 }, boxWidth: 12, padding: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            footer: (items) => {
+              if(!_ruptChartPorLoja) return "";
+              const total = items.reduce((a,i) => a + i.parsed.y, 0);
+              return `Total: ${total}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: _ruptChartPorLoja,
+          grid: { color: gridCol },
+          ticks: { color: txtCol, font: { size: 10 }, maxRotation: 45 }
+        },
+        y: {
+          stacked: _ruptChartPorLoja,
+          beginAtZero: true,
+          grid: { color: gridCol },
+          ticks: { color: txtCol, font: { size: 11 }, precision: 0 }
+        }
+      }
+    }
+  });
+}
+
   async function loadAll(){
     _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
@@ -5316,6 +5495,8 @@ function renderInsightMarkdown(text){
   }
   return html || `<div class="insight-summary">${text.replace(/\n/g,"<br>")}</div>`;
 }
+
+
 
 function _showPrintToast(){
   let toast = document.getElementById("_printToast");
