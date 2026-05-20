@@ -5049,12 +5049,42 @@ function renderEntregas(filteredOrders){
                    : pctNoPrazo >= 60    ? "#fbbf24"
                    : "#fb7185";
 
+  // Visão ampla: inclui pedidos enviados sem data de entrega confirmada
+  // Universo: todos com shippedAt + estimatedDeliveryDate (entregues ou não)
+  const hoje = new Date();
+  const todosComPrazo = filteredOrders.filter(o =>
+    o.shippedAtIso && o.estimatedDeliveryDate &&
+    !(o.status||"").includes("cancel")
+  );
+  const amplo_noPrazo = todosComPrazo.filter(o => {
+    const est = new Date(o.estimatedDeliveryDate.split(" ")[0].split("/").reverse().join("-"));
+    if(o.deliveredAtIso){
+      // Entregue: verifica se foi dentro do prazo
+      return new Date(o.deliveredAtIso) <= est;
+    } else {
+      // Ainda não entregue: considera no prazo se prazo ainda não venceu
+      return hoje <= est;
+    }
+  });
+  const pctAmplo  = todosComPrazo.length > 0 ? amplo_noPrazo.length / todosComPrazo.length * 100 : null;
+  const corAmplo  = pctAmplo === null ? "#94a3b8"
+                  : pctAmplo >= 80   ? "#34d399"
+                  : pctAmplo >= 60   ? "#fbbf24"
+                  : "#fb7185";
+  // Contar atrasados sem entrega
+  const atrasadosSemEntrega = todosComPrazo.filter(o => {
+    if(o.deliveredAtIso) return false;
+    const est = new Date(o.estimatedDeliveryDate.split(" ")[0].split("/").reverse().join("-"));
+    return hoje > est;
+  });
+
   const kpiEl = document.getElementById("entregasKpis");
   if(kpiEl){
     kpiEl.innerHTML = [
       { label:"Pedidos entregues",  val: totalPed.toLocaleString("pt-BR"),                          sub:"com rastreio completo",          color:"#7dd3fc" },
       { label:"Tempo médio",        val: fmtD(mediaGeral),                                          sub:"shippedAt → delivered",          color:"#34d399" },
-      { label:"Entregues no prazo", val: pctNoPrazo !== null ? `${pctNoPrazo.toFixed(1)}%` : "—",  sub:`${dentroSLA.length} de ${comPrazo.length} com prazo definido`, color: corPrazo },
+      { label:"Entregues no prazo",      val: pctNoPrazo !== null ? `${pctNoPrazo.toFixed(1)}%` : "—",  sub:`${dentroSLA.length} de ${comPrazo.length} entregues c/ prazo`, color: corPrazo },
+      { label:"No prazo (visão ampla)",  val: pctAmplo   !== null ? `${pctAmplo.toFixed(1)}%`   : "—",  sub:`${atrasadosSemEntrega.length} em atraso s/ entrega confirmada`, color: corAmplo },
       { label:"Mais rápido",        val: fmtD(faster?.diasReal||null),                              sub: faster?.estado||"—",             color:"#a78bfa" },
       { label:"Mais lento",         val: fmtD(slower?.diasReal||null),                              sub: slower?.estado||"—",             color:"#fb7185" },
     ].map(k=>`<div class="sla-kpi-card">
