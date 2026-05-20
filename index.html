@@ -2076,6 +2076,18 @@
 
     // ---------- Orders: aggregation from CSV rows ----------
     function buildOrderBase(rows){
+      // Parser de timestamp — aceita ISO e PT-BR
+      function parseIsoOrPtBr(s){
+        if(!s) return null;
+        const str = s.toString().trim();
+        if(!str) return null;
+        if(str.includes("T") || /^\d{4}-\d{2}-\d{2}/.test(str)){
+          const d = new Date(str);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        return parsePtBrDateTime(str);
+      }
+
       const byOrder = new Map();
       for(const r of rows){
         const orderId = (r["order"] ?? "").toString().trim();
@@ -2095,18 +2107,6 @@
 
         if(!byOrder.has(orderId)){
           // Timestamps SLA — vêm em ISO (2025-01-02T14:55:41.000Z)
-          function parseIsoOrPtBr(s){
-            if(!s) return null;
-            const str = s.toString().trim();
-            if(!str) return null;
-            // ISO format
-            if(str.includes("T") || str.match(/^\d{4}-\d{2}-\d{2}/)){
-              const d = new Date(str);
-              return isNaN(d.getTime()) ? null : d;
-            }
-            // PT-BR format fallback
-            return parsePtBrDateTime(str);
-          }
           const billedAt        = parseIsoOrPtBr(r["billedAt"]);
           const pickupReadyAt   = parseIsoOrPtBr(r["pickupReadyAt"]);
           const shippingReadyAt = parseIsoOrPtBr(r["shippingReadyAt"]);
