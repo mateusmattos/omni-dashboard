@@ -4980,36 +4980,6 @@ function _drawSlaPedidos(data){
 // ============================================================
 
 // Paths SVG dos estados brasileiros (simplificados)
-const BRASIL_PATHS = {
-  AC: "M 115 370 L 160 345 L 185 355 L 195 375 L 175 395 L 140 390 Z",
-  AM: "M 130 230 L 220 200 L 285 215 L 300 260 L 275 295 L 220 305 L 175 290 L 140 270 Z",
-  RR: "M 195 145 L 245 130 L 265 155 L 255 190 L 220 200 L 190 180 Z",
-  PA: "M 285 215 L 370 200 L 420 220 L 430 265 L 395 290 L 340 285 L 300 260 Z",
-  AP: "M 370 170 L 410 160 L 425 185 L 415 210 L 385 215 L 370 200 Z",
-  TO: "M 390 285 L 430 265 L 450 295 L 445 345 L 415 365 L 385 345 L 375 310 Z",
-  MA: "M 430 220 L 490 210 L 510 235 L 500 270 L 460 280 L 430 265 Z",
-  PI: "M 490 210 L 540 215 L 555 245 L 540 280 L 500 270 L 510 235 Z",
-  CE: "M 540 190 L 585 185 L 595 215 L 575 240 L 545 240 L 535 215 Z",
-  RN: "M 585 185 L 620 190 L 620 210 L 598 215 L 585 205 Z",
-  PB: "M 580 210 L 620 210 L 622 228 L 595 232 L 575 225 Z",
-  PE: "M 540 228 L 622 228 L 622 250 L 575 260 L 545 252 Z",
-  AL: "M 598 250 L 625 250 L 626 268 L 605 270 L 595 262 Z",
-  SE: "M 580 262 L 605 270 L 605 285 L 585 290 L 572 278 Z",
-  BA: "M 460 280 L 580 262 L 600 290 L 590 360 L 545 390 L 480 395 L 445 360 L 445 315 Z",
-  MG: "M 445 360 L 545 390 L 575 390 L 590 420 L 560 460 L 490 470 L 445 450 L 430 410 Z",
-  ES: "M 575 390 L 610 390 L 615 425 L 590 440 L 570 425 Z",
-  RJ: "M 530 460 L 575 455 L 590 480 L 562 495 L 530 482 Z",
-  SP: "M 430 450 L 530 460 L 535 495 L 490 520 L 440 510 L 420 478 Z",
-  PR: "M 390 510 L 490 520 L 495 555 L 450 570 L 395 555 L 375 530 Z",
-  SC: "M 395 555 L 470 560 L 468 588 L 420 595 L 390 580 Z",
-  RS: "M 380 590 L 465 588 L 470 640 L 430 665 L 385 650 L 365 620 Z",
-  MS: "M 370 440 L 440 440 L 445 500 L 390 510 L 355 490 L 348 462 Z",
-  MT: "M 270 320 L 380 310 L 390 380 L 375 435 L 320 445 L 270 420 L 255 370 Z",
-  GO: "M 390 355 L 450 345 L 460 400 L 440 440 L 390 440 L 370 410 Z",
-  DF: "M 423 385 L 438 383 L 440 395 L 425 397 Z",
-  RO: "M 195 320 L 270 305 L 285 330 L 275 370 L 230 380 L 200 360 Z",
-};
-
 const UF_NAMES = {
   AC:"Acre",AM:"Amazonas",RR:"Roraima",PA:"Pará",AP:"Amapá",
   TO:"Tocantins",MA:"Maranhão",PI:"Piauí",CE:"Ceará",RN:"Rio Grande do Norte",
@@ -5095,9 +5065,9 @@ function renderEntregas(filteredOrders){
 }
 
 function _drawBrasilMap(dados){
-  const svg = document.getElementById("brasilMap");
-  const badge = document.getElementById("entregasMapaBadge");
-  if(!svg) return;
+  const container = document.getElementById("brasilMap");
+  const badge     = document.getElementById("entregasMapaBadge");
+  if(!container) return;
 
   // Média por estado
   const byEstado = new Map();
@@ -5108,30 +5078,26 @@ function _drawBrasilMap(dados){
 
   function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
   const medias = new Map([...byEstado.entries()].map(([uf,v])=>[uf, avg(v)]));
-  const vals = [...medias.values()].filter(Boolean);
-  const minV = Math.min(...vals);
-  const maxV = Math.max(...vals);
+  const vals   = [...medias.values()].filter(Boolean);
+  const minV   = Math.min(...vals);
+  const maxV   = Math.max(...vals);
 
-  // Escala de cor: verde (rápido) → amarelo → vermelho (lento)
   function cor(v){
-    if(v === null) return "var(--border)";
+    if(v === null) return null;
     const t = (v - minV) / (maxV - minV || 1);
     if(t < 0.5){
-      const r = Math.round(52 + (251-52)*t*2);
-      const g = Math.round(211 + (191-211)*t*2);
-      const b = Math.round(153 + (36-153)*t*2);
-      return `rgb(${r},${g},${b})`;
+      const t2 = t * 2;
+      return `rgb(${Math.round(52+(251-52)*t2)},${Math.round(211+(191-211)*t2)},${Math.round(153+(36-153)*t2)})`;
     } else {
-      const t2 = (t-0.5)*2;
-      const r = Math.round(251 + (251-251)*t2);
-      const g = Math.round(191 + (113-191)*t2);
-      const b = Math.round(36  + (133-36)*t2);
-      return `rgb(${r},${g},${b})`;
+      const t2 = (t - 0.5) * 2;
+      return `rgb(${Math.round(251)},${Math.round(191+(113-191)*t2)},${Math.round(36+(133-36)*t2)})`;
     }
   }
 
-  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-  const txtCol = isDark ? "#e2e8f0" : "#1e293b";
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const strokeC = isDark ? "#0f172a" : "#ffffff";
+  const txtCol  = isDark ? "#e2e8f0" : "#1e293b";
+  const emptyC  = isDark ? "#334155" : "#e2e8f0";
 
   // Tooltip
   let tooltip = document.getElementById("entregasTooltip");
@@ -5142,58 +5108,110 @@ function _drawBrasilMap(dados){
     document.body.appendChild(tooltip);
   }
 
-  let html = `<rect width="800" height="820" fill="transparent"/>`;
+  // Mostrar loading enquanto carrega GeoJSON
+  container.innerHTML = `<text x="400" y="400" text-anchor="middle" fill="${txtCol}" font-size="14" font-family="Arial">Carregando mapa...</text>`;
 
-  for(const [uf, path] of Object.entries(BRASIL_PATHS)){
-    const media = medias.get(uf) ?? null;
-    const qtd   = byEstado.get(uf)?.length || 0;
-    const fill  = cor(media);
-    const nome  = UF_NAMES[uf] || uf;
+  // GeoJSON oficial do IBGE — malha estadual simplificada
+  const GEOJSON_URL = "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&divisao=estados";
 
-    html += `<path class="map-state" data-uf="${uf}" data-media="${media?.toFixed(1)||'—'}" data-qtd="${qtd}" data-nome="${nome}"
-      d="${path}" fill="${fill}" stroke="${isDark?'#1e293b':'#ffffff'}" stroke-width="1.5"
-      opacity="${qtd > 0 ? 1 : 0.35}"/>`;
+  fetch(GEOJSON_URL)
+    .then(r => r.json())
+    .then(geojson => {
+      // Limpar container e recriar SVG
+      container.innerHTML = "";
+      container.setAttribute("viewBox", "0 0 600 680");
 
-    // Label do estado
-    const bbox = path.match(/M (\d+) (\d+)/);
-    if(bbox){
-      const cx = parseFloat(bbox[1]) + 15;
-      const cy = parseFloat(bbox[2]) + 12;
-      html += `<text x="${cx}" y="${cy}" font-size="8" fill="${txtCol}" text-anchor="middle"
-        style="pointer-events:none;font-family:Arial;font-weight:600;opacity:.8">${uf}</text>`;
-    }
-  }
+      // Projeção D3 mercator centrada no Brasil
+      const projection = d3.geoMercator()
+        .center([-54, -15])
+        .scale(680)
+        .translate([300, 340]);
 
-  svg.innerHTML = html;
+      const path = d3.geoPath().projection(projection);
 
-  // Eventos de hover
-  svg.querySelectorAll(".map-state").forEach(el => {
-    el.addEventListener("mousemove", e => {
-      tooltip.style.display = "block";
-      tooltip.style.left = (e.clientX + 14) + "px";
-      tooltip.style.top  = (e.clientY - 10) + "px";
-      const media = el.dataset.media;
-      const qtd   = el.dataset.qtd;
-      const nome  = el.dataset.nome;
-      tooltip.innerHTML = `<b>${nome} (${el.dataset.uf})</b>
-        Tempo médio: <strong>${media}d</strong><br>
-        Pedidos entregues: <strong>${qtd}</strong>`;
+      // Mapear código IBGE → sigla UF
+      const IBGE_TO_UF = {
+        11:"RO",12:"AC",13:"AM",14:"RR",15:"PA",16:"AP",17:"TO",
+        21:"MA",22:"PI",23:"CE",24:"RN",25:"PB",26:"PE",27:"AL",28:"SE",29:"BA",
+        31:"MG",32:"ES",33:"RJ",35:"SP",
+        41:"PR",42:"SC",43:"RS",
+        50:"MS",51:"MT",52:"GO",53:"DF",
+      };
+
+      // Renderizar cada estado
+      geojson.features.forEach(feature => {
+        const codIbge = parseInt(feature.properties.codarea || feature.properties.id || 0);
+        const uf      = IBGE_TO_UF[codIbge] || "";
+        const media   = medias.get(uf) ?? null;
+        const qtd     = byEstado.get(uf)?.length || 0;
+        const nome    = UF_NAMES[uf] || uf;
+        const fill    = cor(media) || emptyC;
+
+        const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        el.setAttribute("d", path(feature));
+        el.setAttribute("fill", fill);
+        el.setAttribute("stroke", strokeC);
+        el.setAttribute("stroke-width", "0.8");
+        el.setAttribute("opacity", qtd > 0 ? "1" : "0.4");
+        el.style.cursor = "pointer";
+        el.style.transition = "opacity .15s";
+
+        el.addEventListener("mousemove", e => {
+          tooltip.style.display = "block";
+          tooltip.style.left = (e.clientX + 14) + "px";
+          tooltip.style.top  = (e.clientY - 10) + "px";
+          tooltip.innerHTML  = `<b>${nome} (${uf})</b>
+            Tempo médio: <strong>${media !== null ? media.toFixed(1)+"d" : "sem dados"}</strong><br>
+            Pedidos entregues: <strong>${qtd}</strong>`;
+        });
+        el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+        el.addEventListener("mouseenter", () => { el.style.opacity = "0.7"; });
+        el.addEventListener("mouseleave", () => { el.style.opacity = qtd > 0 ? "1" : "0.4"; });
+
+        container.appendChild(el);
+
+        // Label UF no centroide
+        if(uf){
+          const centroid = path.centroid(feature);
+          if(centroid && !isNaN(centroid[0])){
+            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.setAttribute("x", centroid[0]);
+            txt.setAttribute("y", centroid[1] + 4);
+            txt.setAttribute("text-anchor", "middle");
+            txt.setAttribute("font-size", "8");
+            txt.setAttribute("font-weight", "700");
+            txt.setAttribute("font-family", "Arial");
+            txt.setAttribute("fill", media !== null ? "#fff" : txtCol);
+            txt.setAttribute("opacity", "0.9");
+            txt.style.pointerEvents = "none";
+            txt.textContent = uf;
+            container.appendChild(txt);
+          }
+        }
+      });
+
+      if(badge) badge.textContent = `${medias.size} estados`;
+
+      // Legenda
+      const legenda = document.getElementById("entregasMapaLegenda");
+      if(legenda && vals.length){
+        legenda.innerHTML = `
+          <span>🟢 ${minV.toFixed(1)}d</span>
+          <span style="margin:0 6px">
+            <span style="background:linear-gradient(90deg,#34d399,#fbbf24,#fb7185);width:100px;height:10px;display:inline-block;border-radius:5px;vertical-align:middle;"></span>
+          </span>
+          <span>🔴 ${maxV.toFixed(1)}d</span>
+          <span style="margin-left:16px;opacity:.6">estados cinza = sem entregas no período</span>`;
+      }
+    })
+    .catch(err => {
+      container.innerHTML = `<text x="300" y="340" text-anchor="middle" fill="${txtCol}" font-size="13" font-family="Arial">
+        Erro ao carregar mapa. Verifique a conexão.
+      </text>`;
+      console.error("Erro ao carregar GeoJSON do IBGE:", err);
     });
-    el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
-  });
 
-  // Legenda
-  const legenda = document.getElementById("entregasMapaLegenda");
-  if(legenda && vals.length){
-    legenda.innerHTML = `
-      <span>🟢 ${minV.toFixed(1)}d (mais rápido)</span>
-      <span style="margin:0 8px">→</span>
-      <span style="background:linear-gradient(90deg,#34d399,#fbbf24,#fb7185);width:80px;height:10px;display:inline-block;border-radius:5px;vertical-align:middle;"></span>
-      <span style="margin:0 8px">→</span>
-      <span>🔴 ${maxV.toFixed(1)}d (mais lento)</span>`;
-  }
-
-  if(badge) badge.textContent = `${medias.size} estados`;
+  if(badge) badge.textContent = "carregando...";
 }
 
 function _drawEntregasTabela(dados){
