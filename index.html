@@ -5015,7 +5015,7 @@ function renderEntregas(filteredOrders){
     const s = new Date(o.shippedAtIso);
     const d = new Date(o.deliveredAtIso);
     const diff = (d - s) / 86400000;
-    return diff > 0 && diff < 60 ? diff : null; // filtra outliers
+    return diff >= 1 && diff < 60 ? diff : null; // mínimo 1 dia, máximo 60
   }
 
   function avg(arr){ const v = arr.filter(x=>x!==null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
