@@ -4611,11 +4611,50 @@ function renderSLA(filteredOrders){
     return diff > 0 ? diff : null;
   }
 
+  // Horas úteis: desconta sábados e domingos completos entre os dois timestamps
+  function horasUteis(isoA, isoB){
+    if(!isoA || !isoB) return null;
+    const start = new Date(isoA);
+    const end   = new Date(isoB);
+    if(end <= start) return null;
+
+    const totalHoras = (end - start) / 3600000;
+
+    // Contar quantos dias completos de fim de semana estão no intervalo
+    // Estratégia: iterar pelos dias do intervalo e descontar sáb/dom
+    let fdsHoras = 0;
+    const diaInicio = new Date(start);
+    diaInicio.setHours(0, 0, 0, 0);
+
+    const diaFim = new Date(end);
+    diaFim.setHours(0, 0, 0, 0);
+
+    const cur = new Date(diaInicio);
+    while(cur <= diaFim){
+      const dow = cur.getDay();
+      if(dow === 0 || dow === 6){
+        // calcular sobreposição desse dia com o intervalo [start, end]
+        const diaStart = new Date(cur);
+        const diaEnd   = new Date(cur); diaEnd.setDate(diaEnd.getDate() + 1);
+        const overlapStart = start > diaStart ? start : diaStart;
+        const overlapEnd   = end   < diaEnd   ? end   : diaEnd;
+        if(overlapEnd > overlapStart){
+          fdsHoras += (overlapEnd - overlapStart) / 3600000;
+        }
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    const util = totalHoras - fdsHoras;
+    return util > 0 ? util : null;
+  }
+
   const data = pedidos.map(o => {
     const t1 = horas(o.placedAtIso,       o.checkedAtIso || o.billedAtIso);
     const t2 = horas(o.checkedAtIso || o.placedAtIso, o.billedAtIso);
     const t3 = horas(o.billedAtIso,        o.pickupReadyAtIso || o.shippingReadyAtIso);
-    const t4 = horas(o.pickupReadyAtIso || o.shippingReadyAtIso, o.deliveredAtIso || o.shippedAtIso);
+    // E4 usa horas úteis (sem fins de semana — coletas não ocorrem nesses dias)
+    const t4 = horasUteis(o.pickupReadyAtIso || o.shippingReadyAtIso, o.deliveredAtIso || o.shippedAtIso);
     const tTotal = horas(o.placedAtIso, o.deliveredAtIso || o.shippedAtIso);
     return { ...o, t1, t2, t3, t4, tTotal };
   }).filter(o => o.tTotal !== null && o.tTotal > 0);
@@ -4640,7 +4679,7 @@ function _renderSlaVisoes({ data, lojas }){
       { label:"E1 — Criação → Atend.", key:"t1", color:"#7dd3fc", desc:"Início do atendimento" },
       { label:"E2 — Atend. → Faturamento", key:"t2", color:"#34d399", desc:"Processo de faturamento" },
       { label:"E3 — Fatur. → Pronto coleta", key:"t3", color:"#fbbf24", desc:"Preparo/embalagem" },
-      { label:"E4 — Pronto → Entregue", key:"t4", color:"#fb7185", desc:"Coleta/transporte" },
+      { label:"E4 — Pronto → Entregue", key:"t4", color:"#fb7185", desc:"Coleta/transporte · horas úteis (sem fds)" },
       { label:"Total — Criação → Entregue", key:"tTotal", color:"#a78bfa", desc:"Ciclo completo" },
     ];
     kpiEl.innerHTML = etapas.map(e => {
