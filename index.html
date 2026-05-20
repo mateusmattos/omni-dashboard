@@ -5084,7 +5084,9 @@ function renderEntregas(filteredOrders){
       { label:"Pedidos entregues",  val: totalPed.toLocaleString("pt-BR"),                          sub:"com rastreio completo",          color:"#7dd3fc" },
       { label:"Tempo médio",        val: fmtD(mediaGeral),                                          sub:"shippedAt → delivered",          color:"#34d399" },
       { label:"Entregues no prazo",      val: pctNoPrazo !== null ? `${pctNoPrazo.toFixed(1)}%` : "—",  sub:`${dentroSLA.length} de ${comPrazo.length} entregues c/ prazo`, color: corPrazo },
-      { label:"No prazo (visão ampla)",  val: pctAmplo   !== null ? `${pctAmplo.toFixed(1)}%`   : "—",  sub:`${atrasadosSemEntrega.length} em atraso s/ entrega confirmada`, color: corAmplo },
+      { label:"Em aberto (total)",        val: (todosComPrazo.length - dados.length).toLocaleString("pt-BR"), sub:"enviados sem entrega confirmada", color:"#7dd3fc" },
+      { label:"Em aberto no prazo",       val: (todosComPrazo.length - dados.length - atrasadosSemEntrega.length).toLocaleString("pt-BR"), sub:"prazo ainda não venceu", color:"#34d399" },
+      { label:"Em aberto em atraso",      val: atrasadosSemEntrega.length.toLocaleString("pt-BR"), sub:"prazo vencido s/ entrega", color: atrasadosSemEntrega.length > 0 ? "#fb7185" : "#34d399" },
       { label:"Mais rápido",        val: fmtD(faster?.diasReal||null),                              sub: faster?.estado||"—",             color:"#a78bfa" },
       { label:"Mais lento",         val: fmtD(slower?.diasReal||null),                              sub: slower?.estado||"—",             color:"#fb7185" },
     ].map(k=>`<div class="sla-kpi-card">
