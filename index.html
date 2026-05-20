@@ -1157,6 +1157,34 @@
     [data-theme="light"] .insight-summary{ background:rgba(2,132,199,.06);border-color:rgba(2,132,199,.25); }
     [data-theme="light"] .insight-summary strong{ color:var(--accent); }
 
+    /* ===== ABA SLA ===== */
+    .sla-kpi-card{
+      background:var(--panel);border:1px solid var(--border);border-radius:14px;
+      padding:14px 16px;display:flex;flex-direction:column;gap:4px;
+    }
+    .sla-kpi-card .sk-label{ font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted); }
+    .sla-kpi-card .sk-val  { font-size:26px;font-weight:800;color:var(--text); }
+    .sla-kpi-card .sk-sub  { font-size:11px;color:var(--muted); }
+    .sla-loja-pill{
+      font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;
+      border:1px solid var(--border);background:rgba(125,211,252,.12);color:var(--accent);
+      transition:all .15s;user-select:none;
+    }
+    .sla-loja-pill.off{ background:rgba(0,0,0,.12);color:var(--muted);border-color:var(--border); }
+    .sla-rank-table{ width:100%;border-collapse:collapse;font-size:13px; }
+    .sla-rank-table thead th{ background:var(--header-bg);color:var(--header-fg);padding:8px 12px;text-align:left;font-size:11.5px;font-weight:700;border-bottom:1px solid var(--border); }
+    .sla-rank-table tbody tr:nth-child(even){ background:var(--row-alt); }
+    .sla-rank-table tbody td{ padding:7px 12px;border-bottom:1px solid var(--border);font-size:12.5px; }
+    .sla-rank-table tfoot td{ padding:8px 12px;font-weight:700;border-top:2px solid var(--border); }
+    .sla-ped-table{ width:100%;border-collapse:collapse;font-size:12px; }
+    .sla-ped-table thead th{ background:var(--header-bg);color:var(--header-fg);padding:7px 10px;font-size:11px;font-weight:700;border-bottom:1px solid var(--border); }
+    .sla-ped-table tbody tr:nth-child(even){ background:var(--row-alt); }
+    .sla-ped-table tbody td{ padding:5px 10px;border-bottom:1px solid rgba(0,0,0,.05); }
+    .sla-badge-v{ display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700; }
+    .sla-v-green { background:#34d39922;color:#34d399; }
+    .sla-v-yellow{ background:#fbbf2422;color:#fbbf24; }
+    .sla-v-red   { background:#fb718522;color:#fb7185; }
+
   </style>
 </head>
 
@@ -1244,6 +1272,7 @@
           <button class="tab-btn active" data-tab="tab-dashboard">📊 Dashboard</button>
           <button class="tab-btn" data-tab="tab-report">📋 Report Diário</button>
           <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
+          <button class="tab-btn" data-tab="tab-sla">⏱ SLA</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1583,6 +1612,57 @@
           </div>
 
         </div><!-- /tab-pane daily -->
+
+        <!-- ABA: SLA DE ATENDIMENTO -->
+        <div class="tab-pane" id="tab-sla">
+
+          <!-- Filtro de loja exclusivo da aba SLA -->
+          <div class="panel" style="padding:14px 18px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span style="font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;">Filtro de lojas:</span>
+              <div id="slaLojaFilterWrap" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+              <button onclick="slaSelectAllLojas(true)"  style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;">Todas</button>
+              <button onclick="slaSelectAllLojas(false)" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;">Nenhuma</button>
+              <span class="badge" id="slaBadge">—</span>
+            </div>
+          </div>
+
+          <!-- KPI cards das etapas -->
+          <div id="slaKpiCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:4px;"></div>
+
+          <!-- Gráfico barras empilhadas por loja -->
+          <div class="panel">
+            <div class="hd">
+              <div>
+                <h2>Tempo médio por etapa — por loja</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Barras empilhadas em horas · apenas pedidos entregues/coletados</p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <button id="slaChartSortBtn" onclick="toggleSlaSort()" style="font-size:11px;font-weight:600;padding:5px 11px;border-radius:999px;cursor:pointer;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--muted);">↕ Ordenar por total</button>
+              </div>
+            </div>
+            <div style="padding:8px 16px 16px;"><canvas id="slaBarChart" height="100"></canvas></div>
+          </div>
+
+          <!-- Tabela ranking -->
+          <div class="panel">
+            <div class="hd">
+              <h2>Ranking de lojas — performance de atendimento</h2>
+              <span class="badge" id="slaRankBadge">—</span>
+            </div>
+            <div id="slaRankTable"></div>
+          </div>
+
+          <!-- Tabela de pedidos individuais -->
+          <div class="panel">
+            <div class="hd">
+              <h2>Pedidos individuais — semáforo SLA</h2>
+              <span class="badge" id="slaPedBadge">—</span>
+            </div>
+            <div id="slaPedTable"></div>
+          </div>
+
+        </div><!-- /tab-pane sla -->
 
       </div>
     </div>
@@ -2014,6 +2094,14 @@
         const skuRaw = (r["product"] ?? r["sku"] ?? r["SKU"] ?? r["productSku"] ?? "").toString().trim();
 
         if(!byOrder.has(orderId)){
+          // Capturar timestamps das etapas de SLA
+          const billedAt       = parsePtBrDateTime(r["billedAt"]);
+          const pickupReadyAt  = parsePtBrDateTime(r["pickupReadyAt"]);
+          const shippingReadyAt= parsePtBrDateTime(r["shippingReadyAt"]);
+          const shippedAt      = parsePtBrDateTime(r["shippedAt"]);
+          const checkedAt      = parsePtBrDateTime(r["checkedAt"]);
+          const deliveredAt    = parsePtBrDateTime(r["delivered"]) || parsePtBrDateTime(r["deliveredAt"]);
+
           byOrder.set(orderId, {
             order: orderId,
             placedDate,
@@ -2024,7 +2112,14 @@
             orderType,
             sku: skuRaw,
             lineCount: 0,
-            value: 0
+            value: 0,
+            // timestamps SLA
+            billedAtIso:       billedAt       ? billedAt.toISOString()        : null,
+            pickupReadyAtIso:  pickupReadyAt  ? pickupReadyAt.toISOString()   : null,
+            shippingReadyAtIso:shippingReadyAt? shippingReadyAt.toISOString() : null,
+            shippedAtIso:      shippedAt      ? shippedAt.toISOString()       : null,
+            checkedAtIso:      checkedAt      ? checkedAt.toISOString()       : null,
+            deliveredAtIso:    deliveredAt    ? deliveredAt.toISOString()     : null,
           });
         }
         const o = byOrder.get(orderId);
@@ -2435,6 +2530,7 @@
       renderDaily(filtered);             // ← aba daily
       renderAging(filtered);             // ← aging de pedidos
       renderRuptDiarioChart(filtered);   // ← gráfico diarizado de rupturas
+      renderSLA(filtered);              // ← aba SLA
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4439,6 +4535,309 @@ function _drawRuptDiarioChart({ allDays, byDayTotal, byDayLoja, lojaSet }){
   });
 }
 
+// ============================================================
+//  ABA SLA — Tempo de atendimento por etapa
+// ============================================================
+var _slaLojasSelecionadas = new Set(); // lojas ativas no filtro
+var _slaBarChart = null;
+var _slaSortByTotal = true;
+var _slaLastData = null;
+
+function toggleSlaSort(){
+  _slaSortByTotal = !_slaSortByTotal;
+  const btn = document.getElementById("slaChartSortBtn");
+  if(btn) btn.textContent = _slaSortByTotal ? "↕ Ordenar por total" : "↕ Ordenar por loja";
+  if(_slaLastData) _drawSlaChart(_slaLastData);
+}
+
+function slaSelectAllLojas(all){
+  const pills = document.querySelectorAll(".sla-loja-pill");
+  pills.forEach(p => {
+    const lid = p.dataset.lid;
+    if(all){ _slaLojasSelecionadas.add(lid); p.classList.remove("off"); }
+    else   { _slaLojasSelecionadas.delete(lid); p.classList.add("off"); }
+  });
+  if(_slaLastData) _renderSlaVisoes(_slaLastData);
+}
+
+function renderSLA(filteredOrders){
+  // Apenas SHIPMENT com deliveredAt ou shippedAt preenchido
+  const pedidos = filteredOrders.filter(o =>
+    (o.orderType || "").toUpperCase() !== "PICKUP" &&
+    o.billedAtIso &&
+    (o.deliveredAtIso || o.shippedAtIso)
+  );
+
+  // Inicializar filtro de lojas se ainda não existir
+  const lojas = [...new Set(pedidos.map(o => o.locationId).filter(Boolean))].sort((a,b) => storeLabel(a).localeCompare(storeLabel(b)));
+  if(_slaLojasSelecionadas.size === 0) lojas.forEach(l => _slaLojasSelecionadas.add(l));
+
+  // Renderizar pills de loja
+  const wrap = document.getElementById("slaLojaFilterWrap");
+  if(wrap){
+    wrap.innerHTML = "";
+    lojas.forEach(lid => {
+      const pill = document.createElement("span");
+      pill.className = "sla-loja-pill" + (_slaLojasSelecionadas.has(lid) ? "" : " off");
+      pill.dataset.lid = lid;
+      pill.textContent = storeLabel(lid);
+      pill.onclick = () => {
+        if(_slaLojasSelecionadas.has(lid)){ _slaLojasSelecionadas.delete(lid); pill.classList.add("off"); }
+        else { _slaLojasSelecionadas.add(lid); pill.classList.remove("off"); }
+        if(_slaLastData) _renderSlaVisoes(_slaLastData);
+      };
+      wrap.appendChild(pill);
+    });
+  }
+
+  // Calcular tempos por pedido (em horas)
+  function horas(isoA, isoB){
+    if(!isoA || !isoB) return null;
+    const diff = (new Date(isoB) - new Date(isoA)) / 3600000;
+    return diff > 0 ? diff : null;
+  }
+
+  const data = pedidos.map(o => {
+    const t1 = horas(o.placedAtIso,       o.checkedAtIso || o.billedAtIso);
+    const t2 = horas(o.checkedAtIso || o.placedAtIso, o.billedAtIso);
+    const t3 = horas(o.billedAtIso,        o.pickupReadyAtIso || o.shippingReadyAtIso);
+    const t4 = horas(o.pickupReadyAtIso || o.shippingReadyAtIso, o.deliveredAtIso || o.shippedAtIso);
+    const tTotal = horas(o.placedAtIso, o.deliveredAtIso || o.shippedAtIso);
+    return { ...o, t1, t2, t3, t4, tTotal };
+  }).filter(o => o.tTotal !== null && o.tTotal > 0);
+
+  _slaLastData = { data, lojas };
+  _renderSlaVisoes({ data, lojas });
+}
+
+function _renderSlaVisoes({ data, lojas }){
+  const ativas = data.filter(o => _slaLojasSelecionadas.has(o.locationId));
+
+  const badge = document.getElementById("slaBadge");
+  if(badge) badge.textContent = `${ativas.length} pedidos · ${_slaLojasSelecionadas.size} lojas`;
+
+  // ── KPI cards globais ──
+  function avg(arr){ const v = arr.filter(x => x !== null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+  function fmtH(h){ if(h===null) return "—"; return h >= 24 ? `${(h/24).toFixed(1)}d` : `${h.toFixed(1)}h`; }
+
+  const kpiEl = document.getElementById("slaKpiCards");
+  if(kpiEl){
+    const etapas = [
+      { label:"E1 — Criação → Atend.", key:"t1", color:"#7dd3fc", desc:"Início do atendimento" },
+      { label:"E2 — Atend. → Faturamento", key:"t2", color:"#34d399", desc:"Processo de faturamento" },
+      { label:"E3 — Fatur. → Pronto coleta", key:"t3", color:"#fbbf24", desc:"Preparo/embalagem" },
+      { label:"E4 — Pronto → Entregue", key:"t4", color:"#fb7185", desc:"Coleta/transporte" },
+      { label:"Total — Criação → Entregue", key:"tTotal", color:"#a78bfa", desc:"Ciclo completo" },
+    ];
+    kpiEl.innerHTML = etapas.map(e => {
+      const val = avg(ativas.map(o => o[e.key]));
+      return `<div class="sla-kpi-card">
+        <div class="sk-label" style="color:${e.color}">${e.label}</div>
+        <div class="sk-val">${fmtH(val)}</div>
+        <div class="sk-sub">${e.desc} · média</div>
+      </div>`;
+    }).join("");
+  }
+
+  // ── Gráfico barras empilhadas ──
+  _drawSlaChart({ data: ativas, lojas });
+
+  // ── Ranking ──
+  _drawSlaRanking(ativas);
+
+  // ── Pedidos individuais ──
+  _drawSlaPedidos(ativas);
+}
+
+function _drawSlaChart({ data }){
+  const canvas = document.getElementById("slaBarChart");
+  if(!canvas) return;
+  if(_slaBarChart){ _slaBarChart.destroy(); _slaBarChart = null; }
+
+  function avg(arr){ const v = arr.filter(x=>x!==null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0; }
+
+  // Agrupar por loja
+  const byLoja = new Map();
+  for(const o of data){
+    const lid = o.locationId;
+    if(!byLoja.has(lid)) byLoja.set(lid, []);
+    byLoja.get(lid).push(o);
+  }
+
+  let entries = [...byLoja.entries()];
+  if(_slaSortByTotal){
+    entries.sort((a,b) => avg(b[1].map(o=>o.tTotal)) - avg(a[1].map(o=>o.tTotal)));
+  } else {
+    entries.sort((a,b) => storeLabel(a[0]).localeCompare(storeLabel(b[0])));
+  }
+
+  const labels  = entries.map(([lid]) => storeLabel(lid));
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  const ETAPAS = [
+    { key:"t1", label:"E1 Criação→Atend.",     color:"#7dd3fc" },
+    { key:"t2", label:"E2 Atend.→Faturamento", color:"#34d399" },
+    { key:"t3", label:"E3 Fatur.→Pronto",      color:"#fbbf24" },
+    { key:"t4", label:"E4 Pronto→Entregue",    color:"#fb7185" },
+  ];
+
+  const datasets = ETAPAS.map(e => ({
+    label: e.label,
+    data: entries.map(([,ped]) => +avg(ped.map(o=>o[e.key])).toFixed(1)),
+    backgroundColor: e.color + "CC",
+    borderColor: e.color,
+    borderWidth: 1,
+    borderRadius: 3,
+  }));
+
+  _slaBarChart = new Chart(canvas, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode:"index", intersect:false },
+      plugins: {
+        legend: { position:"bottom", labels:{ color:txtCol, font:{size:11}, boxWidth:12, padding:10 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}h`,
+            footer: items => `Total: ${items.reduce((a,i)=>a+i.parsed.y,0).toFixed(1)}h`
+          }
+        }
+      },
+      scales: {
+        x: { stacked:true, grid:{color:gridCol}, ticks:{color:txtCol, font:{size:10}, maxRotation:35} },
+        y: { stacked:true, beginAtZero:true, grid:{color:gridCol}, ticks:{color:txtCol, font:{size:11}, callback:v=>`${v}h`} }
+      }
+    }
+  });
+}
+
+function _drawSlaRanking(data){
+  const el = document.getElementById("slaRankTable");
+  const badge = document.getElementById("slaRankBadge");
+  if(!el) return;
+
+  function avg(arr){ const v=arr.filter(x=>x!==null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+  function fmtH(h){ if(h===null) return "—"; return h>=24?`${(h/24).toFixed(1)}d`:`${h.toFixed(1)}h`; }
+
+  const byLoja = new Map();
+  for(const o of data){
+    if(!byLoja.has(o.locationId)) byLoja.set(o.locationId, []);
+    byLoja.get(o.locationId).push(o);
+  }
+
+  // Thresholds SLA baseados em percentis do total
+  const allTotais = data.map(o=>o.tTotal).filter(x=>x!==null).sort((a,b)=>a-b);
+  const p33 = allTotais[Math.floor(allTotais.length*.33)] || 24;
+  const p67 = allTotais[Math.floor(allTotais.length*.67)] || 48;
+
+  function slaClass(h){
+    if(h===null) return "";
+    if(h <= p33) return "sla-v-green";
+    if(h <= p67) return "sla-v-yellow";
+    return "sla-v-red";
+  }
+  function slaLabel(h){
+    if(h===null) return "—";
+    if(h <= p33) return "✅ Verde";
+    if(h <= p67) return "⚠️ Atenção";
+    return "🔴 Crítico";
+  }
+  function gargalo(peds){
+    const e = {
+      "E1":avg(peds.map(o=>o.t1)),
+      "E2":avg(peds.map(o=>o.t2)),
+      "E3":avg(peds.map(o=>o.t3)),
+      "E4":avg(peds.map(o=>o.t4)),
+    };
+    return Object.entries(e).filter(([,v])=>v!==null).sort((a,b)=>b[1]-a[1])[0]?.[0] || "—";
+  }
+
+  const entries = [...byLoja.entries()].sort((a,b)=>{
+    const ta = avg(a[1].map(o=>o.tTotal)) || 999;
+    const tb = avg(b[1].map(o=>o.tTotal)) || 999;
+    return ta - tb;
+  });
+
+  if(badge) badge.textContent = `${entries.length} lojas · SLA Verde <${Math.round(p33)}h · Vermelho >${Math.round(p67)}h`;
+
+  let html = `<div style="overflow-x:auto"><table class="sla-rank-table">
+    <thead><tr>
+      <th>#</th><th>Loja</th><th>Pedidos</th>
+      <th>E1 médio</th><th>E2 médio</th><th>E3 médio</th><th>E4 médio</th>
+      <th>Total médio</th><th>SLA</th><th>Gargalo</th>
+    </tr></thead><tbody>`;
+
+  entries.forEach(([lid, peds], i) => {
+    const t1=avg(peds.map(o=>o.t1)), t2=avg(peds.map(o=>o.t2));
+    const t3=avg(peds.map(o=>o.t3)), t4=avg(peds.map(o=>o.t4));
+    const tot=avg(peds.map(o=>o.tTotal));
+    const g = gargalo(peds);
+    html += `<tr>
+      <td>${i+1}</td>
+      <td><strong>${storeLabel(lid)}</strong></td>
+      <td>${peds.length}</td>
+      <td>${fmtH(t1)}</td><td>${fmtH(t2)}</td><td>${fmtH(t3)}</td><td>${fmtH(t4)}</td>
+      <td><strong>${fmtH(tot)}</strong></td>
+      <td><span class="sla-badge-v ${slaClass(tot)}">${slaLabel(tot)}</span></td>
+      <td style="color:var(--muted);font-size:11.5px">${g}</td>
+    </tr>`;
+  });
+
+  // Linha de total
+  const t1t=avg(data.map(o=>o.t1)), t2t=avg(data.map(o=>o.t2));
+  const t3t=avg(data.map(o=>o.t3)), t4t=avg(data.map(o=>o.t4));
+  const tott=avg(data.map(o=>o.tTotal));
+  html += `</tbody><tfoot><tr>
+    <td colspan="2">Média geral</td><td>${data.length}</td>
+    <td>${fmtH(t1t)}</td><td>${fmtH(t2t)}</td><td>${fmtH(t3t)}</td><td>${fmtH(t4t)}</td>
+    <td>${fmtH(tott)}</td><td colspan="2"></td>
+  </tr></tfoot></table></div>`;
+  el.innerHTML = html;
+}
+
+function _drawSlaPedidos(data){
+  const el    = document.getElementById("slaPedTable");
+  const badge = document.getElementById("slaPedBadge");
+  if(!el) return;
+
+  function fmtH(h){ if(h===null) return "—"; return h>=24?`${(h/24).toFixed(1)}d`:`${h.toFixed(1)}h`; }
+
+  const allTotais = data.map(o=>o.tTotal).filter(x=>x!==null).sort((a,b)=>a-b);
+  const p33 = allTotais[Math.floor(allTotais.length*.33)] || 24;
+  const p67 = allTotais[Math.floor(allTotais.length*.67)] || 48;
+
+  function slaClass(h){ if(h===null) return ""; return h<=p33?"sla-v-green":h<=p67?"sla-v-yellow":"sla-v-red"; }
+  function slaLabel(h){ if(h===null) return "—"; return h<=p33?"✅ Verde":h<=p67?"⚠️ Atenção":"🔴 Crítico"; }
+
+  // Ordenar por total desc (piores primeiro)
+  const sorted = [...data].sort((a,b)=>(b.tTotal||0)-(a.tTotal||0));
+  if(badge) badge.textContent = `${sorted.length} pedidos ordenados do mais lento`;
+
+  let html = `<div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table class="sla-ped-table">
+    <thead style="position:sticky;top:0;z-index:1"><tr>
+      <th>Pedido</th><th>Loja</th><th>Data criação</th>
+      <th>E1</th><th>E2</th><th>E3</th><th>E4</th><th>Total</th><th>SLA</th>
+    </tr></thead><tbody>`;
+
+  for(const o of sorted){
+    html += `<tr>
+      <td style="font-size:11px;color:var(--muted)">${o.order}</td>
+      <td>${storeLabel(o.locationId)}</td>
+      <td>${o.placedDate ? o.placedDate.split("-").reverse().join("/") : "—"}</td>
+      <td>${fmtH(o.t1)}</td><td>${fmtH(o.t2)}</td><td>${fmtH(o.t3)}</td><td>${fmtH(o.t4)}</td>
+      <td><strong>${fmtH(o.tTotal)}</strong></td>
+      <td><span class="sla-badge-v ${slaClass(o.tTotal)}">${slaLabel(o.tTotal)}</span></td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  el.innerHTML = html;
+}
+
   async function loadAll(){
     _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
@@ -5495,6 +5894,8 @@ function renderInsightMarkdown(text){
   }
   return html || `<div class="insight-summary">${text.replace(/\n/g,"<br>")}</div>`;
 }
+
+
 
 
 
