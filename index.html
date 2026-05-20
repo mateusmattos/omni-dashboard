@@ -5036,20 +5036,27 @@ function renderEntregas(filteredOrders){
   const mediaGeral = avg(dados.map(o=>o.diasReal));
   const faster = dados.reduce((a,b)=>a.diasReal<b.diasReal?a:b, dados[0]);
   const slower = dados.reduce((a,b)=>a.diasReal>b.diasReal?a:b, dados[0]);
-  const dentroSLA = dados.filter(o=> {
-    if(!o.estimatedDeliveryDate) return false;
+
+  const comPrazo = dados.filter(o => o.estimatedDeliveryDate);
+  const dentroSLA = comPrazo.filter(o => {
     const est = new Date(o.estimatedDeliveryDate.split(" ")[0].split("/").reverse().join("-"));
     const del = new Date(o.deliveredAtIso);
     return del <= est;
   });
+  const pctNoPrazo = comPrazo.length > 0 ? dentroSLA.length / comPrazo.length * 100 : null;
+  const corPrazo   = pctNoPrazo === null ? "#94a3b8"
+                   : pctNoPrazo >= 80    ? "#34d399"
+                   : pctNoPrazo >= 60    ? "#fbbf24"
+                   : "#fb7185";
 
   const kpiEl = document.getElementById("entregasKpis");
   if(kpiEl){
     kpiEl.innerHTML = [
-      { label:"Pedidos entregues", val: totalPed.toLocaleString("pt-BR"), sub:"com rastreio completo", color:"#7dd3fc" },
-      { label:"Tempo médio", val: fmtD(mediaGeral), sub:"shippedAt → delivered", color:"#34d399" },
-      { label:"Mais rápido", val: fmtD(faster?.diasReal||null), sub: faster?.estado||"—", color:"#a78bfa" },
-      { label:"Mais lento", val: fmtD(slower?.diasReal||null), sub: slower?.estado||"—", color:"#fb7185" },
+      { label:"Pedidos entregues",  val: totalPed.toLocaleString("pt-BR"),                          sub:"com rastreio completo",          color:"#7dd3fc" },
+      { label:"Tempo médio",        val: fmtD(mediaGeral),                                          sub:"shippedAt → delivered",          color:"#34d399" },
+      { label:"Entregues no prazo", val: pctNoPrazo !== null ? `${pctNoPrazo.toFixed(1)}%` : "—",  sub:`${dentroSLA.length} de ${comPrazo.length} com prazo definido`, color: corPrazo },
+      { label:"Mais rápido",        val: fmtD(faster?.diasReal||null),                              sub: faster?.estado||"—",             color:"#a78bfa" },
+      { label:"Mais lento",         val: fmtD(slower?.diasReal||null),                              sub: slower?.estado||"—",             color:"#fb7185" },
     ].map(k=>`<div class="sla-kpi-card">
       <div class="sk-label" style="color:${k.color}">${k.label}</div>
       <div class="sk-val">${k.val}</div>
