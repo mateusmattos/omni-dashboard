@@ -2028,6 +2028,7 @@
     var ruptDiarioChart = null;
     var _ruptChartPorLoja = false;
     var _slaFilteredOrders = null; // lazy render da aba SLA
+    var _slaCache = null;          // cache dos pedidos processados
 
     const els = {
       fileOrders: document.getElementById("fileOrders"),
@@ -2545,6 +2546,7 @@
       renderRuptDiarioChart(filtered);   // ← gráfico diarizado de rupturas
       // SLA: armazena dados, renderiza só quando aba for aberta
       _slaFilteredOrders = filtered;
+      _slaCache = null; // invalida cache ao mudar filtro
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4575,6 +4577,14 @@ function slaSelectAllLojas(all){
 }
 
 function renderSLA(filteredOrders){
+  // Cache: evita reprocessar se os dados não mudaram
+  const cacheKey = filteredOrders.length + "_" + (filteredOrders[0]?.order || "");
+  if(_slaCache?.key === cacheKey){
+    _slaLastData = _slaCache.data;
+    _renderSlaVisoes(_slaLastData);
+    return;
+  }
+
   // Apenas SHIPMENT com deliveredAt ou shippedAt preenchido
   const pedidos = filteredOrders.filter(o =>
     (o.orderType || "").toUpperCase() !== "PICKUP" &&
@@ -4611,41 +4621,41 @@ function renderSLA(filteredOrders){
     return diff > 0 ? diff : null;
   }
 
-  // Horas úteis: desconta sábados e domingos completos entre os dois timestamps
+  // Horas úteis O(1) — sem loop, cálculo puramente matemático
   function horasUteis(isoA, isoB){
     if(!isoA || !isoB) return null;
     const start = new Date(isoA);
     const end   = new Date(isoB);
     if(end <= start) return null;
 
-    const totalHoras = (end - start) / 3600000;
+    // Total de semanas completas entre os dois timestamps
+    const msTotal = end - start;
+    const semanasCompletas = Math.floor(msTotal / (7 * 864e5));
+    // Horas de fim de semana em semanas completas (48h por semana)
+    let fdsMs = semanasCompletas * 2 * 864e5;
 
-    // Contar quantos dias completos de fim de semana estão no intervalo
-    // Estratégia: iterar pelos dias do intervalo e descontar sáb/dom
-    let fdsHoras = 0;
-    const diaInicio = new Date(start);
-    diaInicio.setHours(0, 0, 0, 0);
-
-    const diaFim = new Date(end);
-    diaFim.setHours(0, 0, 0, 0);
-
-    const cur = new Date(diaInicio);
-    while(cur <= diaFim){
-      const dow = cur.getDay();
-      if(dow === 0 || dow === 6){
-        // calcular sobreposição desse dia com o intervalo [start, end]
-        const diaStart = new Date(cur);
-        const diaEnd   = new Date(cur); diaEnd.setDate(diaEnd.getDate() + 1);
-        const overlapStart = start > diaStart ? start : diaStart;
-        const overlapEnd   = end   < diaEnd   ? end   : diaEnd;
-        if(overlapEnd > overlapStart){
-          fdsHoras += (overlapEnd - overlapStart) / 3600000;
+    // Tratar o restante (menos de 7 dias)
+    const msResto = msTotal - semanasCompletas * 7 * 864e5;
+    if(msResto > 0){
+      // Início do "resto" após as semanas completas
+      const restoStart = new Date(start.getTime() + semanasCompletas * 7 * 864e5);
+      const restoEnd   = end;
+      // Iterar apenas sobre os dias do resto (máx 6 dias)
+      const cur = new Date(restoStart);
+      cur.setHours(0, 0, 0, 0);
+      while(cur < restoEnd){
+        const dow = cur.getDay();
+        if(dow === 0 || dow === 6){
+          const diaEnd = new Date(cur); diaEnd.setDate(diaEnd.getDate() + 1);
+          const oStart = restoStart > cur     ? restoStart : cur;
+          const oEnd   = restoEnd   < diaEnd  ? restoEnd   : diaEnd;
+          if(oEnd > oStart) fdsMs += (oEnd - oStart);
         }
+        cur.setDate(cur.getDate() + 1);
       }
-      cur.setDate(cur.getDate() + 1);
     }
 
-    const util = totalHoras - fdsHoras;
+    const util = (msTotal - fdsMs) / 3600000;
     return util > 0 ? util : null;
   }
 
@@ -4660,6 +4670,7 @@ function renderSLA(filteredOrders){
   }).filter(o => o.tTotal !== null && o.tTotal > 0);
 
   _slaLastData = { data, lojas };
+  _slaCache = { key: cacheKey, data: _slaLastData };
   _renderSlaVisoes({ data, lojas });
 }
 
