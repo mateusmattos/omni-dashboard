@@ -1185,6 +1185,29 @@
     .sla-v-yellow{ background:#fbbf2422;color:#fbbf24; }
     .sla-v-red   { background:#fb718522;color:#fb7185; }
 
+    /* ===== ABA ENTREGAS ===== */
+    .entregas-view-btn{
+      font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;
+      border:1px solid var(--border);background:none;color:var(--muted);transition:all .15s;
+    }
+    .entregas-view-btn.active{
+      background:rgba(125,211,252,.15);border-color:var(--accent);color:var(--accent);
+    }
+    .entregas-table{ width:100%;border-collapse:collapse;font-size:13px; }
+    .entregas-table thead th{ background:var(--header-bg);color:var(--header-fg);padding:8px 12px;text-align:left;font-size:11.5px;font-weight:700;border-bottom:1px solid var(--border); }
+    .entregas-table tbody tr:nth-child(even){ background:var(--row-alt); }
+    .entregas-table tbody td{ padding:7px 12px;border-bottom:1px solid var(--border);font-size:12.5px; }
+    .entregas-table tfoot td{ padding:8px 12px;font-weight:700;border-top:2px solid var(--border); }
+    .map-state{ transition:opacity .15s;cursor:pointer; }
+    .map-state:hover{ opacity:.75; }
+    .map-tooltip{
+      position:fixed;background:var(--panel);border:1px solid var(--border);
+      border-radius:10px;padding:10px 14px;font-size:12px;pointer-events:none;
+      box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:9999;min-width:160px;
+      display:none;
+    }
+    .map-tooltip b{ font-size:13px;display:block;margin-bottom:4px; }
+
   </style>
 </head>
 
@@ -1273,6 +1296,7 @@
           <button class="tab-btn" data-tab="tab-report">📋 Report Diário</button>
           <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
           <button class="tab-btn" data-tab="tab-sla">⏱ SLA</button>
+          <button class="tab-btn" data-tab="tab-entregas">🗺 Entregas</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1664,6 +1688,45 @@
 
         </div><!-- /tab-pane sla -->
 
+        <!-- ABA: MAPA DE ENTREGAS -->
+        <div class="tab-pane" id="tab-entregas">
+
+          <!-- KPI cards -->
+          <div id="entregasKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:4px;"></div>
+
+          <!-- Mapa + controles -->
+          <div class="panel">
+            <div class="hd">
+              <div>
+                <h2>Tempo médio de entrega por estado</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">shippedAt → delivered · dias corridos · hover para detalhes</p>
+              </div>
+              <span class="badge" id="entregasMapaBadge">—</span>
+            </div>
+            <div style="padding:8px 16px 16px;">
+              <svg id="brasilMap" viewBox="0 0 800 820" style="width:100%;max-width:700px;display:block;margin:0 auto;"></svg>
+              <div id="entregasMapaLegenda" style="display:flex;justify-content:center;gap:4px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted);"></div>
+            </div>
+          </div>
+
+          <!-- Tabela detalhada com filtros -->
+          <div class="panel">
+            <div class="hd">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <h2>Detalhamento</h2>
+                <div style="display:flex;gap:6px;">
+                  <button class="entregas-view-btn active" data-view="estado" onclick="setEntregasView('estado')">Por estado</button>
+                  <button class="entregas-view-btn" data-view="loja" onclick="setEntregasView('loja')">Por loja</button>
+                  <button class="entregas-view-btn" data-view="transportadora" onclick="setEntregasView('transportadora')">Por transportadora</button>
+                </div>
+              </div>
+              <span class="badge" id="entregasTabelaBadge">—</span>
+            </div>
+            <div id="entregasTabela"></div>
+          </div>
+
+        </div><!-- /tab-pane entregas -->
+
       </div>
     </div>
   </div>
@@ -2029,6 +2092,9 @@
     var _ruptChartPorLoja = false;
     var _slaFilteredOrders = null; // lazy render da aba SLA
     var _slaCache = null;          // cache dos pedidos processados
+    var _entregasFilteredOrders = null;
+    var _entregasView = "estado";
+    var _entregasData = null;
 
     const els = {
       fileOrders: document.getElementById("fileOrders"),
@@ -2134,6 +2200,11 @@
             shippedAtIso:      shippedAt      ? shippedAt.toISOString()       : null,
             checkedAtIso:      checkedAt      ? checkedAt.toISOString()       : null,
             deliveredAtIso:    deliveredAt    ? deliveredAt.toISOString()     : null,
+            // campos de entrega
+            destinationState: (r["destinationState"] || "").toString().trim().toUpperCase(),
+            destinationCity:  (r["destinationCity"]  || "").toString().trim(),
+            carrier:          (r["carrier"]          || "").toString().trim(),
+            estimatedDeliveryDate: (r["estimatedDeliveryDate"] || "").toString().trim(),
           });
         }
         const o = byOrder.get(orderId);
@@ -2547,6 +2618,8 @@
       // SLA: armazena dados, renderiza só quando aba for aberta
       _slaFilteredOrders = filtered;
       _slaCache = null; // invalida cache ao mudar filtro
+      _entregasFilteredOrders = filtered;
+      _entregasData = null;
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4902,6 +4975,296 @@ function _drawSlaPedidos(data){
   el.innerHTML = html;
 }
 
+// ============================================================
+//  ABA ENTREGAS — Mapa de tempo de entrega
+// ============================================================
+
+// Paths SVG dos estados brasileiros (simplificados)
+const BRASIL_PATHS = {
+  AC: "M 115 370 L 160 345 L 185 355 L 195 375 L 175 395 L 140 390 Z",
+  AM: "M 130 230 L 220 200 L 285 215 L 300 260 L 275 295 L 220 305 L 175 290 L 140 270 Z",
+  RR: "M 195 145 L 245 130 L 265 155 L 255 190 L 220 200 L 190 180 Z",
+  PA: "M 285 215 L 370 200 L 420 220 L 430 265 L 395 290 L 340 285 L 300 260 Z",
+  AP: "M 370 170 L 410 160 L 425 185 L 415 210 L 385 215 L 370 200 Z",
+  TO: "M 390 285 L 430 265 L 450 295 L 445 345 L 415 365 L 385 345 L 375 310 Z",
+  MA: "M 430 220 L 490 210 L 510 235 L 500 270 L 460 280 L 430 265 Z",
+  PI: "M 490 210 L 540 215 L 555 245 L 540 280 L 500 270 L 510 235 Z",
+  CE: "M 540 190 L 585 185 L 595 215 L 575 240 L 545 240 L 535 215 Z",
+  RN: "M 585 185 L 620 190 L 620 210 L 598 215 L 585 205 Z",
+  PB: "M 580 210 L 620 210 L 622 228 L 595 232 L 575 225 Z",
+  PE: "M 540 228 L 622 228 L 622 250 L 575 260 L 545 252 Z",
+  AL: "M 598 250 L 625 250 L 626 268 L 605 270 L 595 262 Z",
+  SE: "M 580 262 L 605 270 L 605 285 L 585 290 L 572 278 Z",
+  BA: "M 460 280 L 580 262 L 600 290 L 590 360 L 545 390 L 480 395 L 445 360 L 445 315 Z",
+  MG: "M 445 360 L 545 390 L 575 390 L 590 420 L 560 460 L 490 470 L 445 450 L 430 410 Z",
+  ES: "M 575 390 L 610 390 L 615 425 L 590 440 L 570 425 Z",
+  RJ: "M 530 460 L 575 455 L 590 480 L 562 495 L 530 482 Z",
+  SP: "M 430 450 L 530 460 L 535 495 L 490 520 L 440 510 L 420 478 Z",
+  PR: "M 390 510 L 490 520 L 495 555 L 450 570 L 395 555 L 375 530 Z",
+  SC: "M 395 555 L 470 560 L 468 588 L 420 595 L 390 580 Z",
+  RS: "M 380 590 L 465 588 L 470 640 L 430 665 L 385 650 L 365 620 Z",
+  MS: "M 370 440 L 440 440 L 445 500 L 390 510 L 355 490 L 348 462 Z",
+  MT: "M 270 320 L 380 310 L 390 380 L 375 435 L 320 445 L 270 420 L 255 370 Z",
+  GO: "M 390 355 L 450 345 L 460 400 L 440 440 L 390 440 L 370 410 Z",
+  DF: "M 423 385 L 438 383 L 440 395 L 425 397 Z",
+  RO: "M 195 320 L 270 305 L 285 330 L 275 370 L 230 380 L 200 360 Z",
+};
+
+const UF_NAMES = {
+  AC:"Acre",AM:"Amazonas",RR:"Roraima",PA:"Pará",AP:"Amapá",
+  TO:"Tocantins",MA:"Maranhão",PI:"Piauí",CE:"Ceará",RN:"Rio Grande do Norte",
+  PB:"Paraíba",PE:"Pernambuco",AL:"Alagoas",SE:"Sergipe",BA:"Bahia",
+  MG:"Minas Gerais",ES:"Espírito Santo",RJ:"Rio de Janeiro",SP:"São Paulo",
+  PR:"Paraná",SC:"Santa Catarina",RS:"Rio Grande do Sul",
+  MS:"Mato Grosso do Sul",MT:"Mato Grosso",GO:"Goiás",DF:"Distrito Federal",RO:"Rondônia",
+};
+
+function setEntregasView(view){
+  _entregasView = view;
+  document.querySelectorAll(".entregas-view-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === view);
+  });
+  if(_entregasData) _drawEntregasTabela(_entregasData);
+}
+
+function renderEntregas(filteredOrders){
+  // Filtrar pedidos entregues com shippedAt + delivered
+  const pedidos = filteredOrders.filter(o =>
+    o.shippedAtIso && (o.deliveredAtIso) &&
+    o.destinationState
+  );
+
+  if(!pedidos.length){
+    document.getElementById("entregasKpis").innerHTML =
+      `<div style="padding:20px;color:var(--muted)">Sem pedidos entregues no período com dados de rastreio.</div>`;
+    return;
+  }
+
+  // Calcular tempo de entrega (shippedAt → delivered) em dias
+  function diasEntrega(o){
+    const s = new Date(o.shippedAtIso);
+    const d = new Date(o.deliveredAtIso);
+    const diff = (d - s) / 86400000;
+    return diff > 0 && diff < 60 ? diff : null; // filtra outliers
+  }
+
+  function avg(arr){ const v = arr.filter(x=>x!==null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+  function fmtD(d){ return d===null?"—":`${d.toFixed(1)}d`; }
+
+  // Enriquecer pedidos com tempo
+  const dados = pedidos.map(o => ({
+    ...o,
+    diasReal: diasEntrega(o),
+    estado: (o.destinationState||"").toUpperCase().trim(),
+    transportadora: o.carrier || "—",
+  })).filter(o => o.diasReal !== null);
+
+  _entregasData = dados;
+
+  // ── KPIs gerais ──
+  const totalPed = dados.length;
+  const mediaGeral = avg(dados.map(o=>o.diasReal));
+  const faster = dados.reduce((a,b)=>a.diasReal<b.diasReal?a:b, dados[0]);
+  const slower = dados.reduce((a,b)=>a.diasReal>b.diasReal?a:b, dados[0]);
+  const dentroSLA = dados.filter(o=> {
+    if(!o.estimatedDeliveryDate) return false;
+    const est = new Date(o.estimatedDeliveryDate.split(" ")[0].split("/").reverse().join("-"));
+    const del = new Date(o.deliveredAtIso);
+    return del <= est;
+  });
+
+  const kpiEl = document.getElementById("entregasKpis");
+  if(kpiEl){
+    kpiEl.innerHTML = [
+      { label:"Pedidos entregues", val: totalPed.toLocaleString("pt-BR"), sub:"com rastreio completo", color:"#7dd3fc" },
+      { label:"Tempo médio", val: fmtD(mediaGeral), sub:"shippedAt → delivered", color:"#34d399" },
+      { label:"Mais rápido", val: fmtD(faster?.diasReal||null), sub: faster?.estado||"—", color:"#a78bfa" },
+      { label:"Mais lento", val: fmtD(slower?.diasReal||null), sub: slower?.estado||"—", color:"#fb7185" },
+    ].map(k=>`<div class="sla-kpi-card">
+      <div class="sk-label" style="color:${k.color}">${k.label}</div>
+      <div class="sk-val">${k.val}</div>
+      <div class="sk-sub">${k.sub}</div>
+    </div>`).join("");
+  }
+
+  // ── Mapa ──
+  _drawBrasilMap(dados);
+
+  // ── Tabela ──
+  _drawEntregasTabela(dados);
+}
+
+function _drawBrasilMap(dados){
+  const svg = document.getElementById("brasilMap");
+  const badge = document.getElementById("entregasMapaBadge");
+  if(!svg) return;
+
+  // Média por estado
+  const byEstado = new Map();
+  for(const o of dados){
+    if(!byEstado.has(o.estado)) byEstado.set(o.estado, []);
+    byEstado.get(o.estado).push(o.diasReal);
+  }
+
+  function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+  const medias = new Map([...byEstado.entries()].map(([uf,v])=>[uf, avg(v)]));
+  const vals = [...medias.values()].filter(Boolean);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
+
+  // Escala de cor: verde (rápido) → amarelo → vermelho (lento)
+  function cor(v){
+    if(v === null) return "var(--border)";
+    const t = (v - minV) / (maxV - minV || 1);
+    if(t < 0.5){
+      const r = Math.round(52 + (251-52)*t*2);
+      const g = Math.round(211 + (191-211)*t*2);
+      const b = Math.round(153 + (36-153)*t*2);
+      return `rgb(${r},${g},${b})`;
+    } else {
+      const t2 = (t-0.5)*2;
+      const r = Math.round(251 + (251-251)*t2);
+      const g = Math.round(191 + (113-191)*t2);
+      const b = Math.round(36  + (133-36)*t2);
+      return `rgb(${r},${g},${b})`;
+    }
+  }
+
+  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+  const txtCol = isDark ? "#e2e8f0" : "#1e293b";
+
+  // Tooltip
+  let tooltip = document.getElementById("entregasTooltip");
+  if(!tooltip){
+    tooltip = document.createElement("div");
+    tooltip.id = "entregasTooltip";
+    tooltip.className = "map-tooltip";
+    document.body.appendChild(tooltip);
+  }
+
+  let html = `<rect width="800" height="820" fill="transparent"/>`;
+
+  for(const [uf, path] of Object.entries(BRASIL_PATHS)){
+    const media = medias.get(uf) ?? null;
+    const qtd   = byEstado.get(uf)?.length || 0;
+    const fill  = cor(media);
+    const nome  = UF_NAMES[uf] || uf;
+
+    html += `<path class="map-state" data-uf="${uf}" data-media="${media?.toFixed(1)||'—'}" data-qtd="${qtd}" data-nome="${nome}"
+      d="${path}" fill="${fill}" stroke="${isDark?'#1e293b':'#ffffff'}" stroke-width="1.5"
+      opacity="${qtd > 0 ? 1 : 0.35}"/>`;
+
+    // Label do estado
+    const bbox = path.match(/M (\d+) (\d+)/);
+    if(bbox){
+      const cx = parseFloat(bbox[1]) + 15;
+      const cy = parseFloat(bbox[2]) + 12;
+      html += `<text x="${cx}" y="${cy}" font-size="8" fill="${txtCol}" text-anchor="middle"
+        style="pointer-events:none;font-family:Arial;font-weight:600;opacity:.8">${uf}</text>`;
+    }
+  }
+
+  svg.innerHTML = html;
+
+  // Eventos de hover
+  svg.querySelectorAll(".map-state").forEach(el => {
+    el.addEventListener("mousemove", e => {
+      tooltip.style.display = "block";
+      tooltip.style.left = (e.clientX + 14) + "px";
+      tooltip.style.top  = (e.clientY - 10) + "px";
+      const media = el.dataset.media;
+      const qtd   = el.dataset.qtd;
+      const nome  = el.dataset.nome;
+      tooltip.innerHTML = `<b>${nome} (${el.dataset.uf})</b>
+        Tempo médio: <strong>${media}d</strong><br>
+        Pedidos entregues: <strong>${qtd}</strong>`;
+    });
+    el.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+  });
+
+  // Legenda
+  const legenda = document.getElementById("entregasMapaLegenda");
+  if(legenda && vals.length){
+    legenda.innerHTML = `
+      <span>🟢 ${minV.toFixed(1)}d (mais rápido)</span>
+      <span style="margin:0 8px">→</span>
+      <span style="background:linear-gradient(90deg,#34d399,#fbbf24,#fb7185);width:80px;height:10px;display:inline-block;border-radius:5px;vertical-align:middle;"></span>
+      <span style="margin:0 8px">→</span>
+      <span>🔴 ${maxV.toFixed(1)}d (mais lento)</span>`;
+  }
+
+  if(badge) badge.textContent = `${medias.size} estados`;
+}
+
+function _drawEntregasTabela(dados){
+  const el    = document.getElementById("entregasTabela");
+  const badge = document.getElementById("entregasTabelaBadge");
+  if(!el) return;
+
+  function avg(arr){ const v=arr.filter(x=>x!==null); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
+  function fmtD(d){ return d===null?"—":`${d.toFixed(1)}d`; }
+  function min(arr){ const v=arr.filter(x=>x!==null); return v.length?Math.min(...v):null; }
+  function max(arr){ const v=arr.filter(x=>x!==null); return v.length?Math.max(...v):null; }
+
+  // Agrupar conforme view atual
+  const grupos = new Map();
+  for(const o of dados){
+    const key = _entregasView === "estado" ? (UF_NAMES[o.estado]||o.estado) + ` (${o.estado})`
+              : _entregasView === "loja"   ? storeLabel(o.locationId)
+              : o.transportadora;
+    if(!grupos.has(key)) grupos.set(key, []);
+    grupos.get(key).push(o.diasReal);
+  }
+
+  const linhas = [...grupos.entries()]
+    .map(([k,v]) => ({ key:k, qtd:v.length, media:avg(v), minV:min(v), maxV:max(v) }))
+    .sort((a,b) => (a.media||0) - (b.media||0));
+
+  if(badge) badge.textContent = `${linhas.length} ${_entregasView === "estado" ? "estados" : _entregasView === "loja" ? "lojas" : "transportadoras"} · ${dados.length} pedidos`;
+
+  const hdrs = { estado:"Estado", loja:"Loja de origem", transportadora:"Transportadora" };
+
+  let html = `<div style="overflow-x:auto"><table class="entregas-table">
+    <thead><tr>
+      <th>${hdrs[_entregasView]}</th>
+      <th>Pedidos</th>
+      <th>Tempo médio</th>
+      <th>Mínimo</th>
+      <th>Máximo</th>
+      <th>Distribuição</th>
+    </tr></thead><tbody>`;
+
+  const globalMax = Math.max(...linhas.map(l=>l.maxV||0));
+
+  for(const l of linhas){
+    const barW = globalMax > 0 ? (l.media||0)/globalMax*100 : 0;
+    const cor = (l.media||0) <= 5 ? "#34d399" : (l.media||0) <= 10 ? "#fbbf24" : "#fb7185";
+    html += `<tr>
+      <td><strong>${l.key}</strong></td>
+      <td>${l.qtd.toLocaleString("pt-BR")}</td>
+      <td><strong style="color:${cor}">${fmtD(l.media)}</strong></td>
+      <td style="color:var(--muted)">${fmtD(l.minV)}</td>
+      <td style="color:var(--muted)">${fmtD(l.maxV)}</td>
+      <td style="min-width:120px">
+        <div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">
+          <div style="width:${barW.toFixed(1)}%;background:${cor};height:100%;border-radius:4px;transition:width .3s;"></div>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  // Rodapé
+  const totalAvg = avg(dados.map(o=>o.diasReal));
+  html += `</tbody><tfoot><tr>
+    <td>Média geral</td>
+    <td>${dados.length.toLocaleString("pt-BR")}</td>
+    <td><strong>${fmtD(totalAvg)}</strong></td>
+    <td colspan="3"></td>
+  </tr></tfoot></table></div>`;
+
+  el.innerHTML = html;
+}
+
   async function loadAll(){
     _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
@@ -5033,7 +5396,12 @@ function _drawSlaPedidos(data){
       // Lazy render da aba SLA
       if(btn.dataset.tab === "tab-sla" && _slaFilteredOrders){
         renderSLA(_slaFilteredOrders);
-        _slaFilteredOrders = null; // limpa após primeiro render
+        _slaFilteredOrders = null;
+      }
+      // Lazy render da aba Entregas
+      if(btn.dataset.tab === "tab-entregas" && _entregasFilteredOrders){
+        renderEntregas(_entregasFilteredOrders);
+        _entregasFilteredOrders = null;
       }
     });
   });
@@ -5963,6 +6331,8 @@ function renderInsightMarkdown(text){
   }
   return html || `<div class="insight-summary">${text.replace(/\n/g,"<br>")}</div>`;
 }
+
+
 
 
 
