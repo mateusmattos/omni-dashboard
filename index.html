@@ -6640,8 +6640,14 @@ function renderDevolucoes(){
   const _devState  = window.devolucoesState || [];
   const _ordState  = window.ordersState     || [];
 
+  console.log("[DEV] renderDevolucoes chamada");
+  console.log("[DEV] devolucoesState length:", _devState.length);
+  console.log("[DEV] ordersState length:", _ordState.length);
+  if(_devState.length > 0) console.log("[DEV] primeira devolução data:", _devState[0]?.data, "motivo:", _devState[0]?.motivo);
+
   if(!_devState.length){
     const el = document.getElementById("devKpis");
+    console.log("[DEV] sem dados — exibindo mensagem de aguardo");
     if(el) el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:16px;">Aguardando carregamento de devolucoes.csv do GitHub...</div>`;
     return;
   }
@@ -6650,6 +6656,7 @@ function renderDevolucoes(){
 
   const devs = _getDevFiltradas(_devState);
   const total = devs.length;
+  console.log("[DEV] devs filtradas:", total);
 
   // ── KPIs ──────────────────────────────────────────────────
   // Precisamos do nº de pedidos únicos no período para o índice
