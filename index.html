@@ -1297,6 +1297,7 @@
           <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
           <button class="tab-btn" data-tab="tab-sla">⏱ SLA</button>
           <button class="tab-btn" data-tab="tab-entregas">🗺 Entregas</button>
+          <button class="tab-btn" data-tab="tab-devolucoes">↩ Devoluções</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1727,9 +1728,111 @@
 
         </div><!-- /tab-pane entregas -->
 
-      </div>
-    </div>
-  </div>
+        <!-- ABA: DEVOLUÇÕES -->
+        <div class="tab-pane" id="tab-devolucoes">
+
+          <!-- Filtros específicos de devoluções -->
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;padding:12px 16px;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);">
+            <span style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;">Filtros devoluções</span>
+            <select id="devMarcaFilter" onchange="renderDevolucoes()" style="min-width:140px;">
+              <option value="">Todas as marcas</option>
+            </select>
+            <select id="devMotivoFilter" onchange="renderDevolucoes()" style="min-width:180px;">
+              <option value="">Todos os motivos</option>
+            </select>
+            <select id="devStatusFilter" onchange="renderDevolucoes()" style="min-width:160px;">
+              <option value="">Todos os status</option>
+            </select>
+            <select id="devEstornoFilter" onchange="renderDevolucoes()" style="min-width:160px;">
+              <option value="">Todos os estornos</option>
+              <option value="Realizado">Realizados</option>
+              <option value="Pendente">Pendentes</option>
+            </select>
+            <button onclick="resetDevFiltros()" style="font-size:11px;padding:4px 10px;">Limpar filtros</button>
+            <span id="devBadge" class="badge" style="margin-left:auto;">—</span>
+          </div>
+
+          <!-- KPIs -->
+          <div id="devKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:16px;"></div>
+
+          <!-- Linha 1: Índice mensal + Motivos -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+
+            <div class="panel">
+              <div class="hd"><div><h2>Índice mensal de devolução</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">devoluções ÷ pedidos únicos do período</p></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:220px;">
+                <canvas id="devMensalChart" role="img" aria-label="Índice mensal de devolução"></canvas>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="hd"><div><h2>Motivos de devolução</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">top motivos no período filtrado</p></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:220px;">
+                <canvas id="devMotivosChart" role="img" aria-label="Motivos de devolução"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Linha 2: Categoria motivos + Status estorno -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;">
+
+            <div class="panel">
+              <div class="hd"><div><h2>Categoria de motivo</h2></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:200px;">
+                <canvas id="devCategChart" role="img" aria-label="Categorias de motivo"></canvas>
+              </div>
+              <div id="devCategLegend" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);"></div>
+            </div>
+
+            <div class="panel">
+              <div class="hd"><div><h2>Status das solicitações</h2></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:200px;">
+                <canvas id="devStatusChart" role="img" aria-label="Status das solicitações"></canvas>
+              </div>
+              <div id="devStatusLegend" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);"></div>
+            </div>
+
+            <div class="panel">
+              <div class="hd"><div><h2>Estorno: realizado vs pendente</h2></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:200px;">
+                <canvas id="devEstornoChart" role="img" aria-label="Estorno realizado vs pendente"></canvas>
+              </div>
+              <div id="devEstornoLegend" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);"></div>
+            </div>
+
+          </div>
+
+          <!-- Linha 3: UFs + SLA -->
+          <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:14px;">
+
+            <div class="panel">
+              <div class="hd"><div><h2>Top 10 UFs</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">volume de devoluções por estado</p></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:280px;">
+                <canvas id="devUfChart" role="img" aria-label="Devoluções por UF"></canvas>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="hd"><div><h2>Distribuição SLA</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">dias para resolução da devolução</p></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:180px;">
+                <canvas id="devSlaChart" role="img" aria-label="SLA devoluções"></canvas>
+              </div>
+              <div id="devSlaStats" style="padding:0 16px 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+            </div>
+
+          </div>
+
+          <!-- Tabela detalhada -->
+          <div class="panel">
+            <div class="hd">
+              <div><h2>Detalhamento de devoluções</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">todas as devoluções no período filtrado</p></div>
+              <span id="devTabelaBadge" class="badge">—</span>
+            </div>
+            <div id="devTabela" style="overflow-x:auto;"></div>
+          </div>
+
+        </div><!-- /tab-pane devolucoes -->
         <script>
 
 
@@ -2086,6 +2189,7 @@
     var ordersState  = [];
     var targetsState = {};
     var rupturasState = [];
+    var devolucoesState = []; // devoluções carregadas do GitHub
     var trendChart = null;
     var storesChart = null;
     var ruptDiarioChart = null;
@@ -4264,6 +4368,7 @@ function renderDailyPendLoja(filteredOrders){
   const URL_STORESTATUS = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/status_lojas.csv";
   const URL_RUPTURAS    = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/rupturas.csv";
   const URL_COLECAO     = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/skus_colecao.csv";
+  const URL_DEVOLUCOES  = "https://raw.githubusercontent.com/mateusmattos/omni-dashboard/main/devolucoes.csv";
 
   function _setLoadStatus(ok, title, msg){
     const elDot   = document.getElementById("autoLoadDot");
@@ -5344,6 +5449,15 @@ function _drawEntregasTabela(dados){
       colecaoLoaded = colecaoMap.size;
     } catch(e){ erros.push("Coleções: " + e.message); }
 
+    // --- Devoluções ---
+    let devolucoesLoaded = 0;
+    try {
+      _setLoadStatus(null, "Carregando devoluções...", "Baixando base de devoluções...");
+      const rows = await _parseCsv(await _fetchCsv(URL_DEVOLUCOES));
+      devolucoesState = parseDevolucoes(rows);
+      devolucoesLoaded = devolucoesState.length;
+    } catch(e){ erros.push("Devoluções: " + e.message); }
+
     if(erros.length){
       _setLoadStatus(false, "Erro ao carregar",
         erros.map(e => `⚠️ ${e}`).join("<br>") +
@@ -5354,11 +5468,12 @@ function _drawEntregasTabela(dados){
 
     const now = new Date().toLocaleString("pt-BR");
     const partes = [];
-    if(ordersLoaded)   partes.push(`${ordersLoaded} pedidos`);
-    if(targetsLoaded)  partes.push(`${targetsLoaded} dias de meta`);
-    if(statusLoaded)   partes.push(`${statusLoaded} dias de status`);
-    if(rupturasLoaded) partes.push(`${rupturasLoaded} rupturas`);
-    if(colecaoLoaded)  partes.push(`${colecaoLoaded} SKUs mapeados`);
+    if(ordersLoaded)      partes.push(`${ordersLoaded} pedidos`);
+    if(targetsLoaded)     partes.push(`${targetsLoaded} dias de meta`);
+    if(statusLoaded)      partes.push(`${statusLoaded} dias de status`);
+    if(rupturasLoaded)    partes.push(`${rupturasLoaded} rupturas`);
+    if(colecaoLoaded)     partes.push(`${colecaoLoaded} SKUs mapeados`);
+    if(devolucoesLoaded)  partes.push(`${devolucoesLoaded} devoluções`);
     _setLoadStatus(true, "Dados atualizados", partes.join(" • ") + ` • ${now}`);
     if(ordersState.length) runFromState();
   }
@@ -5390,6 +5505,10 @@ function _drawEntregasTabela(dados){
       if(btn.dataset.tab === "tab-entregas" && _entregasFilteredOrders){
         renderEntregas(_entregasFilteredOrders);
         _entregasFilteredOrders = null;
+      }
+      // Render da aba Devoluções (sempre que abrir)
+      if(btn.dataset.tab === "tab-devolucoes"){
+        renderDevolucoes();
       }
     });
   });
@@ -6344,6 +6463,374 @@ function _showPrintToast(){
   toast.style.opacity = "1";
   setTimeout(() => { toast.style.opacity = "0"; }, 5000);
 }
+
+// ============================================================
+//  DEVOLUÇÕES — parse, filtros e renderização
+// ============================================================
+
+function parseDevolucoes(rows){
+  return rows.map(r => {
+    // Parse data — aceita DD/MM/YYYY HH:MM ou YYYY-MM-DD
+    let dataStr = r["Data"] || r["data"] || "";
+    let dt = null;
+    if(dataStr){
+      // tenta DD/MM/YYYY
+      const m = dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if(m) dt = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00`);
+      else { dt = new Date(dataStr); }
+    }
+    const dateISO = dt && !isNaN(dt) ? dt.toISOString().slice(0,10) : null;
+
+    const sla = parseFloat(String(r["SLA em dias"]||"0").replace(",",".")) || 0;
+    const valPedido = parseFloat(String(r["Valor pedido"]||"0").replace(",",".")) || 0;
+    const custoRev  = parseFloat(String(r["Custo Log. Reversa"]||"0").replace(",",".")) || 0;
+    const estorno   = parseFloat(String(r["Estorno"]||"0").replace(",",".")) || 0;
+
+    const tipoEstorno = r["Tipo de estorno"] || "";
+    const estornoStatus = /realizado/i.test(tipoEstorno) ? "Realizado" :
+                          /pendente/i.test(tipoEstorno)  ? "Pendente"  : "Outro";
+
+    return {
+      id:            r["Solicitação"] || "",
+      status:        r["Solicitação Status"] || "",
+      data:          dateISO,
+      numeroEcomm:   r["Número Ecomm"] || "",
+      cliente:       r["Cliente"] || "",
+      motivo:        r["Motivo"] || "",
+      marca:         r["Marca"] || "",
+      uf:            r["UF"] || "",
+      cidade:        r["Cidade"] || "",
+      tipoEstorno,
+      estornoStatus,
+      sla,
+      valPedido,
+      custoRev,
+      estorno,
+      tipoSolicitacao: r["Tipo de Solicitação"] || "",
+    };
+  }).filter(d => d.data); // remove sem data
+}
+
+// Categoriza motivos
+function _devCategoria(motivo){
+  if(!motivo) return "Outros";
+  const m = motivo.toLowerCase();
+  if(/ficou grande|ficou pequeno|não vestiu|nao vestiu|tamanho|ombro|modelagem/i.test(m)) return "Fit / Tamanho";
+  if(/não gostei|nao gostei|cor errada|produto.*desacordo|recebi.*diferente/i.test(m)) return "Produto / Gosto";
+  if(/defeito|avaria|embalagem.*avariada|faltou|postagem/i.test(m)) return "Qualidade / Defeito";
+  if(/insucesso|não recebi|nao recebi|extravio|prazo/i.test(m)) return "Prazo / Entrega";
+  if(/arrependimento|desisti|cancelamento/i.test(m)) return "Comportamental";
+  return "Outros";
+}
+
+// Filtra devoluções pelo período global do dashboard + filtros próprios
+function _getDevFiltradas(){
+  const startEl = document.getElementById("startDate");
+  const endEl   = document.getElementById("endDate");
+  const d1 = startEl?.value || null;
+  const d2 = endEl?.value   || null;
+
+  const marcaF   = document.getElementById("devMarcaFilter")?.value   || "";
+  const motivoF  = document.getElementById("devMotivoFilter")?.value  || "";
+  const statusF  = document.getElementById("devStatusFilter")?.value  || "";
+  const estornoF = document.getElementById("devEstornoFilter")?.value || "";
+
+  return devolucoesState.filter(d => {
+    if(d1 && d.data < d1) return false;
+    if(d2 && d.data > d2) return false;
+    if(marcaF  && d.marca          !== marcaF)  return false;
+    if(motivoF && d.motivo         !== motivoF) return false;
+    if(statusF && d.status         !== statusF) return false;
+    if(estornoF && d.estornoStatus !== estornoF) return false;
+    return true;
+  });
+}
+
+// Popula selects de filtro uma vez que os dados estão carregados
+function _devPopulateFilters(){
+  const marcaEl  = document.getElementById("devMarcaFilter");
+  const motivoEl = document.getElementById("devMotivoFilter");
+  const statusEl = document.getElementById("devStatusFilter");
+  if(!marcaEl) return;
+
+  const marcas  = [...new Set(devolucoesState.map(d=>d.marca).filter(Boolean))].sort();
+  const motivos = [...new Set(devolucoesState.map(d=>d.motivo).filter(Boolean))].sort();
+  const statuses= [...new Set(devolucoesState.map(d=>d.status).filter(Boolean))].sort();
+
+  function _rebuild(el, opts, label){
+    const cur = el.value;
+    el.innerHTML = `<option value="">${label}</option>`;
+    opts.forEach(o => { const op = document.createElement("option"); op.value = o; op.textContent = o; el.appendChild(op); });
+    if(cur) el.value = cur;
+  }
+  _rebuild(marcaEl,  marcas,  "Todas as marcas");
+  _rebuild(motivoEl, motivos, "Todos os motivos");
+  _rebuild(statusEl, statuses,"Todos os status");
+}
+
+function resetDevFiltros(){
+  ["devMarcaFilter","devMotivoFilter","devStatusFilter","devEstornoFilter"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  renderDevolucoes();
+}
+
+// Helpers para charts — destroy se existir
+const _devCharts = {};
+function _devChart(id, cfg){
+  if(_devCharts[id]){ _devCharts[id].destroy(); }
+  const canvas = document.getElementById(id);
+  if(!canvas) return;
+  _devCharts[id] = new Chart(canvas, cfg);
+}
+
+function _devDonut(id, legendId, labels, data, colors){
+  _devChart(id, {
+    type: "doughnut",
+    data: { labels, datasets:[{ data, backgroundColor: colors, borderWidth:0, hoverOffset:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:"62%" }
+  });
+  const el = document.getElementById(legendId);
+  if(!el) return;
+  const total = data.reduce((a,b)=>a+b,0)||1;
+  el.innerHTML = labels.map((l,i)=>`
+    <div style="display:flex;align-items:center;gap:7px;">
+      <span style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:${colors[i]}"></span>
+      <span>${l}</span>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:11px;opacity:.6;">${data[i].toLocaleString("pt-BR")} · ${(data[i]/total*100).toFixed(1)}%</span>
+    </div>`).join("");
+}
+
+// Render principal da aba
+function renderDevolucoes(){
+  if(!devolucoesState.length){
+    document.getElementById("devKpis").innerHTML =
+      `<div style="color:var(--muted);font-size:13px;padding:16px;">Aguardando carregamento de devolucoes.csv do GitHub...</div>`;
+    return;
+  }
+
+  _devPopulateFilters();
+
+  const devs = _getDevFiltradas();
+  const total = devs.length;
+
+  // ── KPIs ──────────────────────────────────────────────────
+  // Precisamos do nº de pedidos únicos no período para o índice
+  const startEl = document.getElementById("startDate");
+  const endEl   = document.getElementById("endDate");
+  const d1 = startEl?.value || null;
+  const d2 = endEl?.value   || null;
+  const pedidosPeriodo = ordersState.filter(o => {
+    if(d1 && o.placedDate < d1) return false;
+    if(d2 && o.placedDate > d2) return false;
+    return true;
+  });
+  // dedup por order id
+  const pedidosUnicos = new Set(pedidosPeriodo.map(o => o.id || o.order)).size || 0;
+  const indice = pedidosUnicos ? (total / pedidosUnicos * 100) : 0;
+
+  const custoTotal = devs.reduce((a,d)=>a+(d.custoRev||0),0);
+  const slaValidos = devs.filter(d=>d.sla>0);
+  const slaMediana = (() => {
+    if(!slaValidos.length) return 0;
+    const s = slaValidos.map(d=>d.sla).sort((a,b)=>a-b);
+    const mid = Math.floor(s.length/2);
+    return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
+  })();
+  const pendentes = devs.filter(d=>d.estornoStatus==="Pendente").length;
+  const pctPend   = total ? (pendentes/total*100).toFixed(0) : 0;
+
+  const kpiData = [
+    { label:"Índice de devolução", val: indice.toFixed(1)+"%", sub: `${total.toLocaleString("pt-BR")} devol. · ${pedidosUnicos.toLocaleString("pt-BR")} pedidos`, cor:"var(--bad)" },
+    { label:"Total devoluções",    val: total.toLocaleString("pt-BR"), sub: "no período filtrado", cor:"var(--accent)" },
+    { label:"Custo log. reversa",  val: "R$"+Math.round(custoTotal/1000)+"k", sub: "R$"+custoTotal.toLocaleString("pt-BR",{minimumFractionDigits:0,maximumFractionDigits:0}), cor:"var(--warn)" },
+    { label:"SLA mediano",         val: slaMediana.toFixed(1)+"d",  sub: `média ${(slaValidos.reduce((a,d)=>a+d.sla,0)/(slaValidos.length||1)).toFixed(1)}d`, cor:"var(--warn)" },
+    { label:"Estornos pendentes",  val: pctPend+"%",   sub: `${pendentes.toLocaleString("pt-BR")} aguardando`, cor:"var(--warn)" },
+  ];
+
+  document.getElementById("devKpis").innerHTML = kpiData.map(k=>`
+    <div class="kpi" style="border-left:2px solid ${k.cor}">
+      <div class="label">${k.label}</div>
+      <div class="value" style="font-size:26px;font-weight:300;line-height:1;margin:6px 0 4px;">${k.val}</div>
+      <div class="s">${k.sub}</div>
+    </div>`).join("");
+
+  document.getElementById("devBadge").textContent = `${total.toLocaleString("pt-BR")} devol. no filtro`;
+
+  // ── Índice mensal ─────────────────────────────────────────
+  const mesesMap = {};
+  devs.forEach(d => {
+    const m = d.data.slice(0,7); // YYYY-MM
+    mesesMap[m] = (mesesMap[m]||0) + 1;
+  });
+  // pedidos por mês (todos, sem filtros extras além do período)
+  const pedMes = {};
+  pedidosPeriodo.forEach(o => {
+    const m = o.placedDate?.slice(0,7);
+    if(m) pedMes[m] = (pedMes[m]||0) + 1;
+  });
+  const mesesComuns = [...new Set([...Object.keys(mesesMap), ...Object.keys(pedMes)])].sort();
+  const labMeses = mesesComuns.map(m => { const [y,mo] = m.split("-"); return ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+mo-1]+"/"+y.slice(2); });
+  const dataIndice = mesesComuns.map(m => {
+    const p = pedMes[m]||0;
+    return p ? +((mesesMap[m]||0)/p*100).toFixed(2) : 0;
+  });
+
+  _devChart("devMensalChart", {
+    type:"line",
+    data:{ labels: labMeses, datasets:[{
+      label:"% devolução",
+      data: dataIndice,
+      borderColor:"#7dd3fc", backgroundColor:"rgba(125,211,252,.06)",
+      fill:true, tension:.4, pointBackgroundColor:"#7dd3fc", pointRadius:4
+    }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
+               y:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11},callback:v=>v+"%"},grid:{color:"rgba(255,255,255,.06)"}} }}
+  });
+
+  // ── Motivos (top 8 horizontal bar) ───────────────────────
+  const motivoCount = {};
+  devs.forEach(d => { if(d.motivo) motivoCount[d.motivo] = (motivoCount[d.motivo]||0)+1; });
+  const motivosSorted = Object.entries(motivoCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  _devChart("devMotivosChart", {
+    type:"bar",
+    data:{ labels: motivosSorted.map(e=>e[0]), datasets:[{
+      label:"Qtd", data: motivosSorted.map(e=>e[1]),
+      backgroundColor:"#7dd3fc", borderRadius:4
+    }]},
+    options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
+               y:{ticks:{color:"rgba(255,255,255,.6)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}} }}
+  });
+
+  // ── Categoria de motivo ───────────────────────────────────
+  const catCount = {};
+  devs.forEach(d => { const c = _devCategoria(d.motivo); catCount[c] = (catCount[c]||0)+1; });
+  const catLabels = Object.keys(catCount).sort((a,b)=>catCount[b]-catCount[a]);
+  const catColors = ["#e8ff3d","#ff6b35","#ff4545","#4e9eff","#7a7972","#3de8c8","#a78bfa"];
+  _devDonut("devCategChart","devCategLegend", catLabels, catLabels.map(c=>catCount[c]), catColors.slice(0,catLabels.length));
+
+  // ── Status solicitações ───────────────────────────────────
+  const statCount = {};
+  devs.forEach(d => { statCount[d.status] = (statCount[d.status]||0)+1; });
+  const statLabels = Object.keys(statCount).sort((a,b)=>statCount[b]-statCount[a]);
+  const statColors = ["#34d399","#7a7972","#fbbf24","#fb7185","#60a5fa"];
+  _devDonut("devStatusChart","devStatusLegend", statLabels, statLabels.map(s=>statCount[s]), statColors.slice(0,statLabels.length));
+
+  // ── Estorno realizado vs pendente ─────────────────────────
+  const eReal = devs.filter(d=>d.estornoStatus==="Realizado").length;
+  const ePend = devs.filter(d=>d.estornoStatus==="Pendente").length;
+  const eOutro= total - eReal - ePend;
+  const eLabels = ["Realizado","Pendente","Outro"].filter((_,i)=>[eReal,ePend,eOutro][i]>0);
+  const eData   = [eReal,ePend,eOutro].filter(v=>v>0);
+  _devDonut("devEstornoChart","devEstornoLegend", eLabels, eData, ["#34d399","#fbbf24","#7a7972"]);
+
+  // ── Top 10 UFs ────────────────────────────────────────────
+  const ufCount = {};
+  devs.forEach(d => { if(d.uf) ufCount[d.uf] = (ufCount[d.uf]||0)+1; });
+  const ufSorted = Object.entries(ufCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  _devChart("devUfChart", {
+    type:"bar",
+    data:{ labels: ufSorted.map(e=>e[0]), datasets:[{
+      label:"Devol.", data: ufSorted.map(e=>e[1]),
+      backgroundColor:"#a78bfa", borderRadius:4
+    }]},
+    options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
+               y:{ticks:{color:"rgba(255,255,255,.6)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}} }}
+  });
+
+  // ── SLA faixas ────────────────────────────────────────────
+  const slaFaixas = {"0–7d":0,"8–14d":0,"15–21d":0,"22–30d":0,"31–60d":0,"60d+":0};
+  slaValidos.forEach(d => {
+    if(d.sla<=7)       slaFaixas["0–7d"]++;
+    else if(d.sla<=14) slaFaixas["8–14d"]++;
+    else if(d.sla<=21) slaFaixas["15–21d"]++;
+    else if(d.sla<=30) slaFaixas["22–30d"]++;
+    else if(d.sla<=60) slaFaixas["31–60d"]++;
+    else               slaFaixas["60d+"]++;
+  });
+  _devChart("devSlaChart",{
+    type:"bar",
+    data:{ labels: Object.keys(slaFaixas), datasets:[{
+      label:"Qtd", data: Object.values(slaFaixas),
+      backgroundColor:["#34d399","#34d399","#fbbf24","#fbbf24","#fb7185","#fb7185"],
+      borderRadius:4
+    }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
+               y:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}} }}
+  });
+
+  // SLA stats
+  const slaMedia = slaValidos.reduce((a,d)=>a+d.sla,0)/(slaValidos.length||1);
+  const slaMax   = slaValidos.length ? Math.max(...slaValidos.map(d=>d.sla)) : 0;
+  document.getElementById("devSlaStats").innerHTML = [
+    { label:"Mediana", val: slaMediana.toFixed(1)+"d" },
+    { label:"Média",   val: slaMedia.toFixed(1)+"d" },
+    { label:"Máximo",  val: slaMax.toFixed(0)+"d" },
+  ].map(s=>`<div style="text-align:center;padding:10px;background:var(--panel2);border-radius:8px;">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${s.label}</div>
+    <div style="font-size:18px;font-weight:300;">${s.val}</div>
+  </div>`).join("");
+
+  // ── Tabela detalhada ─────────────────────────────────────
+  const tabelaBadge = document.getElementById("devTabelaBadge");
+  if(tabelaBadge) tabelaBadge.textContent = `${total.toLocaleString("pt-BR")} registros`;
+
+  const fmtR = v => v ? "R$"+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
+  const devTabela = document.getElementById("devTabela");
+  if(!devTabela) return;
+
+  const statusColor = s => s==="Concluído"?"var(--good)":s==="Expirado"?"var(--muted)":s==="Pendente"?"var(--warn)":s==="Cancelado"?"var(--bad)":"var(--muted)";
+  const estornoColor = s => s==="Realizado"?"var(--good)":s==="Pendente"?"var(--warn)":"var(--muted)";
+
+  devTabela.innerHTML = `
+    <table class="dt" style="min-width:900px;width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="text-align:left">Data</th>
+        <th style="text-align:left">Nº Ecomm</th>
+        <th style="text-align:left">Marca</th>
+        <th style="text-align:left">Motivo</th>
+        <th style="text-align:left">Categoria</th>
+        <th style="text-align:left">Status</th>
+        <th style="text-align:left">UF</th>
+        <th style="text-align:right">Valor pedido</th>
+        <th style="text-align:right">Custo reversa</th>
+        <th style="text-align:right">SLA (d)</th>
+        <th style="text-align:left">Estorno</th>
+      </tr></thead>
+      <tbody>
+        ${devs.slice(0,300).map(d=>`<tr>
+          <td>${d.data||"—"}</td>
+          <td style="font-family:var(--mono);font-size:11px;">${d.numeroEcomm||"—"}</td>
+          <td>${d.marca||"—"}</td>
+          <td>${d.motivo||"—"}</td>
+          <td style="color:var(--muted);font-size:11px;">${_devCategoria(d.motivo)}</td>
+          <td><span style="font-size:11px;color:${statusColor(d.status)}">${d.status||"—"}</span></td>
+          <td>${d.uf||"—"}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:11px;">${fmtR(d.valPedido)}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:11px;">${d.custoRev>0?fmtR(d.custoRev):"—"}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:11px;">${d.sla>0?d.sla.toFixed(1):"—"}</td>
+          <td><span style="font-size:11px;color:${estornoColor(d.estornoStatus)}">${d.estornoStatus||"—"}</span></td>
+        </tr>`).join("")}
+      </tbody>
+      <tfoot><tr>
+        <td colspan="7" style="font-weight:600;">Total (${total>300?"primeiros 300 de "+total.toLocaleString("pt-BR"):total})</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600;">${fmtR(devs.reduce((a,d)=>a+d.valPedido,0))}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600;">${fmtR(devs.reduce((a,d)=>a+d.custoRev,0))}</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+    </table>
+    ${total>300?`<div style="font-size:11px;color:var(--muted);padding:8px 16px;">Exibindo os 300 primeiros de ${total.toLocaleString("pt-BR")} registros.</div>`:""}`;
+}
+
+// Expõe globalmente para os onchange dos selects
+window.renderDevolucoes = renderDevolucoes;
+window.resetDevFiltros  = resetDevFiltros;
 </script>
 </body>
 
