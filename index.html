@@ -2195,9 +2195,11 @@
 
     // ---------- State — var para escopo global entre scripts ----------
     var ordersState  = [];
+    window.ordersState = ordersState;
     var targetsState = {};
     var rupturasState = [];
     var devolucoesState = []; // devoluções carregadas do GitHub
+    window.devolucoesState = devolucoesState; // expõe globalmente
     var trendChart = null;
     var storesChart = null;
     var ruptDiarioChart = null;
@@ -5454,6 +5456,7 @@ function _drawEntregasTabela(dados){
         }
       }
       ordersState = [...baseMap.values()];
+      window.ordersState = ordersState;
 
       // atualizar filtros e selects
       const channels = new Set(ordersState.map(o => o.channelId).filter(Boolean));
@@ -5503,6 +5506,7 @@ function _drawEntregasTabela(dados){
       _setLoadStatus(null, "Carregando devoluções...", "Baixando base de devoluções...");
       const rows = await _parseCsv(await _fetchCsv(URL_DEVOLUCOES));
       devolucoesState = parseDevolucoes(rows);
+      window.devolucoesState = devolucoesState;
       devolucoesLoaded = devolucoesState.length;
     } catch(e){ erros.push("Devoluções: " + e.message); }
 
@@ -6541,7 +6545,8 @@ function _showPrintToast(){
 // ============================================================
 
 // Filtra devoluções pelo período global do dashboard + filtros próprios
-function _getDevFiltradas(){
+function _getDevFiltradas(state){
+  const src = state || window.devolucoesState || [];
   const startEl = document.getElementById("startDate");
   const endEl   = document.getElementById("endDate");
   const d1 = startEl?.value || null;
@@ -6552,7 +6557,7 @@ function _getDevFiltradas(){
   const statusF  = document.getElementById("devStatusFilter")?.value  || "";
   const estornoF = document.getElementById("devEstornoFilter")?.value || "";
 
-  return devolucoesState.filter(d => {
+  return src.filter(d => {
     if(d1 && d.data < d1) return false;
     if(d2 && d.data > d2) return false;
     if(marcaF  && d.marca          !== marcaF)  return false;
@@ -6565,14 +6570,15 @@ function _getDevFiltradas(){
 
 // Popula selects de filtro uma vez que os dados estão carregados
 function _devPopulateFilters(){
+  const src = window.devolucoesState || [];
   const marcaEl  = document.getElementById("devMarcaFilter");
   const motivoEl = document.getElementById("devMotivoFilter");
   const statusEl = document.getElementById("devStatusFilter");
   if(!marcaEl) return;
 
-  const marcas  = [...new Set(devolucoesState.map(d=>d.marca).filter(Boolean))].sort();
-  const motivos = [...new Set(devolucoesState.map(d=>d.motivo).filter(Boolean))].sort();
-  const statuses= [...new Set(devolucoesState.map(d=>d.status).filter(Boolean))].sort();
+  const marcas  = [...new Set(src.map(d=>d.marca).filter(Boolean))].sort();
+  const motivos = [...new Set(src.map(d=>d.motivo).filter(Boolean))].sort();
+  const statuses= [...new Set(src.map(d=>d.status).filter(Boolean))].sort();
 
   function _rebuild(el, opts, label){
     const cur = el.value;
@@ -6630,15 +6636,19 @@ function _devDonut(id, legendId, labels, data, colors){
 
 // Render principal da aba
 function renderDevolucoes(){
-  if(!devolucoesState.length){
-    document.getElementById("devKpis").innerHTML =
-      `<div style="color:var(--muted);font-size:13px;padding:16px;">Aguardando carregamento de devolucoes.csv do GitHub...</div>`;
+  // Acessa via window para garantir escopo correto entre blocos <script>
+  const _devState  = window.devolucoesState || [];
+  const _ordState  = window.ordersState     || [];
+
+  if(!_devState.length){
+    const el = document.getElementById("devKpis");
+    if(el) el.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:16px;">Aguardando carregamento de devolucoes.csv do GitHub...</div>`;
     return;
   }
 
   _devPopulateFilters();
 
-  const devs = _getDevFiltradas();
+  const devs = _getDevFiltradas(_devState);
   const total = devs.length;
 
   // ── KPIs ──────────────────────────────────────────────────
@@ -6647,7 +6657,7 @@ function renderDevolucoes(){
   const endEl   = document.getElementById("endDate");
   const d1 = startEl?.value || null;
   const d2 = endEl?.value   || null;
-  const pedidosPeriodo = ordersState.filter(o => {
+  const pedidosPeriodo = _ordState.filter(o => {
     if(d1 && o.placedDate < d1) return false;
     if(d2 && o.placedDate > d2) return false;
     return true;
