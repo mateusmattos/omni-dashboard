@@ -5366,6 +5366,46 @@ function _drawEntregasTabela(dados){
   el.innerHTML = html;
 }
 
+  // ── parseDevolucoes e _devCategoria — declarados aqui para ficarem no
+  //    mesmo escopo que loadAll (que os chama durante o carregamento) ──
+  function parseDevolucoes(rows){
+    return rows.map(r => {
+      let dataStr = r["Data"] || r["data"] || "";
+      let dt = null;
+      if(dataStr){
+        const m = dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if(m) dt = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00`);
+        else { dt = new Date(dataStr); }
+      }
+      const dateISO = dt && !isNaN(dt) ? dt.toISOString().slice(0,10) : null;
+      const sla       = parseFloat(String(r["SLA em dias"]||"0").replace(",",".")) || 0;
+      const valPedido = parseFloat(String(r["Valor pedido"]||"0").replace(",",".")) || 0;
+      const custoRev  = parseFloat(String(r["Custo Log. Reversa"]||"0").replace(",",".")) || 0;
+      const estorno   = parseFloat(String(r["Estorno"]||"0").replace(",",".")) || 0;
+      const tipoEstorno = r["Tipo de estorno"] || "";
+      const estornoStatus = /realizado/i.test(tipoEstorno) ? "Realizado" :
+                            /pendente/i.test(tipoEstorno)  ? "Pendente"  : "Outro";
+      return {
+        id: r["Solicitação"]||"", status: r["Solicitação Status"]||"",
+        data: dateISO, numeroEcomm: r["Número Ecomm"]||"",
+        motivo: r["Motivo"]||"", marca: r["Marca"]||"",
+        uf: r["UF"]||"", cidade: r["Cidade"]||"",
+        tipoEstorno, estornoStatus, sla, valPedido, custoRev, estorno,
+        tipoSolicitacao: r["Tipo de Solicitação"]||"",
+      };
+    }).filter(d => d.data);
+  }
+
+  function _devCategoria(motivo){
+    if(!motivo) return "Outros";
+    if(/ficou grande|ficou pequeno|não vestiu|nao vestiu|tamanho|ombro|modelagem/i.test(motivo)) return "Fit / Tamanho";
+    if(/não gostei|nao gostei|cor errada|produto.*desacordo|recebi.*diferente/i.test(motivo)) return "Produto / Gosto";
+    if(/defeito|avaria|embalagem.*avariada|faltou|postagem/i.test(motivo)) return "Qualidade / Defeito";
+    if(/insucesso|não recebi|nao recebi|extravio|prazo/i.test(motivo)) return "Prazo / Entrega";
+    if(/arrependimento|desisti|cancelamento/i.test(motivo)) return "Comportamental";
+    return "Outros";
+  }
+
   async function loadAll(){
     _setLoadStatus(null, "Carregando dados...", "Buscando arquivos do repositório...");
 
@@ -6497,63 +6537,8 @@ function _showPrintToast(){
 }
 
 // ============================================================
-//  DEVOLUÇÕES — parse, filtros e renderização
+//  DEVOLUÇÕES — filtros e renderização
 // ============================================================
-
-function parseDevolucoes(rows){
-  return rows.map(r => {
-    // Parse data — aceita DD/MM/YYYY HH:MM ou YYYY-MM-DD
-    let dataStr = r["Data"] || r["data"] || "";
-    let dt = null;
-    if(dataStr){
-      // tenta DD/MM/YYYY
-      const m = dataStr.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-      if(m) dt = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00`);
-      else { dt = new Date(dataStr); }
-    }
-    const dateISO = dt && !isNaN(dt) ? dt.toISOString().slice(0,10) : null;
-
-    const sla = parseFloat(String(r["SLA em dias"]||"0").replace(",",".")) || 0;
-    const valPedido = parseFloat(String(r["Valor pedido"]||"0").replace(",",".")) || 0;
-    const custoRev  = parseFloat(String(r["Custo Log. Reversa"]||"0").replace(",",".")) || 0;
-    const estorno   = parseFloat(String(r["Estorno"]||"0").replace(",",".")) || 0;
-
-    const tipoEstorno = r["Tipo de estorno"] || "";
-    const estornoStatus = /realizado/i.test(tipoEstorno) ? "Realizado" :
-                          /pendente/i.test(tipoEstorno)  ? "Pendente"  : "Outro";
-
-    return {
-      id:            r["Solicitação"] || "",
-      status:        r["Solicitação Status"] || "",
-      data:          dateISO,
-      numeroEcomm:   r["Número Ecomm"] || "",
-      cliente:       r["Cliente"] || "",
-      motivo:        r["Motivo"] || "",
-      marca:         r["Marca"] || "",
-      uf:            r["UF"] || "",
-      cidade:        r["Cidade"] || "",
-      tipoEstorno,
-      estornoStatus,
-      sla,
-      valPedido,
-      custoRev,
-      estorno,
-      tipoSolicitacao: r["Tipo de Solicitação"] || "",
-    };
-  }).filter(d => d.data); // remove sem data
-}
-
-// Categoriza motivos
-function _devCategoria(motivo){
-  if(!motivo) return "Outros";
-  const m = motivo.toLowerCase();
-  if(/ficou grande|ficou pequeno|não vestiu|nao vestiu|tamanho|ombro|modelagem/i.test(m)) return "Fit / Tamanho";
-  if(/não gostei|nao gostei|cor errada|produto.*desacordo|recebi.*diferente/i.test(m)) return "Produto / Gosto";
-  if(/defeito|avaria|embalagem.*avariada|faltou|postagem/i.test(m)) return "Qualidade / Defeito";
-  if(/insucesso|não recebi|nao recebi|extravio|prazo/i.test(m)) return "Prazo / Entrega";
-  if(/arrependimento|desisti|cancelamento/i.test(m)) return "Comportamental";
-  return "Outros";
-}
 
 // Filtra devoluções pelo período global do dashboard + filtros próprios
 function _getDevFiltradas(){
