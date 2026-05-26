@@ -1823,13 +1823,21 @@
 
           </div>
 
-          <!-- Tabela detalhada -->
-          <div class="panel">
-            <div class="hd">
-              <div><h2>Detalhamento de devoluções</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">todas as devoluções no período filtrado</p></div>
-              <span id="devTabelaBadge" class="badge">—</span>
+          <!-- Linha 4: Custo por motivo + Evolução mensal por categoria -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+
+            <div class="panel">
+              <div class="hd"><div><h2>Custo reverso por motivo</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">R$ de logística reversa acumulado por motivo</p></div><span id="devCustoMotivoBadge" class="badge">—</span></div>
+              <div id="devCustoMotivoTabela" style="overflow-x:auto;"></div>
             </div>
-            <div id="devTabela" style="overflow-x:auto;"></div>
+
+            <div class="panel">
+              <div class="hd"><div><h2>Devoluções por marca × mês</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">volume mensal por marca no período</p></div></div>
+              <div style="padding:12px 16px 16px;position:relative;height:240px;">
+                <canvas id="devMarcaMesChart" role="img" aria-label="Devoluções por marca por mês"></canvas>
+              </div>
+            </div>
+
           </div>
 
         </div><!-- /tab-pane devolucoes -->
@@ -5654,6 +5662,30 @@ function _drawEntregasTabela(dados){
         ch.update("none");
       }catch(e){}
     });
+    // Atualiza charts de devoluções se a aba estiver visível
+    if(typeof _devCharts !== "undefined"){
+      Object.values(_devCharts).forEach(ch => {
+        if(!ch) return;
+        try{
+          if(ch.options.scales){
+            Object.values(ch.options.scales).forEach(s => {
+              if(s.ticks) s.ticks.color = tickColor;
+              if(s.grid)  s.grid.color  = gridColor;
+            });
+          }
+          ch.update("none");
+        }catch(e){}
+      });
+      // Re-renderiza legendas dos donuts (que usam var(--text) via CSS, auto-atualiza)
+      const devTab = document.getElementById("tab-devolucoes");
+      if(devTab && devTab.classList.contains("active") && typeof renderDevolucoes === "function"){
+        // Só re-renderiza legends, não recria os charts
+        ["devCategLegend","devStatusLegend","devEstornoLegend"].forEach(id => {
+          const el = document.getElementById(id);
+          if(el) el.querySelectorAll("span:not(:first-child)").forEach(s => { s.style.color = ""; });
+        });
+      }
+    }
   }
 
   window.toggleTheme = function(){
@@ -6585,6 +6617,15 @@ function _devChart(id, cfg){
   _devCharts[id] = new Chart(canvas, cfg);
 }
 
+// Retorna cores de tick/grid respeitando tema atual
+function _devChartColors(){
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+  return {
+    tick: isLight ? "rgba(0,0,0,.50)"  : "#9fb0d0",
+    grid: isLight ? "rgba(0,0,0,.07)"  : "rgba(255,255,255,.06)",
+  };
+}
+
 function _devDonut(id, legendId, labels, data, colors){
   _devChart(id, {
     type: "doughnut",
@@ -6597,8 +6638,8 @@ function _devDonut(id, legendId, labels, data, colors){
   el.innerHTML = labels.map((l,i)=>`
     <div style="display:flex;align-items:center;gap:7px;">
       <span style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:${colors[i]}"></span>
-      <span>${l}</span>
-      <span style="margin-left:auto;font-family:var(--mono);font-size:11px;opacity:.6;">${data[i].toLocaleString("pt-BR")} · ${(data[i]/total*100).toFixed(1)}%</span>
+      <span style="color:var(--text)">${l}</span>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted2);">${data[i].toLocaleString("pt-BR")} · ${(data[i]/total*100).toFixed(1)}%</span>
     </div>`).join("");
 }
 
@@ -6658,6 +6699,9 @@ function renderDevolucoes(){
 
   document.getElementById("devBadge").textContent = `${total.toLocaleString("pt-BR")} devol. no filtro`;
 
+  // ── Cores dinâmicas por tema ──────────────────────────────
+  const { tick, grid } = _devChartColors();
+
   // ── Índice mensal ─────────────────────────────────────────
   const mesesMap = {};
   devs.forEach(d => {
@@ -6686,8 +6730,8 @@ function renderDevolucoes(){
       fill:true, tension:.4, pointBackgroundColor:"#7dd3fc", pointRadius:4
     }]},
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
-               y:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11},callback:v=>v+"%"},grid:{color:"rgba(255,255,255,.06)"}} }}
+      scales:{ x:{ticks:{color:tick,font:{size:11}},grid:{color:grid}},
+               y:{ticks:{color:tick,font:{size:11},callback:v=>v+"%"},grid:{color:grid}} }}
   });
 
   // ── Motivos (top 8 horizontal bar) ───────────────────────
@@ -6702,8 +6746,8 @@ function renderDevolucoes(){
       backgroundColor:"#7dd3fc", borderRadius:4
     }]},
     options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
-               y:{ticks:{color:"rgba(255,255,255,.6)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}} }}
+      scales:{ x:{ticks:{color:tick,font:{size:11}},grid:{color:grid}},
+               y:{ticks:{color:tick,font:{size:11}},grid:{color:grid}} }}
   });
 
   // ── Categoria de motivo ───────────────────────────────────
@@ -6739,8 +6783,8 @@ function renderDevolucoes(){
       backgroundColor:"#a78bfa", borderRadius:4
     }]},
     options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
-               y:{ticks:{color:"rgba(255,255,255,.6)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}} }}
+      scales:{ x:{ticks:{color:tick,font:{size:11}},grid:{color:grid}},
+               y:{ticks:{color:tick,font:{size:11}},grid:{color:grid}} }}
   });
 
   // ── SLA faixas ────────────────────────────────────────────
@@ -6761,8 +6805,8 @@ function renderDevolucoes(){
       borderRadius:4
     }]},
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ x:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}},
-               y:{ticks:{color:"rgba(255,255,255,.5)",font:{size:11}},grid:{color:"rgba(255,255,255,.06)"}} }}
+      scales:{ x:{ticks:{color:tick,font:{size:11}},grid:{color:grid}},
+               y:{ticks:{color:tick,font:{size:11}},grid:{color:grid}} }}
   });
 
   // SLA stats
@@ -6774,58 +6818,98 @@ function renderDevolucoes(){
     { label:"Máximo",  val: slaMax.toFixed(0)+"d" },
   ].map(s=>`<div style="text-align:center;padding:10px;background:var(--panel2);border-radius:8px;">
     <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${s.label}</div>
-    <div style="font-size:18px;font-weight:300;">${s.val}</div>
+    <div style="font-size:18px;font-weight:300;color:var(--text)">${s.val}</div>
   </div>`).join("");
 
-  // ── Tabela detalhada ─────────────────────────────────────
-  const tabelaBadge = document.getElementById("devTabelaBadge");
-  if(tabelaBadge) tabelaBadge.textContent = `${total.toLocaleString("pt-BR")} registros`;
-
+  // ── Custo reverso por motivo ──────────────────────────────
   const fmtR = v => v ? "R$"+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
-  const devTabela = document.getElementById("devTabela");
-  if(!devTabela) return;
+  const custoMotivoBadge = document.getElementById("devCustoMotivoBadge");
+  const custoMotivoTabela = document.getElementById("devCustoMotivoTabela");
 
-  const statusColor = s => s==="Concluído"?"var(--good)":s==="Expirado"?"var(--muted)":s==="Pendente"?"var(--warn)":s==="Cancelado"?"var(--bad)":"var(--muted)";
-  const estornoColor = s => s==="Realizado"?"var(--good)":s==="Pendente"?"var(--warn)":"var(--muted)";
+  // agrupa por motivo: qtd, custo total, valor pedido total, sla médio
+  const motivoAgg = {};
+  devs.forEach(d => {
+    const m = d.motivo || "Sem motivo";
+    if(!motivoAgg[m]) motivoAgg[m] = { qtd:0, custo:0, valor:0, slaSum:0, slaN:0 };
+    motivoAgg[m].qtd++;
+    motivoAgg[m].custo   += d.custoRev  || 0;
+    motivoAgg[m].valor   += d.valPedido || 0;
+    if(d.sla>0){ motivoAgg[m].slaSum += d.sla; motivoAgg[m].slaN++; }
+  });
+  const motivoRows = Object.entries(motivoAgg)
+    .sort((a,b) => b[1].qtd - a[1].qtd);
+  const custoTotalGlobal = motivoRows.reduce((s,[,v])=>s+v.custo,0)||1;
 
-  devTabela.innerHTML = `
-    <table class="dt" style="min-width:900px;width:100%;border-collapse:collapse;font-size:12px;">
-      <thead><tr>
-        <th style="text-align:left">Data</th>
-        <th style="text-align:left">Nº Ecomm</th>
-        <th style="text-align:left">Marca</th>
-        <th style="text-align:left">Motivo</th>
-        <th style="text-align:left">Categoria</th>
-        <th style="text-align:left">Status</th>
-        <th style="text-align:left">UF</th>
-        <th style="text-align:right">Valor pedido</th>
-        <th style="text-align:right">Custo reversa</th>
-        <th style="text-align:right">SLA (d)</th>
-        <th style="text-align:left">Estorno</th>
-      </tr></thead>
-      <tbody>
-        ${devs.slice(0,300).map(d=>`<tr>
-          <td>${d.data||"—"}</td>
-          <td style="font-family:var(--mono);font-size:11px;">${d.numeroEcomm||"—"}</td>
-          <td>${d.marca||"—"}</td>
-          <td>${d.motivo||"—"}</td>
-          <td style="color:var(--muted);font-size:11px;">${_devCategoria(d.motivo)}</td>
-          <td><span style="font-size:11px;color:${statusColor(d.status)}">${d.status||"—"}</span></td>
-          <td>${d.uf||"—"}</td>
-          <td style="text-align:right;font-family:var(--mono);font-size:11px;">${fmtR(d.valPedido)}</td>
-          <td style="text-align:right;font-family:var(--mono);font-size:11px;">${d.custoRev>0?fmtR(d.custoRev):"—"}</td>
-          <td style="text-align:right;font-family:var(--mono);font-size:11px;">${d.sla>0?d.sla.toFixed(1):"—"}</td>
-          <td><span style="font-size:11px;color:${estornoColor(d.estornoStatus)}">${d.estornoStatus||"—"}</span></td>
-        </tr>`).join("")}
-      </tbody>
-      <tfoot><tr>
-        <td colspan="7" style="font-weight:600;">Total (${total>300?"primeiros 300 de "+total.toLocaleString("pt-BR"):total})</td>
-        <td style="text-align:right;font-family:var(--mono);font-weight:600;">${fmtR(devs.reduce((a,d)=>a+d.valPedido,0))}</td>
-        <td style="text-align:right;font-family:var(--mono);font-weight:600;">${fmtR(devs.reduce((a,d)=>a+d.custoRev,0))}</td>
-        <td colspan="2"></td>
-      </tr></tfoot>
-    </table>
-    ${total>300?`<div style="font-size:11px;color:var(--muted);padding:8px 16px;">Exibindo os 300 primeiros de ${total.toLocaleString("pt-BR")} registros.</div>`:""}`;
+  if(custoMotivoBadge) custoMotivoBadge.textContent = `${motivoRows.length} motivos`;
+  if(custoMotivoTabela){
+    custoMotivoTabela.innerHTML = `
+      <table class="dt" style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>
+          <th style="text-align:left">Motivo</th>
+          <th style="text-align:left">Categoria</th>
+          <th style="text-align:right">Devol.</th>
+          <th style="text-align:right">Custo reversa</th>
+          <th style="text-align:right">% custo</th>
+          <th style="text-align:right">SLA médio</th>
+        </tr></thead>
+        <tbody>
+          ${motivoRows.map(([motivo, v])=>{
+            const cat = _devCategoria(motivo);
+            const pctCusto = (v.custo/custoTotalGlobal*100).toFixed(1);
+            const slaMedio = v.slaN ? (v.slaSum/v.slaN).toFixed(1)+"d" : "—";
+            const barW = Math.round(v.custo/custoTotalGlobal*100);
+            return `<tr>
+              <td>${motivo}</td>
+              <td style="color:var(--muted);font-size:11px;">${cat}</td>
+              <td style="text-align:right;font-family:var(--mono);">${v.qtd.toLocaleString("pt-BR")}</td>
+              <td style="text-align:right;font-family:var(--mono);">${v.custo>0?fmtR(v.custo):"—"}</td>
+              <td style="text-align:right;">
+                <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+                  <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+                    <div style="width:${barW}%;height:100%;background:var(--accent);border-radius:2px;"></div>
+                  </div>
+                  <span style="font-family:var(--mono);font-size:11px;min-width:36px;text-align:right;">${pctCusto}%</span>
+                </div>
+              </td>
+              <td style="text-align:right;font-family:var(--mono);font-size:11px;">${slaMedio}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+        <tfoot><tr>
+          <td colspan="3" style="font-weight:600;">Total</td>
+          <td style="text-align:right;font-family:var(--mono);font-weight:600;">${fmtR(motivoRows.reduce((s,[,v])=>s+v.custo,0))}</td>
+          <td style="text-align:right;font-family:var(--mono);">100%</td>
+          <td></td>
+        </tr></tfoot>
+      </table>`;
+  }
+
+  // ── Devoluções por marca × mês ────────────────────────────
+  const marcas = [...new Set(devs.map(d=>d.marca).filter(Boolean))].sort();
+  const mesesTodos = [...new Set(devs.map(d=>d.data?.slice(0,7)).filter(Boolean))].sort();
+  const labMesesMarca = mesesTodos.map(m => { const [y,mo] = m.split("-"); return ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+mo-1]+"/"+y.slice(2); });
+  const marcaColors = ["#7dd3fc","#a78bfa","#34d399","#fbbf24","#fb7185","#3de8c8"];
+
+  const datasetssMarca = marcas.map((marca, i) => ({
+    label: marca,
+    data: mesesTodos.map(m => devs.filter(d=>d.marca===marca && d.data?.startsWith(m)).length),
+    backgroundColor: marcaColors[i % marcaColors.length],
+    borderRadius: 3,
+  }));
+
+  _devChart("devMarcaMesChart", {
+    type:"bar",
+    data:{ labels: labMesesMarca, datasets: datasetssMarca },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:true, position:"top", labels:{ color:tick, font:{size:11}, boxWidth:10, padding:12 } } },
+      scales:{
+        x:{ stacked:true, ticks:{color:tick,font:{size:11}}, grid:{color:grid} },
+        y:{ stacked:true, ticks:{color:tick,font:{size:11}}, grid:{color:grid} }
+      }
+    }
+  });
+}
 }
 
 // Expõe globalmente para os onchange dos selects
