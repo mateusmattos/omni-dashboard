@@ -5829,18 +5829,342 @@ function _drawCausaTopLojasTable(filteredOrders, dailyData){
 }
 
 // ============================================================
-//  5, 6, 7 — Reservado para desenvolvimento futuro
+//  5. FORECAST — Suavização exponencial + simulação de fechamento
 // ============================================================
 function renderForecast(filteredOrders, dailyData){
-  const a = document.getElementById("forecastChart");
-  const b = document.getElementById("forecastSimResult");
-  if(a) a.parentElement.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Em desenvolvimento.</p>`;
-  if(b) b.innerHTML = `<p style="color:var(--muted);font-size:13px;">Em desenvolvimento.</p>`;
+  _drawForecastChart(dailyData);
+  _populateForecastSimSelect(filteredOrders);
+  runFechamentoSimulation();
 }
+
+// Suavização exponencial simples (SES)
+function _sesForecast(series, alpha, steps){
+  const clean = series.filter(v => v !== null && !isNaN(v));
+  if(clean.length < 3) return null;
+
+  let level = clean[0];
+  const fitted = [level];
+  for(let i = 1; i < clean.length; i++){
+    level = alpha * clean[i] + (1 - alpha) * level;
+    fitted.push(level);
+  }
+  // projeção: SES assume nível constante para os próximos passos
+  const forecast = Array(steps).fill(level);
+  return { fitted, forecast, level };
+}
+
+var _forecastChartInst = null;
+function _drawForecastChart(dailyData){
+  const canvas = document.getElementById("forecastChart");
+  if(!canvas) return;
+
+  if(_forecastChartInst){ _forecastChartInst.destroy(); _forecastChartInst = null; }
+
+  if(!dailyData?.length || dailyData.length < 7){
+    canvas.parentElement.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Período com menos de 7 dias — amostra insuficiente para forecast confiável.</p>`;
+    return;
+  }
+
+  const series = dailyData.map(d => d.volumePedidos);
+  const STEPS = 7;
+  const result = _sesForecast(series, 0.35, STEPS);
+  if(!result){
+    canvas.parentElement.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Dados insuficientes para forecast.</p>`;
+    return;
+  }
+
+  // Labels: dias reais + dias futuros projetados
+  const lastDate = new Date(dailyData[dailyData.length-1].date + "T00:00:00");
+  const futureDates = [];
+  for(let i=1; i<=STEPS; i++){
+    const d = new Date(lastDate);
+    d.setDate(d.getDate() + i);
+    futureDates.push(d.toISOString().slice(0,10));
+  }
+
+  const allDates = [...dailyData.map(d=>d.date), ...futureDates];
+  const labels = allDates.map(d => d.split("-").reverse().join("/"));
+
+  const realData = [...series, ...Array(STEPS).fill(null)];
+  const fittedData = [...result.fitted.map(v=>+v.toFixed(1)), ...Array(STEPS).fill(null)];
+  const forecastData = [...Array(series.length-1).fill(null), result.fitted[result.fitted.length-1], ...result.forecast.map(v=>+v.toFixed(1))];
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  _forecastChartInst = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label:"Volume real", data: realData, borderColor:"#7dd3fc", backgroundColor:"transparent", borderWidth:1.5, pointRadius:1, tension:0.2, spanGaps:false },
+        { label:"Ajuste (SES)", data: fittedData, borderColor:"#a78bfa", backgroundColor:"transparent", borderWidth:1.5, borderDash:[3,3], pointRadius:0, tension:0.2, spanGaps:false },
+        { label:"Projeção 7 dias", data: forecastData, borderColor:"#fbbf24", backgroundColor:"rgba(251,191,36,.12)", borderWidth:2.5, pointRadius:3, tension:0.2, fill:true, spanGaps:true },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      interaction:{mode:"index",intersect:false},
+      plugins:{ legend:{position:"bottom",labels:{color:txtCol,font:{size:11},boxWidth:12}} },
+      scales:{
+        x:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:9},maxRotation:45}},
+        y:{beginAtZero:true,grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}}}
+      }
+    }
+  });
+
+  // Resumo textual abaixo do gráfico
+  const mediaUlt7 = _mean(series.slice(-7));
+  const projecaoMedia = _mean(result.forecast);
+  const variacao = mediaUlt7 ? ((projecaoMedia - mediaUlt7) / mediaUlt7 * 100) : null;
+
+  let resumoEl = document.getElementById("forecastResumo");
+  if(!resumoEl){
+    resumoEl = document.createElement("p");
+    resumoEl.id = "forecastResumo";
+    resumoEl.style.cssText = "margin:8px 0 0;font-size:12px;color:var(--muted);";
+    canvas.parentElement.appendChild(resumoEl);
+  }
+  const sinal = variacao !== null && variacao > 0 ? "📈" : variacao !== null && variacao < 0 ? "📉" : "➡️";
+  resumoEl.innerHTML = `${sinal} Projeção média para os próximos 7 dias: <strong>${projecaoMedia.toFixed(1)} pedidos/dia</strong>
+    ${variacao !== null ? `(${variacao>0?"+":""}${variacao.toFixed(1)}% vs. média dos últimos 7 dias)` : ""}.
+    Modelo: suavização exponencial simples (α=0.35) — assume continuidade do nível atual, não captura sazonalidade nem tendências de longo prazo.`;
+}
+
+function _populateForecastSimSelect(filteredOrders){
+  const sel = document.getElementById("forecastSimLoja");
+  if(!sel) return;
+  if(sel.dataset.filled) return;
+
+  const lojas = [...new Set(filteredOrders.map(o => String(parseInt(o.locationId,10)||"")).filter(Boolean))]
+    .sort((a,b) => storeLabel(a).localeCompare(storeLabel(b)));
+
+  sel.innerHTML = lojas.map(lid => `<option value="${lid}">${storeLabel(lid)}</option>`).join("");
+  sel.dataset.filled = "1";
+}
+
+function runFechamentoSimulation(){
+  const sel = document.getElementById("forecastSimLoja");
+  const resultEl = document.getElementById("forecastSimResult");
+  if(!sel || !resultEl) return;
+
+  const lid = sel.value;
+  if(!lid){ resultEl.innerHTML = `<p style="color:var(--muted);font-size:13px;">Selecione uma loja.</p>`; return; }
+
+  _computeFechamentoImpact(lid, resultEl);
+}
+
+function _computeFechamentoImpact(lid, resultEl){
+  // Reconstituir a partir de ordersState global (já filtrado pelo período do dashboard)
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  const periodOrders = ordersState.filter(o => {
+    if(startVal && o.placedDate < startVal) return false;
+    if(endVal   && o.placedDate > endVal)   return false;
+    return true;
+  });
+
+  const totalRede = periodOrders.filter(o => !(o.status||"").includes("cancel")).length;
+  const ordersLoja = periodOrders.filter(o => String(parseInt(o.locationId,10)||"") === lid && !(o.status||"").includes("cancel"));
+  const volumeLoja = ordersLoja.length;
+  const pctRede = totalRede > 0 ? volumeLoja / totalRede * 100 : 0;
+
+  // Dias no período
+  const dias = new Set(periodOrders.map(o=>o.placedDate)).size || 1;
+  const volumeMedioDiarioLoja = volumeLoja / dias;
+
+  // Receita média diária da loja
+  const receitaLoja = ordersLoja.reduce((a,o)=>a+(o.value||0),0);
+  const receitaMediaDiariaLoja = receitaLoja / dias;
+
+  // Histórico de quando essa loja já apareceu fechada (status_lojas)
+  let diasFechadaHistorico = 0;
+  if(Array.isArray(STORE_STATUS_DYNAMIC)){
+    diasFechadaHistorico = STORE_STATUS_DYNAMIC.filter(s => s.closed > 0).length;
+  }
+
+  const html = `
+    <table class="analise-table">
+      <tbody>
+        <tr><td>Volume médio diário desta loja</td><td><strong>${volumeMedioDiarioLoja.toFixed(1)} pedidos/dia</strong></td></tr>
+        <tr><td>% que a loja representa do volume total da rede</td><td><strong>${pctRede.toFixed(1)}%</strong></td></tr>
+        <tr><td>Receita média diária estimada</td><td><strong>${fmtBRL.format(receitaMediaDiariaLoja)}</strong></td></tr>
+        <tr><td>Receita estimada perdida em 1 dia de fechamento</td><td><strong style="color:#fb7185">${fmtBRL.format(receitaMediaDiariaLoja)}</strong></td></tr>
+        <tr><td>Receita estimada perdida em 7 dias de fechamento</td><td><strong style="color:#fb7185">${fmtBRL.format(receitaMediaDiariaLoja*7)}</strong></td></tr>
+      </tbody>
+    </table>
+    <p style="margin:10px 0 0;font-size:11px;color:var(--muted)">
+      Estimativa simplificada: assume que a demanda não é redistribuída para outras lojas (cenário conservador/pessimista) e que o padrão de venda permanece estável.
+      ${diasFechadaHistorico > 0 ? `Histórico do período: ${diasFechadaHistorico} dia(s) com pelo menos uma loja fechada na rede.` : ""}
+    </p>`;
+  resultEl.innerHTML = html;
+}
+
+// ============================================================
+//  6. FINANCEIRO — Impacto consolidado de ruptura e SLA
+// ============================================================
 function renderFinanceiro(filteredOrders){
-  const a = document.getElementById("finKpiCards");
-  if(a) a.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Em desenvolvimento.</p>`;
+  _drawFinKpiCards(filteredOrders);
+  _drawFinFunilChart(filteredOrders);
+  _drawFinSlaCancelChart(filteredOrders);
 }
+
+function _drawFinKpiCards(filteredOrders){
+  const el = document.getElementById("finKpiCards");
+  if(!el) return;
+
+  const validos = filteredOrders.filter(o => !(o.status||"").includes("cancel"));
+  const receitaTotal = validos.reduce((a,o)=>a+(o.value||0),0);
+  const totalPedidos = new Set(validos.map(o=>o.order)).size;
+  const ticketMedio  = totalPedidos > 0 ? receitaTotal / totalPedidos : 0;
+
+  // Custo estimado de ruptura (reaproveita lógica já usada na tabela de rupturas)
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  const ruptF = rupturasState.filter(r => ruptBaseFilter(r) &&
+    (!startVal || r.createdDate >= startVal) && (!endVal || r.createdDate <= endVal));
+
+  const totalSkus = validos.reduce((a,o)=>a+(o.lineCount||1),0);
+  const avgPricePerSku = totalSkus > 0 ? receitaTotal / totalSkus : 0;
+  const custoRupturaEstimado = ruptF.length * avgPricePerSku;
+
+  // Taxa de cancelamento
+  const todos = filteredOrders.length;
+  const cancelados = filteredOrders.filter(o => (o.status||"").includes("cancel")).length;
+  const taxaCancelamento = todos > 0 ? cancelados / todos * 100 : 0;
+
+  // Receita perdida estimada por cancelamento (valor médio dos pedidos cancelados)
+  const valorCancelados = filteredOrders.filter(o => (o.status||"").includes("cancel"))
+    .reduce((a,o)=>a+(o.value||0),0);
+
+  el.innerHTML = [
+    { label:"Receita do período", val: fmtBRL.format(receitaTotal), sub:`${totalPedidos.toLocaleString("pt-BR")} pedidos`, color:"#34d399" },
+    { label:"Custo de ruptura (estimado)", val: fmtBRL.format(custoRupturaEstimado), sub:`${ruptF.length} rupturas × ticket/SKU`, color:"#fb7185" },
+    { label:"Taxa de cancelamento", val: `${taxaCancelamento.toFixed(1)}%`, sub:`${cancelados.toLocaleString("pt-BR")} de ${todos.toLocaleString("pt-BR")} pedidos`, color: taxaCancelamento > 10 ? "#fb7185" : "#fbbf24" },
+    { label:"Receita perdida em cancelamentos", val: fmtBRL.format(valorCancelados), sub:"valor bruto dos pedidos cancelados", color:"#f97316" },
+    { label:"Impacto total estimado", val: fmtBRL.format(custoRupturaEstimado + valorCancelados), sub:"ruptura + cancelamento", color:"#a78bfa" },
+  ].map(k=>`<div class="sla-kpi-card">
+    <div class="sk-label" style="color:${k.color}">${k.label}</div>
+    <div class="sk-val">${k.val}</div>
+    <div class="sk-sub">${k.sub}</div>
+  </div>`).join("");
+}
+
+var _finFunilChartInst = null;
+function _drawFinFunilChart(filteredOrders){
+  const canvas = document.getElementById("finFunilChart");
+  if(!canvas) return;
+  if(_finFunilChartInst){ _finFunilChartInst.destroy(); _finFunilChartInst = null; }
+
+  const total = filteredOrders.length;
+  const cancelados = filteredOrders.filter(o => (o.status||"").includes("cancel")).length;
+  const rupturados = new Set(rupturasState.filter(r => ruptBaseFilter(r)).map(r=>r.orderId)).size;
+  const faturados = filteredOrders.filter(o => o.billedAtIso).length;
+  const enviados  = filteredOrders.filter(o => o.shippedAtIso || o.deliveredAtIso).length;
+  const entregues = filteredOrders.filter(o => o.deliveredAtIso).length;
+
+  const etapas = [
+    { label:"Total de pedidos", val: total, color:"#7dd3fc" },
+    { label:"Faturados",        val: faturados, color:"#34d399" },
+    { label:"Enviados/coletados", val: enviados, color:"#a78bfa" },
+    { label:"Entregues",        val: entregues, color:"#fbbf24" },
+    { label:"Cancelados",       val: cancelados, color:"#fb7185" },
+  ];
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  _finFunilChartInst = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: etapas.map(e=>e.label),
+      datasets: [{
+        data: etapas.map(e=>e.val),
+        backgroundColor: etapas.map(e=>e.color+"CC"),
+        borderColor: etapas.map(e=>e.color),
+        borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true, indexAxis:"y",
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => `${ctx.parsed.x.toLocaleString("pt-BR")} pedidos (${(ctx.parsed.x/total*100).toFixed(1)}% do total)` } } },
+      scales:{
+        x:{beginAtZero:true,grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}}},
+        y:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:11}}},
+      }
+    }
+  });
+}
+
+var _finSlaCancelChartInst = null;
+function _drawFinSlaCancelChart(filteredOrders){
+  const canvas = document.getElementById("finSlaCancelChart");
+  if(!canvas) return;
+  if(_finSlaCancelChartInst){ _finSlaCancelChartInst.destroy(); _finSlaCancelChartInst = null; }
+
+  // Agrupar pedidos faturados por faixa de tempo até faturamento (E1+E2 aproximado)
+  // e medir taxa de cancelamento dentro de cada faixa
+  const FAIXAS = [
+    { label:"0–24h",  min:0,  max:24 },
+    { label:"24–48h", min:24, max:48 },
+    { label:"48–72h", min:48, max:72 },
+    { label:"72h+",   min:72, max:Infinity },
+  ];
+
+  const buckets = FAIXAS.map(() => ({ total:0, cancelados:0 }));
+
+  for(const o of filteredOrders){
+    if(!o.billedAtIso) continue;
+    const horasAteFat = (new Date(o.billedAtIso) - new Date(o.placedAtIso)) / 3600000;
+    if(horasAteFat <= 0) continue;
+    const idx = FAIXAS.findIndex(f => horasAteFat >= f.min && horasAteFat < f.max);
+    if(idx === -1) continue;
+    buckets[idx].total++;
+    if((o.status||"").includes("cancel")) buckets[idx].cancelados++;
+  }
+
+  const labels = FAIXAS.map(f=>f.label);
+  const taxas = buckets.map(b => b.total > 0 ? +(b.cancelados/b.total*100).toFixed(1) : null);
+
+  if(buckets.every(b => b.total === 0)){
+    canvas.parentElement.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Dados insuficientes para esta análise no período filtrado.</p>`;
+    return;
+  }
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  _finSlaCancelChartInst = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "% Cancelamento",
+        data: taxas,
+        backgroundColor: taxas.map(t => t===null?"#94a3b833": t>10?"#fb7185CC":t>5?"#fbbf24CC":"#34d399CC"),
+        borderColor: "#94a3b8",
+        borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => {
+          const b = buckets[ctx.dataIndex];
+          return `${ctx.parsed.y}% cancelados (${b.cancelados} de ${b.total} pedidos)`;
+        }}}},
+      scales:{
+        x:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:11}}},
+        y:{beginAtZero:true,grid:{color:gridCol},ticks:{color:txtCol,font:{size:10},callback:v=>`${v}%`}}
+      }
+    }
+  });
+}
+
 function renderAnaliseTextual(filteredOrders){
   const a = document.getElementById("textualSkuTable");
   if(a) a.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Em desenvolvimento.</p>`;
