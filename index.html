@@ -1227,6 +1227,25 @@
       writing-mode:vertical-rl;text-orientation:mixed;min-height:70px;
     }
 
+    /* ===== SUB-ABAS DE ANÁLISES ===== */
+    .subtab-btn{
+      font-size:12px;font-weight:600;padding:7px 14px;border-radius:999px;cursor:pointer;
+      border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted);
+      transition:all .15s;white-space:nowrap;
+    }
+    .subtab-btn.active{ background:rgba(125,211,252,.15);border-color:var(--accent);color:var(--accent); }
+    .subtab-pane{ display:none; }
+    .subtab-pane.active{ display:block; }
+    .analise-table{ width:100%;border-collapse:collapse;font-size:12.5px; }
+    .analise-table thead th{ background:var(--header-bg);color:var(--header-fg);padding:7px 10px;font-size:11px;font-weight:700;border-bottom:1px solid var(--border);text-align:left; }
+    .analise-table tbody tr:nth-child(even){ background:var(--row-alt); }
+    .analise-table tbody td{ padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05); }
+    .analise-table tfoot td{ padding:7px 10px;font-weight:700;border-top:2px solid var(--border); }
+    .alert-card{
+      display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-bottom:6px;
+      border-radius:10px;border:1px solid var(--border);background:var(--panel);
+    }
+
   </style>
 </head>
 
@@ -1317,6 +1336,7 @@
           <button class="tab-btn" data-tab="tab-sla">⏱ SLA</button>
           <button class="tab-btn" data-tab="tab-entregas">🗺 Entregas</button>
           <button class="tab-btn" data-tab="tab-correlacoes">📐 Correlações</button>
+          <button class="tab-btn" data-tab="tab-analises">🔬 Análises</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1815,6 +1835,168 @@
           </div>
 
         </div><!-- /tab-pane correlacoes -->
+
+        <!-- ABA: ANÁLISES (7 sub-abas) -->
+        <div class="tab-pane" id="tab-analises">
+
+          <!-- Navegação das sub-abas -->
+          <div class="panel" style="padding:10px 14px;margin-bottom:14px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="subtab-btn active" data-subtab="sub-anomalias">🚨 Anomalias</button>
+              <button class="subtab-btn" data-subtab="sub-series">📈 Séries Temporais</button>
+              <button class="subtab-btn" data-subtab="sub-cluster">🧩 Clusterização</button>
+              <button class="subtab-btn" data-subtab="sub-causaraiz">🌳 Causa Raiz</button>
+              <button class="subtab-btn" data-subtab="sub-forecast">🔮 Forecast</button>
+              <button class="subtab-btn" data-subtab="sub-financeiro">💰 Financeiro</button>
+              <button class="subtab-btn" data-subtab="sub-textual">🔎 Análise Textual</button>
+            </div>
+          </div>
+
+          <!-- 1. ANOMALIAS -->
+          <div class="subtab-pane active" id="sub-anomalias">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Detecção de desvios usando <strong>z-score</strong> — quantos desvios-padrão cada dia está da média móvel dos últimos 30 dias. |z| &gt; 2 é considerado anômalo.
+              </p>
+            </div>
+            <div class="panel">
+              <div class="hd">
+                <div><h2>Alertas do período</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Dias com desvio anômalo em qualquer métrica monitorada</p></div>
+                <span class="badge" id="anomBadge">—</span>
+              </div>
+              <div id="anomAlertList" style="padding:8px 16px 16px;"></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Z-score por dia e métrica</h2></div>
+              <div style="padding:8px 16px 16px;"><canvas id="anomZScoreChart" height="90"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Ranking de instabilidade por loja</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Lojas com maior variância no SLA — risco operacional diferente de "lenta consistente"</p></div>
+              <div id="anomInstabTable" style="padding:8px 16px 16px;"></div>
+            </div>
+          </div>
+
+          <!-- 2. SÉRIES TEMPORAIS -->
+          <div class="subtab-pane" id="sub-series">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Decomposição de tendência, sazonalidade por dia da semana e autocorrelação defasada (volume de hoje → ruptura de amanhã).
+              </p>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Decomposição — Volume de Pedidos</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Série original, tendência (média móvel 7d) e sazonalidade por dia da semana</p></div>
+              <div style="padding:8px 16px 16px;"><canvas id="seriesDecompChart" height="90"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Sazonalidade por dia da semana</h2></div>
+              <div id="seriesDOWTable" style="padding:8px 16px 16px;"></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Autocorrelação defasada</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Volume de pedidos do dia D correlacionado com % ruptura em D+1, D+2, D+3</p></div>
+              <div id="seriesLagTable" style="padding:8px 16px 16px;"></div>
+            </div>
+          </div>
+
+          <!-- 3. CLUSTERIZAÇÃO -->
+          <div class="subtab-pane" id="sub-cluster">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Agrupamento de lojas por perfil operacional (volume × SLA) — para comparar lojas com pares semelhantes, não com a rede toda.
+              </p>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Mapa de clusters — Volume × SLA</h2></div>
+              <div style="padding:8px 16px 16px;"><canvas id="clusterScatterChart" height="100"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Lojas por cluster</h2></div>
+              <div id="clusterTable" style="padding:8px 16px 16px;"></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Benchmark de pares</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Cada loja comparada apenas com lojas do mesmo cluster</p></div>
+              <div id="clusterBenchTable" style="padding:8px 16px 16px;"></div>
+            </div>
+          </div>
+
+          <!-- 4. CAUSA RAIZ -->
+          <div class="subtab-pane" id="sub-causaraiz">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Decomposição de variância da ruptura — quanto do desvio é explicado por volume, mix de coleção ou lojas específicas.
+              </p>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Decomposição da variação de ruptura</h2></div>
+              <div id="causaDecompTable" style="padding:8px 16px 16px;"></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>SLA × Motivo de ruptura</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Pedidos com SLA alto têm maior incidência de "vendido antes"?</p></div>
+              <div style="padding:8px 16px 16px;"><canvas id="causaSlaMotivoChart" height="90"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Top contribuintes por loja</h2></div>
+              <div id="causaTopLojasTable" style="padding:8px 16px 16px;"></div>
+            </div>
+          </div>
+
+          <!-- 5. FORECAST -->
+          <div class="subtab-pane" id="sub-forecast">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Projeção de volume via suavização exponencial (próximos 7 dias) e simulação de impacto de fechamento de loja.
+              </p>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Forecast de volume — próximos 7 dias</h2></div>
+              <div style="padding:8px 16px 16px;"><canvas id="forecastChart" height="90"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Simulação — impacto de fechamento de loja</h2></div>
+              <div style="display:flex;gap:10px;align-items:center;padding:10px 16px 4px;">
+                <label style="font-size:12px;color:var(--muted);font-weight:600;">Loja:
+                  <select id="forecastSimLoja" onchange="runFechamentoSimulation()" style="margin-left:6px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:12px;"></select>
+                </label>
+              </div>
+              <div id="forecastSimResult" style="padding:8px 16px 16px;"></div>
+            </div>
+          </div>
+
+          <!-- 6. FINANCEIRO -->
+          <div class="subtab-pane" id="sub-financeiro">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Impacto financeiro consolidado de ruptura e SLA — conectando operação a receita perdida.
+              </p>
+            </div>
+            <div id="finKpiCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px;"></div>
+            <div class="panel">
+              <div class="hd"><h2>Funil pós-pedido</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Onde os pedidos travam entre criação e entrega</p></div>
+              <div style="padding:8px 16px 16px;"><canvas id="finFunilChart" height="80"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>SLA × Taxa de cancelamento</h2></div>
+              <div style="padding:8px 16px 16px;"><canvas id="finSlaCancelChart" height="90"></canvas></div>
+            </div>
+          </div>
+
+          <!-- 7. ANÁLISE TEXTUAL -->
+          <div class="subtab-pane" id="sub-textual">
+            <div class="panel" style="padding:14px 18px;">
+              <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+                Cruzamento de SKU e coleção com motivo de ruptura — identifica se o problema é cadastro, estoque real ou coleção nova.
+              </p>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>SKUs mais recorrentes por motivo</h2></div>
+              <div id="textualSkuTable" style="padding:8px 16px 16px;"></div>
+            </div>
+            <div class="panel">
+              <div class="hd"><h2>Coleção × Motivo de ruptura</h2><p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Coleções recém-lançadas têm mais "não encontrado"?</p></div>
+              <div style="padding:8px 16px 16px;"><canvas id="textualColecaoChart" height="90"></canvas></div>
+            </div>
+          </div>
+
+        </div><!-- /tab-pane analises -->
 
       </div>
     </div>
@@ -2713,6 +2895,7 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
       _entregasFilteredOrders = filtered;
       _entregasData = null;
       _corrLazyOrders = filtered;
+      _analisesLazyOrders = filtered;
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4768,6 +4951,7 @@ function slaSelectAllLojas(all){
 var _corrDailyData  = null; // array de {date, ...variáveis}
 var _corrFilteredOrders = null;
 var _corrLazyOrders = null;
+var _analisesLazyOrders = null;
 
 const CORR_VARS = {
   volumePedidos:   { label: "Volume de Pedidos",      color: "#7dd3fc" },
@@ -5018,6 +5202,648 @@ function renderScatterChart(){
       }
     }
   });
+}
+
+// ============================================================
+//  ABA ANÁLISES — Orquestrador + 7 sub-análises
+// ============================================================
+var _analisesDailyData = null; // cache do dataset diário consolidado
+
+function renderAnalises(filteredOrders){
+  // Reaproveita o builder de dados diários já criado para Correlações
+  _analisesDailyData = buildCorrDailyData(filteredOrders);
+
+  renderAnomalias(filteredOrders, _analisesDailyData);
+  renderSeriesTemporais(_analisesDailyData);
+  renderClusterizacao(filteredOrders, _analisesDailyData);
+  renderCausaRaiz(filteredOrders, _analisesDailyData);
+  renderForecast(filteredOrders, _analisesDailyData);
+  renderFinanceiro(filteredOrders);
+  renderAnaliseTextual(filteredOrders);
+}
+
+// ── Helpers estatísticos compartilhados ──────────────────────
+function _mean(arr){ const v = arr.filter(x=>x!==null && !isNaN(x)); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+function _stdev(arr){
+  const v = arr.filter(x=>x!==null && !isNaN(x));
+  if(v.length < 2) return null;
+  const m = _mean(v);
+  const variance = v.reduce((a,b)=>a+(b-m)*(b-m),0) / (v.length - 1);
+  return Math.sqrt(variance);
+}
+function _zscore(value, arr){
+  const m = _mean(arr), sd = _stdev(arr);
+  if(m === null || sd === null || sd === 0) return null;
+  return (value - m) / sd;
+}
+function _movingAverage(arr, window){
+  return arr.map((_, i) => {
+    const start = Math.max(0, i - window + 1);
+    const slice = arr.slice(start, i + 1);
+    return _mean(slice);
+  });
+}
+
+// ============================================================
+//  1. ANOMALIAS — Z-score e instabilidade
+// ============================================================
+function renderAnomalias(filteredOrders, dailyData){
+  const badge = document.getElementById("anomBadge");
+  const alertList = document.getElementById("anomAlertList");
+  if(!alertList || !dailyData?.length) {
+    if(badge) badge.textContent = "sem dados";
+    return;
+  }
+
+  const METRICAS = [
+    { key: "volumePedidos", label: "Volume de Pedidos", emoji: "📦" },
+    { key: "pctRuptura",    label: "% Ruptura",          emoji: "⚠️" },
+    { key: "slaTotalHoras", label: "SLA Total",          emoji: "⏱" },
+  ];
+
+  // Calcular z-score de cada dia usando janela móvel dos 30 dias anteriores (ou todos disponíveis)
+  const alerts = [];
+  const zSeries = {}; // métrica → array de z-scores por dia
+
+  for(const m of METRICAS){
+    zSeries[m.key] = [];
+    const series = dailyData.map(d => d[m.key]);
+    for(let i = 0; i < dailyData.length; i++){
+      const windowStart = Math.max(0, i - 30);
+      const window = series.slice(windowStart, i); // não inclui o próprio dia
+      const z = window.length >= 5 ? _zscore(series[i], window) : null;
+      zSeries[m.key].push(z);
+      if(z !== null && Math.abs(z) > 2){
+        alerts.push({ date: dailyData[i].date, metric: m.label, emoji: m.emoji, z, value: series[i] });
+      }
+    }
+  }
+
+  alerts.sort((a,b) => Math.abs(b.z) - Math.abs(a.z));
+
+  if(badge) badge.textContent = `${alerts.length} alertas · ${dailyData.length} dias analisados`;
+
+  if(!alerts.length){
+    alertList.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;">Nenhuma anomalia (|z| &gt; 2) detectada no período filtrado.</div>`;
+  } else {
+    alertList.innerHTML = alerts.slice(0, 15).map(a => {
+      const cor = a.z > 0 ? "#fb7185" : "#7dd3fc";
+      const dir = a.z > 0 ? "acima" : "abaixo";
+      return `<div class="alert-card">
+        <span style="font-size:18px">${a.emoji}</span>
+        <div>
+          <div style="font-weight:700;font-size:13px;">${a.metric} — ${a.date.split("-").reverse().join("/")}</div>
+          <div style="font-size:12px;color:var(--muted);">
+            <span style="color:${cor};font-weight:700">${dir} do padrão</span> · z-score = ${a.z.toFixed(2)} · valor: ${typeof a.value==="number" ? a.value.toFixed(2) : a.value}
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  // Gráfico de z-score por dia
+  _drawAnomZScoreChart(dailyData, zSeries, METRICAS);
+
+  // Instabilidade por loja (desvio padrão do SLA total)
+  _drawInstabTable(filteredOrders);
+}
+
+var _anomZChart = null;
+function _drawAnomZScoreChart(dailyData, zSeries, METRICAS){
+  const canvas = document.getElementById("anomZScoreChart");
+  if(!canvas) return;
+  if(_anomZChart){ _anomZChart.destroy(); _anomZChart = null; }
+
+  const labels = dailyData.map(d => d.date.split("-").reverse().join("/"));
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+  const COLORS  = { volumePedidos:"#7dd3fc", pctRuptura:"#fb7185", slaTotalHoras:"#a78bfa" };
+
+  const datasets = METRICAS.map(m => ({
+    label: m.label,
+    data: zSeries[m.key].map(z => z !== null ? +z.toFixed(2) : null),
+    borderColor: COLORS[m.key],
+    backgroundColor: COLORS[m.key]+"22",
+    borderWidth: 2,
+    pointRadius: 2,
+    tension: 0.25,
+    spanGaps: true,
+  }));
+
+  _anomZChart = new Chart(canvas, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      interaction:{mode:"index",intersect:false},
+      plugins:{
+        legend:{position:"bottom",labels:{color:txtCol,font:{size:11},boxWidth:12}},
+        annotation: undefined,
+      },
+      scales:{
+        x:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:9},maxRotation:45}},
+        y:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}},
+           title:{display:true,text:"z-score",color:txtCol,font:{size:11}}}
+      }
+    }
+  });
+}
+
+function _drawInstabTable(filteredOrders){
+  const el = document.getElementById("anomInstabTable");
+  if(!el) return;
+
+  // SLA total por pedido, agrupado por loja
+  const byLoja = new Map();
+  for(const o of filteredOrders){
+    if(!o.billedAtIso) continue;
+    const ref = _slaE4Mode === "shipped" ? (o.shippedAtIso||o.deliveredAtIso) : (o.deliveredAtIso||o.shippedAtIso);
+    if(!ref) continue;
+    const tot = (new Date(ref) - new Date(o.placedAtIso)) / 3600000;
+    if(tot <= 0) continue;
+    const lid = String(parseInt(o.locationId,10)||"");
+    if(!lid) continue;
+    if(!byLoja.has(lid)) byLoja.set(lid, []);
+    byLoja.get(lid).push(tot);
+  }
+
+  const rows = [...byLoja.entries()]
+    .filter(([,v]) => v.length >= 3)
+    .map(([lid, v]) => ({
+      lid, n: v.length,
+      media: _mean(v),
+      desvio: _stdev(v),
+      cv: _stdev(v) / _mean(v), // coeficiente de variação
+    }))
+    .sort((a,b) => b.cv - a.cv);
+
+  if(!rows.length){ el.innerHTML = `<p style="color:var(--muted);font-size:13px;">Dados insuficientes.</p>`; return; }
+
+  let html = `<table class="analise-table"><thead><tr>
+    <th>Loja</th><th>Pedidos</th><th>Média (h)</th><th>Desvio (h)</th><th>Coef. Variação</th><th>Classificação</th>
+  </tr></thead><tbody>`;
+  for(const r of rows){
+    const classif = r.cv > 0.8 ? "🔴 Instável" : r.cv > 0.5 ? "🟡 Variável" : "🟢 Consistente";
+    html += `<tr>
+      <td><strong>${storeLabel(r.lid)}</strong></td>
+      <td>${r.n}</td>
+      <td>${r.media.toFixed(1)}</td>
+      <td>${r.desvio.toFixed(1)}</td>
+      <td>${r.cv.toFixed(2)}</td>
+      <td>${classif}</td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+
+// ============================================================
+//  2. SÉRIES TEMPORAIS — Decomposição, sazonalidade, autocorrelação
+// ============================================================
+function renderSeriesTemporais(dailyData){
+  if(!dailyData?.length) return;
+  _drawSeriesDecompChart(dailyData);
+  _drawSeriesDOWTable(dailyData);
+  _drawSeriesLagTable(dailyData);
+}
+
+var _seriesDecompChartInst = null;
+function _drawSeriesDecompChart(dailyData){
+  const canvas = document.getElementById("seriesDecompChart");
+  if(!canvas) return;
+  if(_seriesDecompChartInst){ _seriesDecompChartInst.destroy(); _seriesDecompChartInst = null; }
+
+  const labels = dailyData.map(d => d.date.split("-").reverse().join("/"));
+  const original = dailyData.map(d => d.volumePedidos);
+  const tendencia = _movingAverage(original, 7).map(v => v !== null ? +v.toFixed(1) : null);
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  _seriesDecompChartInst = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label:"Série original", data:original, borderColor:"#7dd3fc", backgroundColor:"transparent", borderWidth:1.5, pointRadius:1, tension:0.2 },
+        { label:"Tendência (média móvel 7d)", data:tendencia, borderColor:"#a78bfa", backgroundColor:"rgba(167,139,250,.12)", borderWidth:2.5, pointRadius:0, tension:0.3, fill:true, spanGaps:true },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      interaction:{mode:"index",intersect:false},
+      plugins:{ legend:{position:"bottom",labels:{color:txtCol,font:{size:11},boxWidth:12}} },
+      scales:{
+        x:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:9},maxRotation:45}},
+        y:{beginAtZero:true,grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}}}
+      }
+    }
+  });
+}
+
+function _drawSeriesDOWTable(dailyData){
+  const el = document.getElementById("seriesDOWTable");
+  if(!el) return;
+
+  const DOW_NAMES = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+  const byDow = Array.from({length:7}, () => ({ volume:[], ruptura:[], sla:[] }));
+
+  for(const d of dailyData){
+    const dow = new Date(d.date+"T00:00:00").getDay();
+    byDow[dow].volume.push(d.volumePedidos);
+    if(d.pctRuptura !== null) byDow[dow].ruptura.push(d.pctRuptura);
+    if(d.slaTotalHoras !== null) byDow[dow].sla.push(d.slaTotalHoras);
+  }
+
+  const mediaGeralVolume = _mean(dailyData.map(d=>d.volumePedidos));
+
+  let html = `<table class="analise-table"><thead><tr>
+    <th>Dia da semana</th><th>Volume médio</th><th>Índice sazonal</th><th>% Ruptura média</th><th>SLA médio (h)</th>
+  </tr></thead><tbody>`;
+  for(let i=0;i<7;i++){
+    const v = _mean(byDow[i].volume);
+    const r = _mean(byDow[i].ruptura);
+    const s = _mean(byDow[i].sla);
+    const indice = v !== null && mediaGeralVolume ? (v/mediaGeralVolume) : null;
+    const indiceColor = indice === null ? "var(--muted)" : indice > 1.1 ? "#fb7185" : indice < 0.9 ? "#7dd3fc" : "var(--text)";
+    html += `<tr>
+      <td><strong>${DOW_NAMES[i]}</strong></td>
+      <td>${v !== null ? v.toFixed(1) : "—"}</td>
+      <td style="color:${indiceColor};font-weight:700">${indice !== null ? indice.toFixed(2)+"x" : "—"}</td>
+      <td>${r !== null ? (r*100).toFixed(2)+"%" : "—"}</td>
+      <td>${s !== null ? s.toFixed(1) : "—"}</td>
+    </tr>`;
+  }
+  html += `</tbody></table>
+  <p style="margin:8px 0 0;font-size:11px;color:var(--muted)">Índice sazonal &gt; 1 = volume acima da média geral nesse dia da semana.</p>`;
+  el.innerHTML = html;
+}
+
+function _drawSeriesLagTable(dailyData){
+  const el = document.getElementById("seriesLagTable");
+  if(!el) return;
+
+  const volume = dailyData.map(d => d.volumePedidos);
+  const ruptura = dailyData.map(d => d.pctRuptura);
+
+  const lags = [0, 1, 2, 3];
+  const results = lags.map(lag => {
+    const xs = [], ys = [];
+    for(let i=0; i+lag < dailyData.length; i++){
+      if(volume[i] !== null && ruptura[i+lag] !== null){
+        xs.push(volume[i]);
+        ys.push(ruptura[i+lag]);
+      }
+    }
+    return { lag, r: pearson(xs, ys), n: xs.length };
+  });
+
+  let html = `<table class="analise-table"><thead><tr>
+    <th>Defasagem</th><th>Correlação (r)</th><th>Interpretação</th><th>Amostra</th>
+  </tr></thead><tbody>`;
+  for(const res of results){
+    const label = res.lag === 0 ? "Mesmo dia (D+0)" : `Volume em D → Ruptura em D+${res.lag}`;
+    const rTxt = res.r !== null ? res.r.toFixed(2) : "—";
+    const interp = res.r === null ? "amostra insuficiente"
+      : Math.abs(res.r) >= 0.5 ? "relação relevante"
+      : Math.abs(res.r) >= 0.3 ? "relação fraca"
+      : "sem relação aparente";
+    html += `<tr><td>${label}</td><td><strong>${rTxt}</strong></td><td>${interp}</td><td>${res.n} dias</td></tr>`;
+  }
+  html += `</tbody></table>
+  <p style="margin:8px 0 0;font-size:11px;color:var(--muted)">Se a correlação em D+1/D+2 for mais forte que em D+0, o volume de hoje pode estar "atrasando" o efeito de ruptura para os dias seguintes (estoque reagindo com defasagem).</p>`;
+  el.innerHTML = html;
+}
+
+// ============================================================
+//  3. CLUSTERIZAÇÃO — Agrupamento de lojas por perfil
+// ============================================================
+function renderClusterizacao(filteredOrders, dailyData){
+  // Construir perfil por loja: volume médio diário × SLA médio
+  const byLoja = new Map();
+  for(const o of filteredOrders){
+    const lid = String(parseInt(o.locationId,10)||"");
+    if(!lid) continue;
+    if(!byLoja.has(lid)) byLoja.set(lid, { orders:[], slaList:[] });
+    byLoja.get(lid).orders.push(o);
+    if(o.billedAtIso){
+      const ref = _slaE4Mode === "shipped" ? (o.shippedAtIso||o.deliveredAtIso) : (o.deliveredAtIso||o.shippedAtIso);
+      if(ref){
+        const tot = (new Date(ref) - new Date(o.placedAtIso)) / 3600000;
+        if(tot > 0) byLoja.get(lid).slaList.push(tot);
+      }
+    }
+  }
+
+  const nDias = Math.max(1, dailyData.length);
+  const perfis = [...byLoja.entries()].map(([lid, v]) => ({
+    lid,
+    volumeMedioDiario: v.orders.length / nDias,
+    slaMedia: _mean(v.slaList),
+  })).filter(p => p.slaMedia !== null);
+
+  if(!perfis.length) return;
+
+  // Clusterização simples: dividir em quadrantes pela mediana de volume e SLA
+  const volumes = perfis.map(p=>p.volumeMedioDiario).sort((a,b)=>a-b);
+  const slas = perfis.map(p=>p.slaMedia).sort((a,b)=>a-b);
+  const medVolume = volumes[Math.floor(volumes.length/2)];
+  const medSla = slas[Math.floor(slas.length/2)];
+
+  function clusterOf(p){
+    const altoVolume = p.volumeMedioDiario >= medVolume;
+    const altoSla = p.slaMedia >= medSla;
+    if(altoVolume && !altoSla) return { id:"A", label:"Alto volume · SLA bom", color:"#34d399" };
+    if(altoVolume && altoSla)  return { id:"B", label:"Alto volume · SLA ruim", color:"#fb7185" };
+    if(!altoVolume && !altoSla) return { id:"C", label:"Baixo volume · SLA bom", color:"#7dd3fc" };
+    return { id:"D", label:"Baixo volume · SLA ruim", color:"#fbbf24" };
+  }
+
+  for(const p of perfis) p.cluster = clusterOf(p);
+
+  _drawClusterScatter(perfis);
+  _drawClusterTable(perfis);
+  _drawClusterBenchmark(perfis);
+}
+
+var _clusterChartInst = null;
+function _drawClusterScatter(perfis){
+  const canvas = document.getElementById("clusterScatterChart");
+  if(!canvas) return;
+  if(_clusterChartInst){ _clusterChartInst.destroy(); _clusterChartInst = null; }
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  const groups = {};
+  for(const p of perfis){
+    const key = p.cluster.id;
+    if(!groups[key]) groups[key] = { label: p.cluster.label, color: p.cluster.color, points: [] };
+    groups[key].points.push({ x: p.volumeMedioDiario, y: p.slaMedia, lid: p.lid });
+  }
+
+  const datasets = Object.values(groups).map(g => ({
+    label: g.label,
+    data: g.points,
+    backgroundColor: g.color+"AA",
+    borderColor: g.color,
+    borderWidth: 1.5,
+    pointRadius: 6,
+    pointHoverRadius: 8,
+  }));
+
+  _clusterChartInst = new Chart(canvas, {
+    type: "scatter",
+    data: { datasets },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{
+        legend:{position:"bottom",labels:{color:txtCol,font:{size:10.5},boxWidth:12}},
+        tooltip:{ callbacks:{ label: ctx => {
+          const p = ctx.raw;
+          return [`${storeLabel(p.lid)}`, `Volume/dia: ${p.x.toFixed(1)}`, `SLA médio: ${p.y.toFixed(1)}h`];
+        }}}
+      },
+      scales:{
+        x:{title:{display:true,text:"Volume médio diário",color:txtCol,font:{size:11}},grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}}},
+        y:{title:{display:true,text:"SLA médio (horas)",color:txtCol,font:{size:11}},grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}}},
+      }
+    }
+  });
+}
+
+function _drawClusterTable(perfis){
+  const el = document.getElementById("clusterTable");
+  if(!el) return;
+
+  const sorted = [...perfis].sort((a,b) => a.cluster.id.localeCompare(b.cluster.id) || b.volumeMedioDiario - a.volumeMedioDiario);
+
+  let html = `<table class="analise-table"><thead><tr>
+    <th>Loja</th><th>Volume médio/dia</th><th>SLA médio (h)</th><th>Cluster</th>
+  </tr></thead><tbody>`;
+  for(const p of sorted){
+    html += `<tr>
+      <td><strong>${storeLabel(p.lid)}</strong></td>
+      <td>${p.volumeMedioDiario.toFixed(1)}</td>
+      <td>${p.slaMedia.toFixed(1)}</td>
+      <td><span style="color:${p.cluster.color};font-weight:700">● ${p.cluster.label}</span></td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+
+function _drawClusterBenchmark(perfis){
+  const el = document.getElementById("clusterBenchTable");
+  if(!el) return;
+
+  const byCluster = new Map();
+  for(const p of perfis){
+    if(!byCluster.has(p.cluster.id)) byCluster.set(p.cluster.id, []);
+    byCluster.get(p.cluster.id).push(p);
+  }
+
+  let html = `<table class="analise-table"><thead><tr>
+    <th>Loja</th><th>SLA médio (h)</th><th>Média do cluster</th><th>Desvio vs. cluster</th>
+  </tr></thead><tbody>`;
+
+  const allRows = [];
+  for(const [, group] of byCluster){
+    const mediaCluster = _mean(group.map(p=>p.slaMedia));
+    for(const p of group){
+      const desvio = p.slaMedia - mediaCluster;
+      allRows.push({ p, mediaCluster, desvio });
+    }
+  }
+  allRows.sort((a,b) => b.desvio - a.desvio);
+
+  for(const r of allRows){
+    const cor = r.desvio > 0 ? "#fb7185" : "#34d399";
+    const sinal = r.desvio > 0 ? "+" : "";
+    html += `<tr>
+      <td><strong>${storeLabel(r.p.lid)}</strong> <span style="color:${r.p.cluster.color};font-size:10px">(${r.p.cluster.label})</span></td>
+      <td>${r.p.slaMedia.toFixed(1)}</td>
+      <td>${r.mediaCluster.toFixed(1)}</td>
+      <td style="color:${cor};font-weight:700">${sinal}${r.desvio.toFixed(1)}h</td>
+    </tr>`;
+  }
+  html += `</tbody></table>
+  <p style="margin:8px 0 0;font-size:11px;color:var(--muted)">Desvio positivo = loja mais lenta que pares do mesmo perfil de volume.</p>`;
+  el.innerHTML = html;
+}
+
+// ============================================================
+//  4. CAUSA RAIZ — Decomposição de variância da ruptura
+// ============================================================
+function renderCausaRaiz(filteredOrders, dailyData){
+  _drawCausaDecompTable(filteredOrders, dailyData);
+  _drawCausaSlaMotivoChart(filteredOrders);
+  _drawCausaTopLojasTable(filteredOrders, dailyData);
+}
+
+function _drawCausaDecompTable(filteredOrders, dailyData){
+  const el = document.getElementById("causaDecompTable");
+  if(!el || !dailyData?.length) return;
+
+  // Decomposição simplificada: correlação parcial de cada fator com % ruptura
+  const ruptura = dailyData.map(d => d.pctRuptura);
+  const volume  = dailyData.map(d => d.volumePedidos);
+  const fechadas = dailyData.map(d => d.lojasFechadas);
+
+  const rVolume   = pearson(volume, ruptura);
+  const rFechadas = pearson(fechadas, ruptura);
+
+  // R² aproximado de cada fator isoladamente (proporção de variância "explicada")
+  const r2Volume   = rVolume   !== null ? rVolume*rVolume     : null;
+  const r2Fechadas = rFechadas !== null ? rFechadas*rFechadas : null;
+
+  // Concentração por loja: quanto das rupturas totais vêm das top 3 lojas
+  const byLoja = new Map();
+  for(const o of filteredOrders){ /* placeholder para manter assinatura consistente */ }
+
+  const fatores = [
+    { nome: "Volume de pedidos", r2: r2Volume, r: rVolume },
+    { nome: "Lojas fechadas",    r2: r2Fechadas, r: rFechadas },
+  ].filter(f => f.r2 !== null);
+
+  let html = `<table class="analise-table"><thead><tr>
+    <th>Fator</th><th>Correlação (r)</th><th>Variância explicada (R²)</th><th>Leitura</th>
+  </tr></thead><tbody>`;
+  for(const f of fatores){
+    const leitura = f.r2 >= 0.3 ? "fator relevante" : f.r2 >= 0.1 ? "fator secundário" : "pouco explicativo";
+    html += `<tr>
+      <td><strong>${f.nome}</strong></td>
+      <td>${f.r.toFixed(2)}</td>
+      <td>${(f.r2*100).toFixed(1)}%</td>
+      <td>${leitura}</td>
+    </tr>`;
+  }
+  const totalExplicado = fatores.reduce((a,f)=>a+f.r2,0);
+  html += `</tbody><tfoot><tr>
+    <td>Total explicado pelos fatores acima</td><td colspan="2">${(totalExplicado*100).toFixed(1)}%</td>
+    <td style="color:var(--muted);font-size:11px">restante: ruído / fatores não medidos</td>
+  </tr></tfoot></table>
+  <p style="margin:8px 0 0;font-size:11px;color:var(--muted)">R² aproximado por fator isolado — não soma exatamente o total combinado por simplificação estatística (sem controlar interações entre fatores).</p>`;
+  el.innerHTML = html;
+}
+
+var _causaSlaMotivoChartInst = null;
+function _drawCausaSlaMotivoChart(filteredOrders){
+  const canvas = document.getElementById("causaSlaMotivoChart");
+  if(!canvas) return;
+  if(_causaSlaMotivoChartInst){ _causaSlaMotivoChartInst.destroy(); _causaSlaMotivoChartInst = null; }
+
+  // Cruzar pedidos com ruptura: SLA até o momento da ruptura vs motivo
+  const ruptOrderMap = new Map();
+  for(const r of rupturasState){
+    if(!ruptBaseFilter(r)) continue;
+    if(!r.orderId) continue;
+    if(!ruptOrderMap.has(r.orderId)) ruptOrderMap.set(r.orderId, []);
+    ruptOrderMap.get(r.orderId).push(r.reason);
+  }
+
+  const byMotivoSla = new Map();
+  for(const o of filteredOrders){
+    const motivos = ruptOrderMap.get(o.order);
+    if(!motivos || !o.billedAtIso) continue;
+    const ref = _slaE4Mode === "shipped" ? (o.shippedAtIso||o.deliveredAtIso) : (o.deliveredAtIso||o.shippedAtIso);
+    const refTime = ref || o.checkedAtIso || o.billedAtIso;
+    if(!refTime) continue;
+    const tot = (new Date(refTime) - new Date(o.placedAtIso)) / 3600000;
+    if(tot <= 0) continue;
+    for(const m of motivos){
+      const label = REASON_LABELS[m]?.label || m;
+      if(!byMotivoSla.has(label)) byMotivoSla.set(label, []);
+      byMotivoSla.get(label).push(tot);
+    }
+  }
+
+  const entries = [...byMotivoSla.entries()].filter(([,v]) => v.length >= 2);
+  if(!entries.length){
+    canvas.parentElement.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Dados insuficientes para cruzar SLA × motivo de ruptura no período filtrado.</p>`;
+    return;
+  }
+
+  const labels = entries.map(([m]) => m);
+  const medias = entries.map(([,v]) => +_mean(v).toFixed(1));
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  _causaSlaMotivoChartInst = new Chart(canvas, {
+    type: "bar",
+    data: { labels, datasets: [{
+      label: "SLA médio até a ruptura (h)",
+      data: medias,
+      backgroundColor: "#a78bfaCC",
+      borderColor: "#a78bfa",
+      borderWidth: 1,
+      borderRadius: 4,
+    }]},
+    options: {
+      responsive:true, maintainAspectRatio:true, indexAxis:"y",
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => `${ctx.parsed.x}h médio (${entries[ctx.dataIndex][1].length} pedidos)` } } },
+      scales:{
+        x:{beginAtZero:true,grid:{color:gridCol},ticks:{color:txtCol,font:{size:10}}},
+        y:{grid:{color:gridCol},ticks:{color:txtCol,font:{size:11}}},
+      }
+    }
+  });
+}
+
+function _drawCausaTopLojasTable(filteredOrders, dailyData){
+  const el = document.getElementById("causaTopLojasTable");
+  if(!el) return;
+
+  // Rupturas por loja no período
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  const ruptF = rupturasState.filter(r => ruptBaseFilter(r) &&
+    (!startVal || r.createdDate >= startVal) && (!endVal || r.createdDate <= endVal) &&
+    r.locationId !== null);
+
+  const byLoja = new Map();
+  for(const r of ruptF){
+    byLoja.set(r.locationId, (byLoja.get(r.locationId)||0) + 1);
+  }
+
+  const total = ruptF.length;
+  const sorted = [...byLoja.entries()].sort((a,b) => b[1]-a[1]);
+  const top3 = sorted.slice(0,3);
+  const pctTop3 = total > 0 ? top3.reduce((a,[,v])=>a+v,0) / total * 100 : 0;
+
+  let html = `<p style="margin:0 0 10px;font-size:12.5px;color:var(--muted)">
+    As <strong>3 lojas com mais rupturas</strong> concentram <strong style="color:${pctTop3>50?'#fb7185':'var(--text)'}">${pctTop3.toFixed(1)}%</strong> do total de ${total} rupturas no período.
+  </p>`;
+  html += `<table class="analise-table"><thead><tr><th>#</th><th>Loja</th><th>Rupturas</th><th>% do total</th></tr></thead><tbody>`;
+  sorted.slice(0,10).forEach(([lid, n], i) => {
+    html += `<tr><td>${i+1}</td><td><strong>${storeLabel(lid)}</strong></td><td>${n}</td><td>${(n/total*100).toFixed(1)}%</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+
+// ============================================================
+//  5, 6, 7 — Reservado para desenvolvimento futuro
+// ============================================================
+function renderForecast(filteredOrders, dailyData){
+  const a = document.getElementById("forecastChart");
+  const b = document.getElementById("forecastSimResult");
+  if(a) a.parentElement.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Em desenvolvimento.</p>`;
+  if(b) b.innerHTML = `<p style="color:var(--muted);font-size:13px;">Em desenvolvimento.</p>`;
+}
+function renderFinanceiro(filteredOrders){
+  const a = document.getElementById("finKpiCards");
+  if(a) a.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Em desenvolvimento.</p>`;
+}
+function renderAnaliseTextual(filteredOrders){
+  const a = document.getElementById("textualSkuTable");
+  if(a) a.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:10px 0;">Em desenvolvimento.</p>`;
 }
 
 function renderSLA(filteredOrders){
@@ -5864,6 +6690,21 @@ function _drawEntregasTabela(dados){
         renderCorrelacoes(_corrLazyOrders);
         _corrLazyOrders = null;
       }
+      // Lazy render da aba Análises
+      if(btn.dataset.tab === "tab-analises" && _analisesLazyOrders){
+        renderAnalises(_analisesLazyOrders);
+        _analisesLazyOrders = null;
+      }
+    });
+  });
+
+  // Listener das sub-abas dentro de Análises
+  document.querySelectorAll(".subtab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".subtab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".subtab-pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(btn.dataset.subtab)?.classList.add("active");
     });
   });
 })();
