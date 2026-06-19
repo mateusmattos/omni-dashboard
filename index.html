@@ -1208,6 +1208,25 @@
     }
     .map-tooltip b{ font-size:13px;display:block;margin-bottom:4px; }
 
+    /* ===== MATRIZ DE CORRELAÇÃO ===== */
+    .corr-grid{ display:grid; gap:2px; font-size:11px; }
+    .corr-cell{
+      display:flex;align-items:center;justify-content:center;
+      padding:10px 4px;border-radius:4px;font-weight:700;
+      cursor:default;transition:transform .1s;min-height:48px;
+    }
+    .corr-cell:hover{ transform:scale(1.05); z-index:2; }
+    .corr-label{
+      display:flex;align-items:center;justify-content:flex-end;
+      padding:4px 8px;font-size:10.5px;font-weight:600;color:var(--muted);
+      text-align:right;
+    }
+    .corr-label-top{
+      display:flex;align-items:flex-end;justify-content:center;
+      padding:4px 2px;font-size:10px;font-weight:600;color:var(--muted);
+      writing-mode:vertical-rl;text-orientation:mixed;min-height:70px;
+    }
+
   </style>
 </head>
 
@@ -1297,6 +1316,7 @@
           <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
           <button class="tab-btn" data-tab="tab-sla">⏱ SLA</button>
           <button class="tab-btn" data-tab="tab-entregas">🗺 Entregas</button>
+          <button class="tab-btn" data-tab="tab-correlacoes">📐 Correlações</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1750,6 +1770,51 @@
           </div>
 
         </div><!-- /tab-pane entregas -->
+
+        <!-- ABA: CORRELAÇÕES -->
+        <div class="tab-pane" id="tab-correlacoes">
+
+          <div class="panel" style="padding:14px 18px;">
+            <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
+              ⚠️ <strong>Correlação não é causalidade.</strong> Os coeficientes abaixo mostram o quanto duas variáveis se movem juntas ao longo dos dias do período filtrado — não provam que uma causa a outra. Use como ponto de partida para investigação, não como conclusão.
+            </p>
+          </div>
+
+          <!-- Matriz de correlação -->
+          <div class="panel">
+            <div class="hd">
+              <div>
+                <h2>Matriz de correlação</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Coeficiente de Pearson entre variáveis diárias do período filtrado</p>
+              </div>
+              <span class="badge" id="corrMatrixBadge">—</span>
+            </div>
+            <div style="padding:8px 16px 16px;overflow-x:auto;">
+              <div id="corrMatrixGrid"></div>
+            </div>
+          </div>
+
+          <!-- Gráfico de dispersão -->
+          <div class="panel">
+            <div class="hd">
+              <div>
+                <h2>Gráfico de dispersão</h2>
+                <p style="margin:2px 0 0;font-size:12px;color:var(--muted)">Escolha duas variáveis para visualizar a relação dia a dia</p>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;padding:10px 16px 4px;flex-wrap:wrap;">
+              <label style="font-size:12px;color:var(--muted);font-weight:600;">Eixo X:
+                <select id="corrSelectX" onchange="renderScatterChart()" style="margin-left:6px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:12px;"></select>
+              </label>
+              <label style="font-size:12px;color:var(--muted);font-weight:600;">Eixo Y:
+                <select id="corrSelectY" onchange="renderScatterChart()" style="margin-left:6px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:12px;"></select>
+              </label>
+              <span class="badge" id="corrScatterBadge">—</span>
+            </div>
+            <div style="padding:8px 16px 16px;"><canvas id="corrScatterChart" height="90"></canvas></div>
+          </div>
+
+        </div><!-- /tab-pane correlacoes -->
 
       </div>
     </div>
@@ -2647,6 +2712,7 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
       _slaCache = null; // invalida cache ao mudar filtro
       _entregasFilteredOrders = filtered;
       _entregasData = null;
+      _corrLazyOrders = filtered;
 
       const channels = new Set(filtered.map(o => o.channelId).filter(Boolean));
       const storesSet = new Set(filtered.map(o => o.locationId).filter(Boolean));
@@ -4696,6 +4762,264 @@ function slaSelectAllLojas(all){
   if(_slaLastData) _renderSlaVisoes(_slaLastData);
 }
 
+// ============================================================
+//  ABA CORRELAÇÕES — Pearson entre variáveis diárias
+// ============================================================
+var _corrDailyData  = null; // array de {date, ...variáveis}
+var _corrFilteredOrders = null;
+var _corrLazyOrders = null;
+
+const CORR_VARS = {
+  volumePedidos:   { label: "Volume de Pedidos",      color: "#7dd3fc" },
+  receita:         { label: "Receita",                 color: "#34d399" },
+  pctRuptura:      { label: "% Ruptura",               color: "#fb7185" },
+  slaTotalHoras:   { label: "SLA Total (h)",           color: "#a78bfa" },
+  lojasFechadas:   { label: "Lojas Fechadas",          color: "#fbbf24" },
+  ticketMedio:     { label: "Ticket Médio",            color: "#f97316" },
+};
+
+function pearson(xs, ys){
+  const pairs = xs.map((x,i)=>[x, ys[i]]).filter(([x,y]) => x !== null && y !== null && !isNaN(x) && !isNaN(y));
+  const n = pairs.length;
+  if(n < 3) return null; // amostra insuficiente
+  const xa = pairs.map(p=>p[0]), ya = pairs.map(p=>p[1]);
+  const mx = xa.reduce((a,b)=>a+b,0)/n, my = ya.reduce((a,b)=>a+b,0)/n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for(let i=0;i<n;i++){
+    const dx = xa[i]-mx, dy = ya[i]-my;
+    num += dx*dy; dx2 += dx*dx; dy2 += dy*dy;
+  }
+  const den = Math.sqrt(dx2*dy2);
+  return den === 0 ? null : num/den;
+}
+
+function buildCorrDailyData(filteredOrders){
+  const byDay = new Map();
+
+  for(const o of filteredOrders){
+    const d = o.placedDate;
+    if(!d) continue;
+    if(!byDay.has(d)) byDay.set(d, { orders: [], revenue: 0, skus: 0 });
+    const day = byDay.get(d);
+    day.orders.push(o);
+    if(!(o.status||"").includes("cancel")){
+      day.revenue += (o.value || 0);
+      day.skus += (o.lineCount || 1);
+    }
+  }
+
+  // Rupturas por dia (respeitando filtro base atual)
+  const startVal = els.startDate?.value || "";
+  const endVal   = els.endDate?.value   || "";
+  const ruptF = rupturasState.filter(r => ruptBaseFilter(r) &&
+    (!startVal || r.createdDate >= startVal) && (!endVal || r.createdDate <= endVal));
+  const ruptByDay = new Map();
+  for(const r of ruptF){
+    ruptByDay.set(r.createdDate, (ruptByDay.get(r.createdDate)||0) + 1);
+  }
+
+  // Lojas fechadas por dia
+  const fechadasByDay = new Map();
+  if(Array.isArray(STORE_STATUS_DYNAMIC)){
+    for(const s of STORE_STATUS_DYNAMIC){
+      fechadasByDay.set(s.date, s.closed);
+    }
+  }
+
+  // SLA por dia (apenas pedidos entregues/coletados com billedAt)
+  const slaByDay = new Map();
+  for(const o of filteredOrders){
+    if(!o.placedDate || !o.billedAtIso) continue;
+    const ref = _slaE4Mode === "shipped" ? (o.shippedAtIso||o.deliveredAtIso) : (o.deliveredAtIso||o.shippedAtIso);
+    if(!ref) continue;
+    const tot = (new Date(ref) - new Date(o.placedAtIso)) / 3600000;
+    if(tot <= 0) continue;
+    if(!slaByDay.has(o.placedDate)) slaByDay.set(o.placedDate, []);
+    slaByDay.get(o.placedDate).push(tot);
+  }
+
+  const days = [...byDay.keys()].sort();
+  const data = days.map(d => {
+    const day = byDay.get(d);
+    const volumePedidos = new Set(day.orders.map(o=>o.order)).size;
+    const rupturas = ruptByDay.get(d) || 0;
+    const pctRuptura = day.skus > 0 ? rupturas / day.skus : null;
+    const slaArr = slaByDay.get(d);
+    const slaTotalHoras = slaArr && slaArr.length ? slaArr.reduce((a,b)=>a+b,0)/slaArr.length : null;
+    const lojasFechadas = fechadasByDay.has(d) ? fechadasByDay.get(d) : null;
+    const ticketMedio = volumePedidos > 0 ? day.revenue / volumePedidos : null;
+
+    return {
+      date: d,
+      volumePedidos,
+      receita: day.revenue,
+      pctRuptura,
+      slaTotalHoras,
+      lojasFechadas,
+      ticketMedio,
+    };
+  });
+
+  return data;
+}
+
+function renderCorrelacoes(filteredOrders){
+  _corrFilteredOrders = filteredOrders;
+  _corrDailyData = buildCorrDailyData(filteredOrders);
+
+  _drawCorrMatrix(_corrDailyData);
+  _populateCorrSelects();
+  renderScatterChart();
+}
+
+function _drawCorrMatrix(data){
+  const grid  = document.getElementById("corrMatrixGrid");
+  const badge = document.getElementById("corrMatrixBadge");
+  if(!grid) return;
+
+  const keys = Object.keys(CORR_VARS);
+  const n = data.length;
+
+  if(badge) badge.textContent = n < 7
+    ? `${n} dias — amostra pequena, leia com cautela`
+    : `${n} dias no período`;
+
+  // Calcular matriz de correlação
+  const matrix = {};
+  for(const k1 of keys){
+    matrix[k1] = {};
+    for(const k2 of keys){
+      const xs = data.map(d => d[k1]);
+      const ys = data.map(d => d[k2]);
+      matrix[k1][k2] = k1 === k2 ? 1 : pearson(xs, ys);
+    }
+  }
+
+  function corrColor(v){
+    if(v === null) return "var(--border)";
+    const abs = Math.abs(v);
+    const alpha = 0.15 + abs * 0.55;
+    return v > 0 ? `rgba(52,211,153,${alpha})` : `rgba(251,113,133,${alpha})`;
+  }
+  function corrTextColor(v){
+    if(v === null) return "var(--muted)";
+    return Math.abs(v) > 0.5 ? "#fff" : "var(--text)";
+  }
+
+  const labelColWidth = "130px";
+  grid.style.display = "grid";
+  grid.style.gridTemplateColumns = `${labelColWidth} repeat(${keys.length}, minmax(70px,1fr))`;
+  grid.className = "corr-grid";
+
+  let html = `<div></div>`; // canto vazio
+  for(const k of keys){
+    html += `<div class="corr-label-top">${CORR_VARS[k].label}</div>`;
+  }
+
+  for(const k1 of keys){
+    html += `<div class="corr-label">${CORR_VARS[k1].label}</div>`;
+    for(const k2 of keys){
+      const v = matrix[k1][k2];
+      const display = v === null ? "—" : v.toFixed(2);
+      html += `<div class="corr-cell" style="background:${corrColor(v)};color:${corrTextColor(v)}"
+        title="${CORR_VARS[k1].label} × ${CORR_VARS[k2].label}: ${display}">${display}</div>`;
+    }
+  }
+
+  grid.innerHTML = html;
+}
+
+function _populateCorrSelects(){
+  const selX = document.getElementById("corrSelectX");
+  const selY = document.getElementById("corrSelectY");
+  if(!selX || !selY) return;
+
+  const keys = Object.keys(CORR_VARS);
+  const opts = keys.map(k => `<option value="${k}">${CORR_VARS[k].label}</option>`).join("");
+
+  if(!selX.dataset.filled){
+    selX.innerHTML = opts;
+    selY.innerHTML = opts;
+    selX.value = "volumePedidos";
+    selY.value = "slaTotalHoras";
+    selX.dataset.filled = "1";
+    selY.dataset.filled = "1";
+  }
+}
+
+var _corrScatterChart = null;
+
+function renderScatterChart(){
+  const canvas = document.getElementById("corrScatterChart");
+  const badge  = document.getElementById("corrScatterBadge");
+  const selX = document.getElementById("corrSelectX");
+  const selY = document.getElementById("corrSelectY");
+  if(!canvas || !selX || !selY || !_corrDailyData) return;
+
+  const kx = selX.value, ky = selY.value;
+  if(_corrScatterChart){ _corrScatterChart.destroy(); _corrScatterChart = null; }
+
+  const points = _corrDailyData
+    .filter(d => d[kx] !== null && d[ky] !== null && !isNaN(d[kx]) && !isNaN(d[ky]))
+    .map(d => ({ x: d[kx], y: d[ky], date: d.date }));
+
+  const xs = points.map(p=>p.x), ys = points.map(p=>p.y);
+  const r = pearson(xs, ys);
+
+  function corrStrength(r){
+    if(r === null) return "amostra insuficiente";
+    const abs = Math.abs(r);
+    if(abs >= 0.7) return "correlação forte";
+    if(abs >= 0.4) return "correlação moderada";
+    if(abs >= 0.2) return "correlação fraca";
+    return "sem correlação relevante";
+  }
+
+  if(badge) badge.textContent = r !== null
+    ? `r = ${r.toFixed(2)} · ${corrStrength(r)} · ${points.length} dias`
+    : `dados insuficientes`;
+
+  const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+  const gridCol = isDark ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.07)";
+  const txtCol  = isDark ? "#94a3b8" : "#64748b";
+
+  _corrScatterChart = new Chart(canvas, {
+    type: "scatter",
+    data: {
+      datasets: [{
+        label: `${CORR_VARS[ky].label} × ${CORR_VARS[kx].label}`,
+        data: points,
+        backgroundColor: CORR_VARS[ky].color + "AA",
+        borderColor: CORR_VARS[ky].color,
+        borderWidth: 1.5,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const p = ctx.raw;
+              return [`${CORR_VARS[kx].label}: ${typeof p.x === "number" ? p.x.toFixed(1) : p.x}`,
+                      `${CORR_VARS[ky].label}: ${typeof p.y === "number" ? p.y.toFixed(1) : p.y}`,
+                      `Data: ${p.date.split("-").reverse().join("/")}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display:true, text: CORR_VARS[kx].label, color:txtCol, font:{size:11} }, grid:{color:gridCol}, ticks:{color:txtCol,font:{size:10}} },
+        y: { title: { display:true, text: CORR_VARS[ky].label, color:txtCol, font:{size:11} }, grid:{color:gridCol}, ticks:{color:txtCol,font:{size:10}} },
+      }
+    }
+  });
+}
+
 function renderSLA(filteredOrders){
   // Cache: evita reprocessar se os dados não mudaram
   const cacheKey = filteredOrders.length + "_" + (filteredOrders[0]?.order || "") + "_" + _slaE4Mode;
@@ -5534,6 +5858,11 @@ function _drawEntregasTabela(dados){
       if(btn.dataset.tab === "tab-entregas" && _entregasFilteredOrders){
         renderEntregas(_entregasFilteredOrders);
         _entregasFilteredOrders = null;
+      }
+      // Lazy render da aba Correlações
+      if(btn.dataset.tab === "tab-correlacoes" && _corrLazyOrders){
+        renderCorrelacoes(_corrLazyOrders);
+        _corrLazyOrders = null;
       }
     });
   });
