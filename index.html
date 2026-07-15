@@ -8099,7 +8099,7 @@ function _showPrintToast(){
 // >>> COLE AQUI SUA CHAVE DO GEMINI (gere uma NOVA em aistudio.google.com) <<<
 // ATENÇÃO: esta chave fica visível no código público. Restrinja-a por domínio
 // no Google Cloud Console e revogue a que foi exposta anteriormente.
-const GEMINI_API_KEY = "COLE_SUA_NOVA_CHAVE_AQUI";
+const GEMINI_API_KEY = "AQ.Ab8RN6I-CNEawdPHHPMedXHxZZhjn3ZzScEl7uWZ8uNji-hWWA";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 // Histórico da conversa (mantido só nesta sessão)
@@ -8291,9 +8291,13 @@ async function iaChamarGemini(pergunta){
 
   if(!resp.ok){
     const errText = await resp.text();
-    if(resp.status === 400 && errText.includes("API_KEY")) throw new Error("Chave da API inválida. Verifique a chave no código.");
-    if(resp.status === 429) throw new Error("Limite de requisições atingido. Aguarde um pouco e tente novamente.");
-    throw new Error(`Erro ${resp.status}: ${errText.slice(0,200)}`);
+    let msg = errText;
+    try { const j = JSON.parse(errText); msg = j.error?.message || errText; } catch(e){}
+    if(resp.status === 429) throw new Error("Limite de requisições atingido (cota diária ou por minuto). Aguarde e tente novamente.");
+    if(resp.status === 403) throw new Error("Acesso negado (403). Provável causa: a API 'Generative Language' não está ativada no projeto, ou falta vincular billing. Detalhe do Google: " + msg);
+    if(resp.status === 400) throw new Error("Requisição inválida (400). Detalhe do Google: " + msg);
+    if(resp.status === 401) throw new Error("Autenticação falhou (401). Detalhe do Google: " + msg);
+    throw new Error(`Erro ${resp.status}: ${msg.slice(0,300)}`);
   }
 
   const data = await resp.json();
@@ -8348,7 +8352,7 @@ async function iaEnviar(pergunta){
   const q = (typeof pergunta === "string" ? pergunta : input.value).trim();
   if(!q) return;
 
-  if(GEMINI_API_KEY === "AQ.Ab8RN6I-CNEawdPHHPMedXHxZZhjn3ZzScEl7uWZ8uNji-hWWA" || !GEMINI_API_KEY){
+  if(GEMINI_API_KEY === "COLE_SUA_NOVA_CHAVE_AQUI" || !GEMINI_API_KEY){
     iaRenderMsg("user", q, false);
     iaRenderMsg("model", "**Chave da API não configurada.** Cole sua chave do Gemini na constante `GEMINI_API_KEY` no código do dashboard (gere uma nova em aistudio.google.com).", false);
     input.value = "";
