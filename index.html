@@ -8096,11 +8096,11 @@ function _showPrintToast(){
    ASSISTENTE DE IA (Gemini) — visão analítica agregada
    ======================================================================= */
 
-// >>> COLE AQUI SUA CHAVE DO GEMINI (gere uma NOVA em aistudio.google.com) <<<
-// ATENÇÃO: esta chave fica visível no código público. Restrinja-a por domínio
-// no Google Cloud Console e revogue a que foi exposta anteriormente.
-const GEMINI_API_KEY = "AQ.Ab8RN6I-CNEawdPHHPMedXHxZZhjn3ZzScEl7uWZ8uNji-hWWA";
-const GEMINI_MODEL = "gemini-2.5-flash";
+// >>> COLE AQUI SUA CHAVE DO GROQ (gere uma gratuita em console.groq.com/keys) <<<
+// A chave do Groq começa com "gsk_". Ela fica visível no código público —
+// monitore o uso no painel do Groq e, no futuro, mova para um proxy com login.
+const GROQ_API_KEY = "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";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // Histórico da conversa (mantido só nesta sessão)
 let _iaHistory = [];
@@ -8259,32 +8259,34 @@ COMO RESPONDER:
 - Seja conciso: priorize os pontos que importam para a gestão. Use listas curtas quando ajudar.`;
 }
 
-// ---------- Comunicação com o Gemini ----------
+// ---------- Comunicação com o Groq ----------
 async function iaChamarGemini(pergunta){
   const dados = iaColetarDados();
   const contexto = "DADOS ATUAIS DO DASHBOARD (JSON):\n" + JSON.stringify(dados, null, 1);
 
-  // Monta o conteúdo: system + contexto + histórico + pergunta
-  const contents = [];
-  // histórico
+  // Monta as mensagens no formato OpenAI/Groq: system + histórico + pergunta
+  const messages = [];
+  messages.push({ role: "system", content: iaSystemPrompt() });
+  // histórico (converte "model" do formato antigo para "assistant")
   for(const h of _iaHistory){
-    contents.push({ role: h.role, parts: [{ text: h.text }] });
+    messages.push({ role: (h.role === "model" ? "assistant" : h.role), content: h.text });
   }
   // pergunta atual com o contexto de dados anexado
-  contents.push({ role: "user", parts: [{ text: contexto + "\n\nPERGUNTA: " + pergunta }] });
+  messages.push({ role: "user", content: contexto + "\n\nPERGUNTA: " + pergunta });
 
   const body = {
-    system_instruction: { parts: [{ text: iaSystemPrompt() }] },
-    contents: contents,
-    generationConfig: { temperature: 0.4, maxOutputTokens: 1200 }
+    model: GROQ_MODEL,
+    messages: messages,
+    temperature: 0.4,
+    max_tokens: 1200
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const url = "https://api.groq.com/openai/v1/chat/completions";
   const resp = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": GEMINI_API_KEY
+      "Authorization": "Bearer " + GROQ_API_KEY
     },
     body: JSON.stringify(body)
   });
@@ -8293,15 +8295,14 @@ async function iaChamarGemini(pergunta){
     const errText = await resp.text();
     let msg = errText;
     try { const j = JSON.parse(errText); msg = j.error?.message || errText; } catch(e){}
-    if(resp.status === 429) throw new Error("Limite de requisições atingido (cota diária ou por minuto). Aguarde e tente novamente.");
-    if(resp.status === 403) throw new Error("Acesso negado (403). Provável causa: a API 'Generative Language' não está ativada no projeto, ou falta vincular billing. Detalhe do Google: " + msg);
-    if(resp.status === 400) throw new Error("Requisição inválida (400). Detalhe do Google: " + msg);
-    if(resp.status === 401) throw new Error("Autenticação falhou (401). Detalhe do Google: " + msg);
+    if(resp.status === 429) throw new Error("Limite de requisições atingido (cota por minuto ou diária do Groq). Aguarde e tente novamente.");
+    if(resp.status === 401) throw new Error("Chave inválida (401). Verifique se a chave do Groq (começa com gsk_) foi colada corretamente no código. Detalhe: " + msg);
+    if(resp.status === 400) throw new Error("Requisição inválida (400). Detalhe do Groq: " + msg);
     throw new Error(`Erro ${resp.status}: ${msg.slice(0,300)}`);
   }
 
   const data = await resp.json();
-  const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const texto = data?.choices?.[0]?.message?.content;
   if(!texto) throw new Error("A IA não retornou resposta. Tente reformular a pergunta.");
   return texto;
 }
@@ -8352,9 +8353,9 @@ async function iaEnviar(pergunta){
   const q = (typeof pergunta === "string" ? pergunta : input.value).trim();
   if(!q) return;
 
-  if(GEMINI_API_KEY === "COLE_SUA_NOVA_CHAVE_AQUI" || !GEMINI_API_KEY){
+  if(GROQ_API_KEY === "COLE_SUA_CHAVE_GROQ_AQUI" || !GROQ_API_KEY){
     iaRenderMsg("user", q, false);
-    iaRenderMsg("model", "**Chave da API não configurada.** Cole sua chave do Gemini na constante `GEMINI_API_KEY` no código do dashboard (gere uma nova em aistudio.google.com).", false);
+    iaRenderMsg("model", "**Chave da API não configurada.** Cole sua chave do Groq (começa com `gsk_`) na constante `GROQ_API_KEY` no código do dashboard (gere uma gratuita em console.groq.com/keys).", false);
     input.value = "";
     return;
   }
