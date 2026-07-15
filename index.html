@@ -8099,7 +8099,7 @@ function _showPrintToast(){
 // >>> COLE AQUI SUA CHAVE DO GEMINI (gere uma NOVA em aistudio.google.com) <<<
 // ATENÇÃO: esta chave fica visível no código público. Restrinja-a por domínio
 // no Google Cloud Console e revogue a que foi exposta anteriormente.
-const GEMINI_API_KEY = "AQ.Ab8RN6I-CNEawdPHHPMedXHxZZhjn3ZzScEl7uWZ8uNji-hWWA";
+const GEMINI_API_KEY = "COLE_SUA_NOVA_CHAVE_AQUI";
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 // Histórico da conversa (mantido só nesta sessão)
@@ -8279,10 +8279,13 @@ async function iaChamarGemini(pergunta){
     generationConfig: { temperature: 0.4, maxOutputTokens: 1200 }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const resp = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": GEMINI_API_KEY
+    },
     body: JSON.stringify(body)
   });
 
@@ -8345,7 +8348,7 @@ async function iaEnviar(pergunta){
   const q = (typeof pergunta === "string" ? pergunta : input.value).trim();
   if(!q) return;
 
-  if(GEMINI_API_KEY === "COLE_SUA_NOVA_CHAVE_AQUI" || !GEMINI_API_KEY){
+  if(GEMINI_API_KEY === "AQ.Ab8RN6I-CNEawdPHHPMedXHxZZhjn3ZzScEl7uWZ8uNji-hWWA" || !GEMINI_API_KEY){
     iaRenderMsg("user", q, false);
     iaRenderMsg("model", "**Chave da API não configurada.** Cole sua chave do Gemini na constante `GEMINI_API_KEY` no código do dashboard (gere uma nova em aistudio.google.com).", false);
     input.value = "";
