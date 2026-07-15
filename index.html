@@ -1336,6 +1336,7 @@
           <button class="tab-btn" data-tab="tab-entregas">Entregas</button>
           <button class="tab-btn" data-tab="tab-correlacoes">Correlações</button>
           <button class="tab-btn" data-tab="tab-analises">Análises</button>
+          <button class="tab-btn" data-tab="tab-ia">IA</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1996,6 +1997,40 @@
           </div>
 
         </div><!-- /tab-pane analises -->
+
+        <!-- ABA: IA (assistente analítico) -->
+        <div class="tab-pane" id="tab-ia">
+          <div class="panel" style="padding:18px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+              <div>
+                <h2 style="margin:0;">Assistente Analítico</h2>
+                <p style="margin:4px 0 0;font-size:12px;color:var(--muted);">
+                  Faça perguntas sobre os dados. A IA recebe apenas indicadores agregados (sem número de pedido ou dados de cliente) e respeita os filtros ativos.
+                </p>
+              </div>
+              <span class="badge" id="iaStatus">Pronto</span>
+            </div>
+
+            <!-- Perguntas sugeridas -->
+            <div id="iaSuggestions" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0;"></div>
+
+            <!-- Área de conversa -->
+            <div id="iaChat" style="min-height:200px;max-height:460px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:12px;">
+              <div style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">
+                Comece escolhendo uma pergunta sugerida acima ou escreva a sua abaixo.
+              </div>
+            </div>
+
+            <!-- Caixa de entrada -->
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+              <textarea id="iaInput" rows="2" placeholder="Escreva sua pergunta sobre os dados..." style="flex:1;resize:vertical;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-family:inherit;font-size:14px;"></textarea>
+              <button id="iaSendBtn" onclick="iaEnviar()" style="padding:11px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;">Enviar</button>
+            </div>
+            <p style="margin:8px 0 0;font-size:11px;color:var(--muted);">
+              As respostas são geradas por IA e podem conter erros. Confira números críticos nas abas do dashboard.
+            </p>
+          </div>
+        </div><!-- /tab-pane ia -->
 
       </div>
     </div>
@@ -8055,6 +8090,325 @@ function _showPrintToast(){
   toast.textContent = "Para remover a URL do rodapé: em \"Mais configurações\" desmarque \"Cabeçalhos e rodapés\"";
   toast.style.opacity = "1";
   setTimeout(() => { toast.style.opacity = "0"; }, 5000);
+}
+
+/* =======================================================================
+   ASSISTENTE DE IA (Gemini) — visão analítica agregada
+   ======================================================================= */
+
+// >>> COLE AQUI SUA CHAVE DO GEMINI (gere uma NOVA em aistudio.google.com) <<<
+// ATENÇÃO: esta chave fica visível no código público. Restrinja-a por domínio
+// no Google Cloud Console e revogue a que foi exposta anteriormente.
+const GEMINI_API_KEY = "AQ.Ab8RN6I-CNEawdPHHPMedXHxZZhjn3ZzScEl7uWZ8uNji-hWWA";
+const GEMINI_MODEL = "gemini-2.5-flash";
+
+// Histórico da conversa (mantido só nesta sessão)
+let _iaHistory = [];
+
+// Perguntas sugeridas (baseadas em todo o escopo do dashboard)
+const IA_SUGGESTIONS = [
+  "Resuma o desempenho do canal OMNI neste período para a diretoria.",
+  "Como estamos em relação à meta? Vamos bater?",
+  "Qual loja está com o pior SLA e o que pode explicar?",
+  "Compare a Regional 1 com a Regional 2.",
+  "Quais lojas têm mais pedidos em aging vermelho (5+ dias)?",
+  "Principais motivos de ruptura e impacto na receita?",
+  "Como está o percentual de entregas no prazo? Onde estão os atrasos?",
+  "Que anomalia mais preocupante você identifica nos dados?",
+];
+
+// ---------- Coleta do snapshot analítico (SÓ agregados) ----------
+function iaColetarDados(){
+  try {
+    const filtered = filterOrders(ordersState);
+    const daily = buildDaily(filtered);
+    const stores = buildStores(filtered);
+    const hasTargets = Object.keys(targetsState).length > 0;
+
+    const startIso = els.startDate?.value || (daily[0]?.placedDate ?? null);
+    const endIso = els.endDate?.value || (daily[daily.length-1]?.placedDate ?? null);
+
+    const receita = sum(daily, "revenue");
+    const pedidos = sum(daily, "orders");
+    const ticket = pedidos ? receita/pedidos : 0;
+    const metaPeriodo = (hasTargets && startIso && endIso) ? sumTargetsBetween(startIso, endIso) : 0;
+    const atingimento = metaPeriodo ? receita/metaPeriodo : 0;
+
+    // Série diária compacta
+    const serie = daily.map(d => ({
+      data: d.placedDate,
+      receita: Math.round(d.revenue),
+      pedidos: d.orders,
+      meta: hasTargets ? Math.round(targetsState[d.placedDate]||0) : null
+    }));
+
+    // Lojas com nome e regional
+    const nomeLoja = (id) => STORE_MAP.get(parseInt(id,10)) || `Loja ${id}`;
+    const regionalLoja = (id) => REGIONAL_1.has(parseInt(id,10)) ? "Regional 1" : (REGIONAL_2.has(parseInt(id,10)) ? "Regional 2" : "—");
+    const lojas = stores.map(s => ({
+      loja: nomeLoja(s.locationId),
+      regional: regionalLoja(s.locationId),
+      receita: Math.round(s.revenue),
+      pedidos: s.orders,
+      ticket: Math.round(s.ticket)
+    }));
+
+    // Agregado por regional
+    const porRegional = {};
+    for(const s of stores){
+      const r = regionalLoja(s.locationId);
+      if(!porRegional[r]) porRegional[r] = { receita:0, pedidos:0 };
+      porRegional[r].receita += s.revenue;
+      porRegional[r].pedidos += s.orders;
+    }
+    for(const r in porRegional){ porRegional[r].receita = Math.round(porRegional[r].receita); }
+
+    // SLA agregado (reaproveita cálculo se existir na tela)
+    let sla = null;
+    try {
+      const slaVals = { e1:[], e2:[], e3:[], e4:[], total:[] };
+      const hrs = (a,b) => { if(!a||!b) return null; const d=(new Date(b)-new Date(a))/36e5; return (d>0&&d<24*60)?d:null; };
+      const e4mode = (typeof _slaE4Mode!=="undefined" && _slaE4Mode==="delivered") ? "deliveredAtIso" : "shippedAtIso";
+      for(const o of filtered){
+        const e1=hrs(o.placedAtIso,o.checkedAtIso); if(e1!=null) slaVals.e1.push(e1);
+        const e2=hrs(o.checkedAtIso,o.billedAtIso); if(e2!=null) slaVals.e2.push(e2);
+        const e3=hrs(o.billedAtIso,o.shippingReadyAtIso); if(e3!=null) slaVals.e3.push(e3);
+        const e4=hrs(o.shippingReadyAtIso,o[e4mode]); if(e4!=null) slaVals.e4.push(e4);
+        const tt=hrs(o.placedAtIso,o[e4mode]); if(tt!=null) slaVals.total.push(tt);
+      }
+      const media = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+      sla = {
+        e1_horas: media(slaVals.e1), e2_horas: media(slaVals.e2),
+        e3_horas: media(slaVals.e3), e4_horas: media(slaVals.e4),
+        total_horas: media(slaVals.total),
+        e4_modo: e4mode==="deliveredAtIso"?"delivered":"shippedAt"
+      };
+    } catch(e){ sla = null; }
+
+    // Aging agregado por loja
+    let aging = null;
+    try {
+      const acaoStatus = new Set(["waiting","billing_confirmation","billing","picking","invoicing","checked","billed","taxing","pickup_ready"]);
+      const hoje = new Date();
+      const agBy = {};
+      for(const o of filtered){
+        if(o.orderType!=="SHIPMENT") continue;
+        if(!acaoStatus.has((o.status||"").toLowerCase())) continue;
+        const dias = Math.floor((hoje - new Date(o.placedDate+"T00:00:00"))/864e5);
+        const nome = nomeLoja(o.locationId);
+        if(!agBy[nome]) agBy[nome] = { verde:0, amarelo:0, vermelho:0 };
+        if(dias>=5) agBy[nome].vermelho++;
+        else if(dias===4) agBy[nome].amarelo++;
+        else agBy[nome].verde++;
+      }
+      aging = agBy;
+    } catch(e){ aging = null; }
+
+    // Rupturas agregadas
+    let rupturas = null;
+    try {
+      if(Array.isArray(rupturasState) && rupturasState.length){
+        const porMotivo = {}, porLoja = {};
+        for(const r of rupturasState){
+          const mot = r.reason || r.motivo || "—";
+          porMotivo[mot] = (porMotivo[mot]||0)+1;
+          const loc = r.location || r.loja || "—";
+          porLoja[loc] = (porLoja[loc]||0)+1;
+        }
+        rupturas = { total: rupturasState.length, porMotivo, porLoja };
+      }
+    } catch(e){ rupturas = null; }
+
+    return {
+      periodo: { inicio: startIso, fim: endIso },
+      kpis: {
+        receita: Math.round(receita), pedidos, ticket: Math.round(ticket),
+        meta_periodo: Math.round(metaPeriodo), atingimento_meta: +(atingimento*100).toFixed(1)
+      },
+      serie_diaria: serie,
+      lojas: lojas,
+      por_regional: porRegional,
+      sla: sla,
+      aging_por_loja: aging,
+      rupturas: rupturas
+    };
+  } catch(e){
+    return { erro: "Não foi possível coletar os dados: " + e.message };
+  }
+}
+
+// ---------- System prompt (cérebro da IA) ----------
+function iaSystemPrompt(){
+  return `Você é um analista de dados sênior especializado em operações omnichannel (ship-from-store) de varejo de moda. Está integrado ao dashboard OMNI da La Moda, uma varejista com 19 lojas físicas no Brasil, divididas em Regional 1 e Regional 2.
+
+CONTEXTO DO NEGÓCIO:
+- O canal OMNI é o fulfillment de pedidos online a partir do estoque das lojas físicas.
+- O ciclo do pedido tem 4 etapas de tempo (SLA): E1 (criação→atendimento), E2 (atendimento→faturamento), E3 (faturamento→pronto para coleta), E4 (pronto→saída real ao transportador).
+- REGRA IMPORTANTE: o SLA E4 usa "shippedAt" (saída real), não "delivered" (que reflete registro manual atrasado do romaneio, com defasagem grande).
+- Aging: pedidos em ação da loja classificados por dias desde o pedido — verde (≤3 dias), amarelo (4 dias), vermelho (≥5 dias, risco de cancelamento).
+- Rupturas: itens sem estoque que travam o pedido.
+- ~85% dos envios via loja são interestaduais.
+
+COMO RESPONDER:
+- Responda SEMPRE em português do Brasil, de forma objetiva e executiva.
+- Baseie-se EXCLUSIVAMENTE nos dados fornecidos no JSON de contexto. Não invente números.
+- Cite números concretos dos dados ao fazer afirmações.
+- Valores monetários em R$ (formato brasileiro).
+- Quando fizer sentido, aponte a causa provável e recomende uma ação.
+- Se o dado necessário não estiver no contexto, diga isso claramente em vez de supor.
+- Seja conciso: priorize os pontos que importam para a gestão. Use listas curtas quando ajudar.`;
+}
+
+// ---------- Comunicação com o Gemini ----------
+async function iaChamarGemini(pergunta){
+  const dados = iaColetarDados();
+  const contexto = "DADOS ATUAIS DO DASHBOARD (JSON):\n" + JSON.stringify(dados, null, 1);
+
+  // Monta o conteúdo: system + contexto + histórico + pergunta
+  const contents = [];
+  // histórico
+  for(const h of _iaHistory){
+    contents.push({ role: h.role, parts: [{ text: h.text }] });
+  }
+  // pergunta atual com o contexto de dados anexado
+  contents.push({ role: "user", parts: [{ text: contexto + "\n\nPERGUNTA: " + pergunta }] });
+
+  const body = {
+    system_instruction: { parts: [{ text: iaSystemPrompt() }] },
+    contents: contents,
+    generationConfig: { temperature: 0.4, maxOutputTokens: 1200 }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  if(!resp.ok){
+    const errText = await resp.text();
+    if(resp.status === 400 && errText.includes("API_KEY")) throw new Error("Chave da API inválida. Verifique a chave no código.");
+    if(resp.status === 429) throw new Error("Limite de requisições atingido. Aguarde um pouco e tente novamente.");
+    throw new Error(`Erro ${resp.status}: ${errText.slice(0,200)}`);
+  }
+
+  const data = await resp.json();
+  const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!texto) throw new Error("A IA não retornou resposta. Tente reformular a pergunta.");
+  return texto;
+}
+
+// ---------- UI do chat ----------
+function iaRenderMsg(role, texto, isLoading){
+  const chat = document.getElementById("iaChat");
+  // limpar placeholder inicial
+  if(chat.querySelector("div[style*='text-align:center']") && !isLoading && _iaHistory.length<=1){
+    // mantém, será substituído no primeiro append real
+  }
+  if(chat.children.length===1 && chat.children[0].textContent.includes("Comece escolhendo")){
+    chat.innerHTML = "";
+  }
+
+  const isUser = role === "user";
+  const wrap = document.createElement("div");
+  wrap.style.cssText = `display:flex;${isUser?"justify-content:flex-end":"justify-content:flex-start"};`;
+  const bubble = document.createElement("div");
+  bubble.style.cssText = `max-width:82%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;${
+    isUser
+      ? "background:var(--accent);color:#fff;border-bottom-right-radius:4px;"
+      : "background:var(--card);border:1px solid var(--border);color:var(--fg);border-bottom-left-radius:4px;"
+  }`;
+  if(isLoading){
+    bubble.innerHTML = `<span style="opacity:.7">Analisando os dados...</span>`;
+    bubble.id = "iaLoadingBubble";
+  } else {
+    // formatação leve de markdown (negrito, listas, quebras)
+    bubble.innerHTML = iaFormatMarkdown(texto);
+  }
+  wrap.appendChild(bubble);
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function iaFormatMarkdown(t){
+  let h = t
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+    .replace(/^\s*[-*]\s+(.+)$/gm,"• $1")
+    .replace(/\n/g,"<br/>");
+  return h;
+}
+
+async function iaEnviar(pergunta){
+  const input = document.getElementById("iaInput");
+  const q = (typeof pergunta === "string" ? pergunta : input.value).trim();
+  if(!q) return;
+
+  if(GEMINI_API_KEY === "COLE_SUA_NOVA_CHAVE_AQUI" || !GEMINI_API_KEY){
+    iaRenderMsg("user", q, false);
+    iaRenderMsg("model", "**Chave da API não configurada.** Cole sua chave do Gemini na constante `GEMINI_API_KEY` no código do dashboard (gere uma nova em aistudio.google.com).", false);
+    input.value = "";
+    return;
+  }
+
+  input.value = "";
+  const btn = document.getElementById("iaSendBtn");
+  const status = document.getElementById("iaStatus");
+  btn.disabled = true; btn.style.opacity = "0.6";
+  status.textContent = "Consultando...";
+
+  iaRenderMsg("user", q, false);
+  _iaHistory.push({ role:"user", text:q });
+  iaRenderMsg("model", "", true);
+
+  try {
+    const resposta = await iaChamarGemini(q);
+    // remover loading
+    document.getElementById("iaLoadingBubble")?.closest("div").remove();
+    iaRenderMsg("model", resposta, false);
+    _iaHistory.push({ role:"model", text:resposta });
+    // limitar histórico para não estourar contexto
+    if(_iaHistory.length > 12) _iaHistory = _iaHistory.slice(-12);
+    status.textContent = "Pronto";
+  } catch(err){
+    document.getElementById("iaLoadingBubble")?.closest("div").remove();
+    iaRenderMsg("model", "**Erro:** " + err.message, false);
+    status.textContent = "Erro";
+  } finally {
+    btn.disabled = false; btn.style.opacity = "1";
+  }
+}
+
+function iaInitSuggestions(){
+  const box = document.getElementById("iaSuggestions");
+  if(!box) return;
+  box.innerHTML = "";
+  for(const s of IA_SUGGESTIONS){
+    const chip = document.createElement("button");
+    chip.textContent = s;
+    chip.style.cssText = "padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:12px;cursor:pointer;transition:all .15s;";
+    chip.onmouseover = ()=>{ chip.style.background="var(--accent)"; chip.style.color="#fff"; };
+    chip.onmouseout = ()=>{ chip.style.background="var(--card)"; chip.style.color="var(--fg)"; };
+    chip.onclick = ()=> iaEnviar(s);
+    box.appendChild(chip);
+  }
+}
+
+// Enter envia (Shift+Enter quebra linha)
+function iaSetup(){
+  iaInitSuggestions();
+  const input = document.getElementById("iaInput");
+  if(input){
+    input.addEventListener("keydown", (e)=>{
+      if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); iaEnviar(); }
+    });
+  }
+}
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", iaSetup);
+} else {
+  iaSetup();
 }
 </script>
 </body>
