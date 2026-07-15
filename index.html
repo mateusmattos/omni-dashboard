@@ -1259,7 +1259,7 @@
         </p>
       </div>
       <div class="status">
-        <button id="themeToggle" onclick="toggleTheme()">🌙 Escuro</button>
+        <button id="themeToggle" onclick="toggleTheme()">Escuro</button>
         <button id="pdfBtn" onclick="exportPDF()" style="display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">⬇ Exportar PDF</button>
         <span class="chip" id="statusChip"><span class="dot" id="statusDot"></span><span id="statusText">Sem dados carregados</span></span>
         <span class="chip"><span class="mono" id="statusMeta">—</span></span>
@@ -1329,13 +1329,13 @@
 
         <!-- ABAS -->
         <div class="tabs">
-          <button class="tab-btn active" data-tab="tab-dashboard">📊 Dashboard</button>
-          <button class="tab-btn" data-tab="tab-report">📋 Report Diário</button>
-          <button class="tab-btn" data-tab="tab-daily">📅 Daily</button>
-          <button class="tab-btn" data-tab="tab-sla">⏱ SLA</button>
-          <button class="tab-btn" data-tab="tab-entregas">🗺 Entregas</button>
-          <button class="tab-btn" data-tab="tab-correlacoes">📐 Correlações</button>
-          <button class="tab-btn" data-tab="tab-analises">🔬 Análises</button>
+          <button class="tab-btn active" data-tab="tab-dashboard">Dashboard</button>
+          <button class="tab-btn" data-tab="tab-report">Report Diário</button>
+          <button class="tab-btn" data-tab="tab-daily">Daily</button>
+          <button class="tab-btn" data-tab="tab-sla">SLA</button>
+          <button class="tab-btn" data-tab="tab-entregas">Entregas</button>
+          <button class="tab-btn" data-tab="tab-correlacoes">Correlações</button>
+          <button class="tab-btn" data-tab="tab-analises">Análises</button>
         </div>
 
         <!-- ABA: DASHBOARD (conteúdo original) -->
@@ -1515,7 +1515,7 @@
               <div style="display:flex;align-items:center;gap:8px;">
                 <button id="ruptChartModeBtn" onclick="toggleRuptChartMode()"
                   style="font-size:11px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--accent);background:rgba(125,211,252,.10);color:var(--accent);transition:all .15s;white-space:nowrap;">
-                  📊 Por loja
+                  Por loja
                 </button>
                 <span class="badge" id="ruptChartBadge">—</span>
               </div>
@@ -1692,11 +1692,11 @@
               <span style="font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;">E4 — referência de entrega:</span>
               <button id="slaE4ModeShipped" onclick="setSlaE4Mode('shipped')"
                 style="font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--accent);background:rgba(125,211,252,.15);color:var(--accent);">
-                📦 shippedAt (saída real)
+                shippedAt (saída real)
               </button>
               <button id="slaE4ModeDelivered" onclick="setSlaE4Mode('delivered')"
                 style="font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:999px;cursor:pointer;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--muted);">
-                ✅ delivered (registro sistêmico)
+                delivered (registro sistêmico)
               </button>
               <span style="font-size:11px;color:var(--muted);opacity:.7;">shippedAt reflete a saída real para o transportador · delivered reflete quando a loja anexa o romaneio (pode ter atraso de registro)</span>
             </div>
@@ -1795,7 +1795,7 @@
 
           <div class="panel" style="padding:14px 18px;">
             <p style="margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;">
-              ⚠️ <strong>Correlação não é causalidade.</strong> Os coeficientes abaixo mostram o quanto duas variáveis se movem juntas ao longo dos dias do período filtrado — não provam que uma causa a outra. Use como ponto de partida para investigação, não como conclusão.
+              <strong>Correlação não é causalidade.</strong> Os coeficientes abaixo mostram o quanto duas variáveis se movem juntas ao longo dos dias do período filtrado — não provam que uma causa a outra. Use como ponto de partida para investigação, não como conclusão.
             </p>
           </div>
 
@@ -1841,13 +1841,13 @@
           <!-- Navegação das sub-abas -->
           <div class="panel" style="padding:10px 14px;margin-bottom:14px;">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="subtab-btn active" data-subtab="sub-anomalias">🚨 Anomalias</button>
-              <button class="subtab-btn" data-subtab="sub-series">📈 Séries Temporais</button>
-              <button class="subtab-btn" data-subtab="sub-cluster">🧩 Clusterização</button>
-              <button class="subtab-btn" data-subtab="sub-causaraiz">🌳 Causa Raiz</button>
-              <button class="subtab-btn" data-subtab="sub-forecast">🔮 Forecast</button>
-              <button class="subtab-btn" data-subtab="sub-financeiro">💰 Financeiro</button>
-              <button class="subtab-btn" data-subtab="sub-textual">🔎 Análise Textual</button>
+              <button class="subtab-btn active" data-subtab="sub-anomalias">Anomalias</button>
+              <button class="subtab-btn" data-subtab="sub-series">Séries Temporais</button>
+              <button class="subtab-btn" data-subtab="sub-cluster">Clusterização</button>
+              <button class="subtab-btn" data-subtab="sub-causaraiz">Causa Raiz</button>
+              <button class="subtab-btn" data-subtab="sub-forecast">Forecast</button>
+              <button class="subtab-btn" data-subtab="sub-financeiro">Financeiro</button>
+              <button class="subtab-btn" data-subtab="sub-textual">Análise Textual</button>
             </div>
           </div>
 
@@ -2783,7 +2783,7 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
       }
     }
 
-    function renderInsights(daily){
+    function renderInsights(daily, filteredOrders){
       const container = els.insights;
       container.innerHTML = "";
       if(!daily.length){
@@ -2826,6 +2826,77 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
       const lastGap = (lastTarget !== null) ? (lastRevenue - lastTarget) : null;
       const lastAtt = (lastTarget && lastTarget>0) ? (lastRevenue/lastTarget) : null;
 
+      // ---------- Projeção intradiária de fechamento do último dia ----------
+      // Constrói a curva média de % de receita acumulada por hora usando dias anteriores,
+      // pega a hora "atual" (última hora com pedido no último dia) e extrapola o fechamento.
+      let projClose = null, projCurvePct = null, projGap = null, projAtt = null, projFallback = false;
+      (function(){
+        if(!filteredOrders || !filteredOrders.length) return;
+
+        // Receita por (dia, hora) e por dia
+        const revByDayHour = new Map();  // dia -> Array(24) de receita
+        const revByDay = new Map();      // dia -> receita total
+        for(const o of filteredOrders){
+          if(!o.placedAtIso) continue;
+          const dt = new Date(o.placedAtIso);
+          const day = o.placedDate;
+          const h = dt.getHours();
+          const rev = (o.value!=null) ? o.value : 0;
+          if(!revByDayHour.has(day)) revByDayHour.set(day, new Array(24).fill(0));
+          revByDayHour.get(day)[h] += rev;
+          revByDay.set(day, (revByDay.get(day)||0) + rev);
+        }
+
+        // Dias de referência: até 14 dias anteriores ao último (com receita > 0)
+        const refDays = daily.slice(Math.max(0, daily.length-15), daily.length-1)
+          .map(d => d.placedDate)
+          .filter(d => (revByDay.get(d)||0) > 0);
+
+        // Hora "atual" = última hora com receita no último dia
+        const lastHourArr = revByDayHour.get(lastDate);
+        if(!lastHourArr) return;
+        let curHour = -1;
+        for(let h=23; h>=0; h--){ if(lastHourArr[h] > 0){ curHour = h; break; } }
+        if(curHour < 0) return;
+
+        // Curva média: fração acumulada da receita até curHour (inclusive) nos dias de referência
+        function cumFracUntil(dayArr, hh){
+          let tot = 0, acc = 0;
+          for(let h=0; h<24; h++){ tot += dayArr[h]; if(h<=hh) acc += dayArr[h]; }
+          return tot>0 ? acc/tot : null;
+        }
+        const fracs = [];
+        for(const d of refDays){
+          const arr = revByDayHour.get(d);
+          if(!arr) continue;
+          const f = cumFracUntil(arr, curHour);
+          if(f!=null && f>0) fracs.push(f);
+        }
+
+        let expectedFrac;
+        if(fracs.length >= 3){
+          expectedFrac = fracs.reduce((a,b)=>a+b,0)/fracs.length;
+        } else {
+          // Fallback: usa a média de receita dos últimos 7 dias como proxy de fechamento
+          projFallback = true;
+          expectedFrac = null;
+        }
+
+        if(expectedFrac && expectedFrac > 0.02){
+          projCurvePct = expectedFrac;
+          projClose = lastRevenue / expectedFrac;
+        } else {
+          // Fallback conservador: média 7d
+          projFallback = true;
+          projClose = avg7Rev > 0 ? avg7Rev : lastRevenue;
+        }
+
+        if(lastTarget && lastTarget > 0 && projClose != null){
+          projGap = projClose - lastTarget;
+          projAtt = projClose / lastTarget;
+        }
+      })();
+
       const i1 = document.createElement("div");
       i1.className = "insight";
       i1.innerHTML = `
@@ -2835,6 +2906,11 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
           <b>Pedidos:</b> ${fmtInt.format(lastOrders)} (${diffOrd>=0?`+${(diffOrd*100).toFixed(1)}%`:`${(diffOrd*100).toFixed(1)}%`} vs média 7d)<br/>
           <b>Ticket:</b> ${fmtBRL.format(lastTicket)}
           ${lastTarget !== null ? `<br/><b>Meta:</b> ${fmtBRL.format(lastTarget)} • <b>Gap:</b> ${fmtBRL.format(lastGap)} • <b>%:</b> ${fmtPct.format(lastAtt)}` : ``}
+          ${projClose !== null ? `<br/><b>Projeção de fechamento:</b> ${fmtBRL.format(projClose)}${
+            projCurvePct !== null ? ` (${(projCurvePct*100).toFixed(0)}% do dia normalmente já ocorreu)` : ` (estimativa por média 7d)`
+          }${
+            projAtt !== null ? ` • <b>Atingimento projetado:</b> ${fmtPct.format(projAtt)}` : ``
+          }${projFallback ? ` <span style="color:var(--muted);font-size:11px;">· estimativa aproximada</span>` : ``}` : ``}
         </p>
       `;
       container.appendChild(i1);
@@ -2878,7 +2954,7 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
       renderStoresChart(stores);
       renderStoresTable(stores);
       renderDailyTable(daily);
-      renderInsights(daily);
+      renderInsights(daily, filtered);
       renderStoreStatus();
       renderReportPivotOrders(filtered); // ← report diário
       renderRupturas(filtered);           // ← rupturas
@@ -4363,7 +4439,7 @@ function renderDailyPendLoja(filteredOrders){
 
           if(!saved.ok || !savedMeta.ok){
             setMetaWarn([
-              `⚠️ Não consegui salvar pedidos no navegador (provável limite de espaço).`,
+              `Não consegui salvar pedidos no navegador (provável limite de espaço).`,
               `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
               `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
             ]);
@@ -4422,7 +4498,7 @@ function renderDailyPendLoja(filteredOrders){
 
           if(!saved.ok || !savedMeta.ok){
             setMetaWarn([
-              `⚠️ Não consegui salvar meta no navegador (provável limite de espaço).`,
+              `Não consegui salvar meta no navegador (provável limite de espaço).`,
               `O painel funciona nessa sessão, mas pode perder ao recarregar.`,
               `Erro: <code>${String((saved.error || savedMeta.error) || "").slice(0,120)}</code>`
             ]);
@@ -4652,9 +4728,9 @@ function renderAging(filteredOrders){
     return "#34d399";
   }
   function agingLabel(dias){
-    if(dias >= 5) return `${dias}d 🔴`;
-    if(dias === 4) return `${dias}d 🟡`;
-    return `${dias}d 🟢`;
+    if(dias >= 5) return `${dias}d`;
+    if(dias === 4) return `${dias}d`;
+    return `${dias}d`;
   }
 
   // Filtrar pedidos nos status de ação da loja
@@ -4681,7 +4757,7 @@ function renderAging(filteredOrders){
   const tot3  = agingOrders.filter(o => diasDesde(o.placedDate) <= 3).length;
   const tot4  = agingOrders.filter(o => diasDesde(o.placedDate) === 4).length;
   const tot5p = agingOrders.filter(o => diasDesde(o.placedDate) >= 5).length;
-  if(badge) badge.textContent = `${agingOrders.length} pedidos · 🟢 ${tot3} · 🟡 ${tot4} · 🔴 ${tot5p}`;
+  if(badge) badge.textContent = `${agingOrders.length} pedidos · Verde ${tot3} · Amarelo ${tot4} · Vermelho ${tot5p}`;
 
   // Ordenar lojas por qtd de pedidos críticos (≥5 dias) desc
   const storesSorted = [...byStore.entries()].sort((a, b) => {
@@ -4694,9 +4770,9 @@ function renderAging(filteredOrders){
   <table class="rupt-table" style="width:100%">
     <thead><tr>
       <th style="text-align:left;min-width:130px">Loja</th>
-      <th style="text-align:center;color:#34d399">≤ 3 dias 🟢</th>
-      <th style="text-align:center;color:#fbbf24">4 dias 🟡</th>
-      <th style="text-align:center;color:#fb7185">≥ 5 dias 🔴</th>
+      <th style="text-align:center;color:#34d399">≤ 3 dias</th>
+      <th style="text-align:center;color:#fbbf24">4 dias</th>
+      <th style="text-align:center;color:#fb7185">≥ 5 dias</th>
       <th style="text-align:center">Total</th>
       <th style="text-align:left">Pedidos ≥ 4 dias (números)</th>
     </tr></thead><tbody>`;
@@ -4751,7 +4827,7 @@ var _lastRuptChartData = null; // cache para o toggle
 function toggleRuptChartMode(){
   _ruptChartPorLoja = !_ruptChartPorLoja;
   const btn = document.getElementById("ruptChartModeBtn");
-  if(btn) btn.textContent = _ruptChartPorLoja ? "📈 Consolidado" : "📊 Por loja";
+  if(btn) btn.textContent = _ruptChartPorLoja ? "Consolidado" : "Por loja";
   if(_lastRuptChartData) _drawRuptDiarioChart(_lastRuptChartData);
 }
 
@@ -5255,9 +5331,9 @@ function renderAnomalias(filteredOrders, dailyData){
   }
 
   const METRICAS = [
-    { key: "volumePedidos", label: "Volume de Pedidos", emoji: "📦" },
-    { key: "pctRuptura",    label: "% Ruptura",          emoji: "⚠️" },
-    { key: "slaTotalHoras", label: "SLA Total",          emoji: "⏱" },
+    { key: "volumePedidos", label: "Volume de Pedidos", emoji: "" },
+    { key: "pctRuptura",    label: "% Ruptura",          emoji: "" },
+    { key: "slaTotalHoras", label: "SLA Total",          emoji: "" },
   ];
 
   // Calcular z-score de cada dia usando janela móvel dos 30 dias anteriores (ou todos disponíveis)
@@ -5289,7 +5365,6 @@ function renderAnomalias(filteredOrders, dailyData){
       const cor = a.z > 0 ? "#fb7185" : "#7dd3fc";
       const dir = a.z > 0 ? "acima" : "abaixo";
       return `<div class="alert-card">
-        <span style="font-size:18px">${a.emoji}</span>
         <div>
           <div style="font-weight:700;font-size:13px;">${a.metric} — ${a.date.split("-").reverse().join("/")}</div>
           <div style="font-size:12px;color:var(--muted);">
@@ -5383,7 +5458,7 @@ function _drawInstabTable(filteredOrders){
     <th>Loja</th><th>Pedidos</th><th>Média (h)</th><th>Desvio (h)</th><th>Coef. Variação</th><th>Classificação</th>
   </tr></thead><tbody>`;
   for(const r of rows){
-    const classif = r.cv > 0.8 ? "🔴 Instável" : r.cv > 0.5 ? "🟡 Variável" : "🟢 Consistente";
+    const classif = r.cv > 0.8 ? "Instável" : r.cv > 0.5 ? "Variável" : "Consistente";
     html += `<tr>
       <td><strong>${storeLabel(r.lid)}</strong></td>
       <td>${r.n}</td>
@@ -5925,7 +6000,7 @@ function _drawForecastChart(dailyData){
     resumoEl.style.cssText = "margin:8px 0 0;font-size:12px;color:var(--muted);";
     canvas.parentElement.appendChild(resumoEl);
   }
-  const sinal = variacao !== null && variacao > 0 ? "📈" : variacao !== null && variacao < 0 ? "📉" : "➡️";
+  const sinal = variacao !== null && variacao > 0 ? "▲" : variacao !== null && variacao < 0 ? "▼" : "=";
   resumoEl.innerHTML = `${sinal} Projeção média para os próximos 7 dias: <strong>${projecaoMedia.toFixed(1)} pedidos/dia</strong>
     ${variacao !== null ? `(${variacao>0?"+":""}${variacao.toFixed(1)}% vs. média dos últimos 7 dias)` : ""}.
     Modelo: suavização exponencial simples (α=0.35) — assume continuidade do nível atual, não captura sazonalidade nem tendências de longo prazo.`;
@@ -6497,9 +6572,9 @@ function _drawSlaRanking(data){
   }
   function slaLabel(h){
     if(h===null) return "—";
-    if(h <= p33) return "✅ Verde";
-    if(h <= p67) return "⚠️ Atenção";
-    return "🔴 Crítico";
+    if(h <= p33) return "Verde";
+    if(h <= p67) return "Atenção";
+    return "Crítico";
   }
   function gargalo(peds){
     const e = {
@@ -6566,7 +6641,7 @@ function _drawSlaPedidos(data){
   const p67 = allTotais[Math.floor(allTotais.length*.67)] || 48;
 
   function slaClass(h){ if(h===null) return ""; return h<=p33?"sla-v-green":h<=p67?"sla-v-yellow":"sla-v-red"; }
-  function slaLabel(h){ if(h===null) return "—"; return h<=p33?"✅ Verde":h<=p67?"⚠️ Atenção":"🔴 Crítico"; }
+  function slaLabel(h){ if(h===null) return "—"; return h<=p33?"Verde":h<=p67?"Atenção":"Crítico"; }
 
   // Ordenar por total desc (piores primeiro)
   const sorted = [...data].sort((a,b)=>(b.tTotal||0)-(a.tTotal||0));
@@ -6962,7 +7037,7 @@ function _drawEntregasTabela(dados){
 
     if(erros.length){
       _setLoadStatus(false, "Erro ao carregar",
-        erros.map(e => `⚠️ ${e}`).join("<br>") +
+        erros.map(e => `${e}`).join("<br>") +
         "<br><small>Verifique se as URLs são raw do GitHub.</small>");
       if(ordersState.length) runFromState();
       return;
@@ -7152,7 +7227,7 @@ function _drawEntregasTabela(dados){
     document.documentElement.setAttribute("data-theme", theme);
     const btn = document.getElementById("themeToggle");
     if(btn){
-      btn.textContent = theme === "light" ? "🌙 Escuro" : "☀️ Claro";
+      btn.textContent = theme === "light" ? "Escuro" : "Claro";
     }
     // Atualiza cores dos charts se já existirem
     const tickColor  = theme === "light" ? "rgba(0,0,0,.50)" : "#9fb0d0";
@@ -7498,7 +7573,7 @@ function exportPDF(){
 
     <div id="pdfFooter">
       OMNI • Dashboard — exportado em ${agora} — período: ${periodo}
-      <br><span style="font-size:7pt;color:#bbb;">⚠ Para remover a URL do rodapé: nas configurações de impressão, desmarque "Cabeçalhos e rodapés"</span>
+      <br><span style="font-size:7pt;color:#bbb;">Para remover a URL do rodapé: nas configurações de impressão, desmarque "Cabeçalhos e rodapés"</span>
     </div>
   `;
 
@@ -7977,7 +8052,7 @@ function _showPrintToast(){
     `;
     document.body.appendChild(toast);
   }
-  toast.textContent = "💡 Para remover a URL do rodapé: em \"Mais configurações\" desmarque \"Cabeçalhos e rodapés\"";
+  toast.textContent = "Para remover a URL do rodapé: em \"Mais configurações\" desmarque \"Cabeçalhos e rodapés\"";
   toast.style.opacity = "1";
   setTimeout(() => { toast.style.opacity = "0"; }, 5000);
 }
