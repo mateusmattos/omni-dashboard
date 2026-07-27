@@ -2056,6 +2056,7 @@
             <!-- Filtros da tabela detalhada -->
             <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0 10px;">
               <h3 style="margin:0;flex:1;min-width:200px;">Pedidos parados (detalhado)</h3>
+              <button onclick="exportAlertasPDF()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);font-size:12px;cursor:pointer;font-weight:600;">Exportar PDF</button>
               <label style="font-size:12px;color:var(--muted);">Status:
                 <select id="alertaFiltroStatus" style="margin-left:5px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);"></select>
               </label>
@@ -8714,6 +8715,113 @@ function renderAlertasTabela(){
     tbl += `<p style="font-size:12px;color:var(--muted);margin-top:8px;">Mostrando os 500 mais parados de ${totalMostrado}. Use os filtros para refinar.</p>`;
   }
   document.getElementById("alertasTabela").innerHTML = tbl;
+}
+
+function exportAlertasPDF(){
+  const container = document.getElementById("pdfContainer");
+  if(!container){ return; }
+  if(!_alertasData){ alert("Sem dados de alertas para exportar."); return; }
+
+  // Reaplica os filtros ativos (mesma lógica da tabela na tela)
+  const fStatus = document.getElementById("alertaFiltroStatus").value;
+  const fLoja = document.getElementById("alertaFiltroLoja").value;
+  const soAcima = document.getElementById("alertaSoAcima").checked;
+
+  let lista = _alertasData.criticos.filter(c =>
+    (!fStatus || c.status === fStatus) &&
+    (!fLoja || c.loja === fLoja) &&
+    (!soAcima || c.acima)
+  );
+  lista.sort((a,b)=> b.diasUpdated - a.diasUpdated);
+
+  if(!lista.length){ alert("Nenhum pedido com os filtros atuais para exportar."); return; }
+
+  const agora = new Date().toLocaleString("pt-BR");
+  const filtroTxt = [];
+  filtroTxt.push("Status: " + (fStatus ? (STATUS_MAP[fStatus]?.nome || fStatus) : "Todos"));
+  filtroTxt.push("Loja: " + (fLoja || "Todas"));
+  if(soAcima) filtroTxt.push("apenas acima do limite");
+
+  const totalAcima = lista.filter(c => c.acima).length;
+
+  let linhas = "";
+  for(const c of lista){
+    const bg = c.acima ? "background:#fde8ec !important;" : "";
+    const sit = c.acima ? "Acima do limite" : "Normal";
+    const cor = c.acima ? "#c0392b" : "#1e7e34";
+    linhas += `<tr style="${bg}">
+      <td style="font-family:monospace;">${c.order}</td>
+      <td>${c.loja}</td>
+      <td>${c.statusNome} <span style="color:#999">(${c.status})</span></td>
+      <td style="text-align:center">${c.diasPlaced}</td>
+      <td style="text-align:center;font-weight:bold">${c.diasUpdated}</td>
+      <td style="text-align:center">${c.limite!=null ? c.limite.toFixed(0) : "—"}</td>
+      <td style="text-align:center;color:${cor};font-weight:bold">${sit}</td>
+    </tr>`;
+  }
+
+  container.innerHTML = `
+    <div id="pdfHeader">
+      <div>
+        <h1>OMNI • Alertas de Status</h1>
+        <p>Pedidos parados — ${filtroTxt.join(" • ")}</p>
+      </div>
+      <div class="pdfMeta">Gerado em: ${agora}</div>
+    </div>
+    <div class="pdf-section">
+      <div class="pdf-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Pedidos parados (detalhado)</span>
+        <span style="font-size:8pt;color:#555;font-weight:normal">${lista.length} pedidos • ${totalAcima} acima do limite</span>
+      </div>
+      <div class="pdf-alertas-wrap">
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Pedido</th><th style="text-align:left">Loja</th>
+            <th style="text-align:left">Status</th><th>Dias desde pedido</th>
+            <th>Dias s/ movimentação</th><th>Limite</th><th>Situação</th>
+          </tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
+    </div>
+    <div id="pdfFooter">OMNI • Alertas de Status — exportado em ${agora}</div>
+  `;
+
+  const styleEl = document.getElementById("_alertasPrintStyle") || document.createElement("style");
+  styleEl.id = "_alertasPrintStyle";
+  styleEl.textContent = `
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+      .pdf-alertas-wrap table {
+        width: 100% !important;
+        font-size: 8pt !important;
+        border-collapse: collapse !important;
+      }
+      .pdf-alertas-wrap thead th {
+        background: #1f4e79 !important;
+        color: #fff !important;
+        padding: 4pt 6pt !important;
+        font-size: 8pt !important;
+        border: 0.5pt solid #ccc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .pdf-alertas-wrap tbody td {
+        padding: 3pt 6pt !important;
+        font-size: 8pt !important;
+        border: 0.5pt solid #e0e0e0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  `;
+  document.head.appendChild(styleEl);
+
+  if(typeof _showPrintToast === "function") _showPrintToast();
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => styleEl.remove(), 1500);
+  }, 400);
 }
 </script>
 </body>
