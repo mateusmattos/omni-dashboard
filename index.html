@@ -1336,6 +1336,7 @@
           <button class="tab-btn" data-tab="tab-entregas">Entregas</button>
           <button class="tab-btn" data-tab="tab-correlacoes">Correlações</button>
           <button class="tab-btn" data-tab="tab-analises">Análises</button>
+          <button class="tab-btn" data-tab="tab-alertas">Alertas de Status</button>
           <button class="tab-btn" data-tab="tab-ia">IA</button>
         </div>
 
@@ -2032,6 +2033,47 @@
           </div>
         </div><!-- /tab-pane ia -->
 
+        <!-- ABA: Alertas de Status -->
+        <div class="tab-pane" id="tab-alertas">
+          <div class="panel" style="padding:18px;">
+            <div style="margin-bottom:6px;">
+              <h2 style="margin:0;">Alertas de Status</h2>
+              <p style="margin:4px 0 0;font-size:12px;color:var(--muted);">
+                Pedidos parados em status de processo travado. O limite de alerta é automático por status (média + 1 desvio-padrão do tempo sem movimentação). Foco em antecipar gargalos sistêmicos e operacionais.
+              </p>
+            </div>
+
+            <!-- Cards de resumo -->
+            <div id="alertasCards" class="kpis" style="margin:14px 0;"></div>
+
+            <!-- Alerta sistêmico -->
+            <div id="alertasSistemico"></div>
+
+            <!-- Painel por status -->
+            <h3 style="margin:18px 0 8px;">Panorama por status crítico</h3>
+            <div id="alertasPorStatus" style="overflow-x:auto;"></div>
+
+            <!-- Filtros da tabela detalhada -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0 10px;">
+              <h3 style="margin:0;flex:1;min-width:200px;">Pedidos parados (detalhado)</h3>
+              <label style="font-size:12px;color:var(--muted);">Status:
+                <select id="alertaFiltroStatus" style="margin-left:5px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);"></select>
+              </label>
+              <label style="font-size:12px;color:var(--muted);">Loja:
+                <select id="alertaFiltroLoja" style="margin-left:5px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--fg);"></select>
+              </label>
+              <label style="font-size:12px;color:var(--muted);">
+                <input type="checkbox" id="alertaSoAcima" style="vertical-align:middle;"> só acima do limite
+              </label>
+            </div>
+            <div id="alertasTabela" style="overflow-x:auto;max-height:520px;overflow-y:auto;"></div>
+
+            <!-- Ranking de lojas -->
+            <h3 style="margin:22px 0 8px;">Lojas com mais pedidos travados</h3>
+            <div id="alertasRankingLojas" style="overflow-x:auto;"></div>
+          </div>
+        </div><!-- /tab-pane alertas -->
+
       </div>
     </div>
   </div>
@@ -2487,6 +2529,7 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
           const shippedAt       = parseIsoOrPtBr(r["shippedAt"]);
           const checkedAt       = parseIsoOrPtBr(r["checkedAt"]);
           const deliveredAt     = parseIsoOrPtBr(r["delivered"]) || parseIsoOrPtBr(r["deliveredAt"]);
+          const updatedAt       = parseIsoOrPtBr(r["updatedAt"]);
 
           byOrder.set(orderId, {
             order: orderId,
@@ -2506,6 +2549,7 @@ var _slaRawOrders = null;      // cópia persistente para reprocessar no toggle 
             shippedAtIso:      shippedAt      ? shippedAt.toISOString()       : null,
             checkedAtIso:      checkedAt      ? checkedAt.toISOString()       : null,
             deliveredAtIso:    deliveredAt    ? deliveredAt.toISOString()     : null,
+            updatedAtIso:      updatedAt      ? updatedAt.toISOString()       : null,
             // campos de entrega
             destinationState: (r["destinationState"] || "").toString().trim().toUpperCase(),
             destinationCity:  (r["destinationCity"]  || "").toString().trim(),
@@ -7128,6 +7172,9 @@ function _drawEntregasTabela(dados){
         renderAnalises(_analisesLazyOrders);
         _analisesLazyOrders = null;
       }
+      if(btn.dataset.tab === "tab-alertas"){
+        renderAlertas();
+      }
     });
   });
 
@@ -8099,7 +8146,7 @@ function _showPrintToast(){
 // >>> COLE AQUI SUA CHAVE DO GROQ (gere uma gratuita em console.groq.com/keys) <<<
 // A chave do Groq começa com "gsk_". Ela fica visível no código público —
 // monitore o uso no painel do Groq e, no futuro, mova para um proxy com login.
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = "COLE_SUA_CHAVE_GROQ_AQUI";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // Histórico da conversa (mantido só nesta sessão)
@@ -8417,6 +8464,253 @@ if(document.readyState === "loading"){
   document.addEventListener("DOMContentLoaded", iaSetup);
 } else {
   iaSetup();
+}
+
+/* =======================================================================
+   ALERTAS DE STATUS — pedidos parados em status de processo travado
+   ======================================================================= */
+
+// Mapa completo de status (code -> {nome, grupo})
+const STATUS_MAP = {
+  DELIVERED:{nome:"Entregue",grupo:"Entregue"},
+  CANCELED:{nome:"Cancelado",grupo:"Cancelado"},
+  PICKUP_READY:{nome:"Pronto para retirada",grupo:"Em processamento"},
+  WAITING:{nome:"Pendente",grupo:"Pendente"},
+  BILLING_CONFIRMATION:{nome:"Em processamento",grupo:"Em processamento"},
+  PICKUP_PAID:{nome:"Anexar Declaração",grupo:"Faturado"},
+  PENDING:{nome:"Pagamento Pendente",grupo:"Pagamento Pendente"},
+  BILLING:{nome:"Em Separação",grupo:"Em processamento"},
+  STOCKOUT:{nome:"Sem estoque",grupo:"Sem estoque"},
+  PICKUP_FAIL:{nome:"Prazo de retirada excedido",grupo:"Ruptura"},
+  DELIVERY_NOT_COLLECTED:{nome:"Não Coletado",grupo:"Não coletado transportadora"},
+  SHIPPED:{nome:"Despachado",grupo:"Em trânsito"},
+  TAXING:{nome:"Aguardando GNRE",grupo:"Em processo transporte"},
+  SHIPPING_READY:{nome:"Aguardando Transportadora",grupo:"Em processo transporte"},
+  SEND_READY:{nome:"Aguardando Transportadora",grupo:"Em processo transporte"},
+  BILLED:{nome:"Faturado",grupo:"Faturado"},
+  PICKING:{nome:"Em Separação",grupo:"Em processamento"},
+  INVOICING:{nome:"Aguardando Fiscal",grupo:"Em processamento"},
+  DELIVERY_FAILED:{nome:"Falha na Entrega",grupo:"Falha na entrega"},
+  CHECKED:{nome:"Conferido",grupo:"Em processamento"},
+  RETURN_REQUEST:{nome:"Solicitado devolução",grupo:"Em devolução"},
+  TREATMENT:{nome:"Tratamento",grupo:"Em devolução"},
+  WAITING_TRANSFER:{nome:"Aguardando Transferência",grupo:"Em trânsito"},
+  DEFECT:{nome:"Defeito",grupo:"Ruptura"},
+  SENDING_TO_DC:{nome:"Em Transferência",grupo:"Ruptura"},
+  NOT_FOUND:{nome:"Não encontrado",grupo:"Ruptura"},
+  BEFORE_SOLD:{nome:"Vendido anteriormente",grupo:"Ruptura"},
+  RUPTURE:{nome:"Cancelado",grupo:"Cancelado"},
+  INTEGRATION_ERROR:{nome:"Estoque PDV Zerado",grupo:"Ruptura"},
+  SYSTEM_ERROR:{nome:"Erro Sistema",grupo:"Ruptura"},
+  EXCHANGE_REQUEST:{nome:"Solicitado troca",grupo:"Em devolução"}
+};
+
+// Status críticos = processo travado (gargalo operacional/sistêmico)
+const STATUS_CRITICOS = new Set([
+  "TAXING","SHIPPING_READY","SEND_READY","INVOICING","PICKING","BILLING","CHECKED","BILLING_CONFIRMATION"
+]);
+
+const alertaStoreName = (id) => STORE_MAP.get(parseInt(id,10)) || `Loja ${id}`;
+const alertaRegional = (id) => REGIONAL_1.has(parseInt(id,10)) ? "Regional 1" : (REGIONAL_2.has(parseInt(id,10)) ? "Regional 2" : "—");
+
+let _alertasData = null;  // cache computado
+
+function alertaDiasDesde(iso){
+  if(!iso) return null;
+  const d = (Date.now() - new Date(iso).getTime()) / 864e5;
+  return d >= 0 ? Math.floor(d) : null;
+}
+
+function computeAlertas(orders){
+  // Coletar pedidos críticos com tempos parados
+  const criticos = [];
+  const porStatus = {};  // status -> array de dias sem movimentação
+
+  for(const o of orders){
+    const st = (o.status || "").toUpperCase();
+    if(!STATUS_CRITICOS.has(st)) continue;
+
+    const diasPlaced = alertaDiasDesde(o.placedAtIso);
+    const diasUpdated = alertaDiasDesde(o.updatedAtIso) ?? diasPlaced; // fallback
+    const item = {
+      order: o.order,
+      status: st,
+      statusNome: STATUS_MAP[st]?.nome || st,
+      grupo: STATUS_MAP[st]?.grupo || "—",
+      loja: alertaStoreName(o.locationId),
+      regional: alertaRegional(o.locationId),
+      diasPlaced: diasPlaced ?? 0,
+      diasUpdated: diasUpdated ?? 0
+    };
+    criticos.push(item);
+    (porStatus[st] = porStatus[st] || []).push(item.diasUpdated);
+  }
+
+  // Limite automático por status: média + 1 desvio-padrão (populacional)
+  const limites = {};
+  for(const st in porStatus){
+    const arr = porStatus[st];
+    const n = arr.length;
+    const media = arr.reduce((a,b)=>a+b,0) / n;
+    const variancia = arr.reduce((a,b)=>a+(b-media)*(b-media),0) / n;
+    const desvio = Math.sqrt(variancia);
+    limites[st] = { n, media, desvio, limite: media + desvio };
+  }
+
+  // Marcar cada pedido: acima do limite do seu status?
+  for(const item of criticos){
+    const lim = limites[item.status];
+    item.limite = lim ? lim.limite : null;
+    item.acima = lim ? (item.diasUpdated > lim.limite) : false;
+  }
+
+  return { criticos, limites };
+}
+
+function renderAlertas(){
+  if(!ordersState || !ordersState.length) return;
+  const filtered = filterOrders(ordersState);
+  _alertasData = computeAlertas(filtered);
+  const { criticos, limites } = _alertasData;
+
+  const totalCriticos = criticos.length;
+  const totalAcima = criticos.filter(c => c.acima).length;
+  const gnre = criticos.filter(c => c.status === "TAXING");
+  const gnreAcima = gnre.filter(c => c.acima).length;
+  const mediaGeralDias = totalCriticos ? (criticos.reduce((a,c)=>a+c.diasUpdated,0)/totalCriticos) : 0;
+
+  // ---- Cards ----
+  const cards = document.getElementById("alertasCards");
+  cards.innerHTML = `
+    <div class="kpi"><div class="t">Pedidos travados</div><div class="v">${totalCriticos.toLocaleString("pt-BR")}</div></div>
+    <div class="kpi"><div class="t">Acima do limite</div><div class="v" style="color:#fb7185">${totalAcima.toLocaleString("pt-BR")}</div></div>
+    <div class="kpi"><div class="t">Aguardando GNRE</div><div class="v" style="color:#fbbf24">${gnre.length.toLocaleString("pt-BR")}</div><div class="s">${gnreAcima} acima do limite</div></div>
+    <div class="kpi"><div class="t">Dias parados (média)</div><div class="v">${mediaGeralDias.toFixed(0)}</div></div>
+  `;
+
+  // ---- Alerta sistêmico ----
+  // Se um status tem % de pedidos acima do limite muito alto, sinaliza problema sistêmico
+  const sist = [];
+  for(const st in limites){
+    const doStatus = criticos.filter(c => c.status === st);
+    const acimaSt = doStatus.filter(c => c.acima).length;
+    const pct = doStatus.length ? acimaSt/doStatus.length : 0;
+    if(doStatus.length >= 20 && (pct >= 0.25 || acimaSt >= 100)){
+      sist.push({ st, nome: STATUS_MAP[st]?.nome || st, total: doStatus.length, acima: acimaSt, pct });
+    }
+  }
+  const sistBox = document.getElementById("alertasSistemico");
+  if(sist.length){
+    sistBox.innerHTML = sist.map(s => `
+      <div style="background:rgba(251,113,133,.12);border:1px solid #fb7185;border-radius:10px;padding:12px 14px;margin:6px 0;font-size:13px;">
+        <strong style="color:#fb7185;">Possível gargalo sistêmico — ${s.nome}:</strong>
+        ${s.acima} de ${s.total} pedidos (${(s.pct*100).toFixed(0)}%) estão parados acima do limite esperado. Vale investigar se há um bloqueio no processo (ex: integração, fila fiscal, transportadora).
+      </div>
+    `).join("");
+  } else {
+    sistBox.innerHTML = `<div style="background:rgba(52,211,153,.1);border:1px solid #34d399;border-radius:10px;padding:12px 14px;font-size:13px;color:var(--fg);">Nenhum gargalo sistêmico evidente no momento — os pedidos travados estão dentro da variação esperada por status.</div>`;
+  }
+
+  // ---- Painel por status ----
+  const statusList = Object.keys(limites).sort((a,b)=> limites[b].n - limites[a].n);
+  let tbl = `<table><thead><tr>
+    <th style="text-align:left">Status</th><th>Pedidos</th><th>Dias parados (média)</th>
+    <th>Desvio</th><th>Limite de alerta</th><th>Acima do limite</th><th>% crítico</th>
+    </tr></thead><tbody>`;
+  for(const st of statusList){
+    const l = limites[st];
+    const doStatus = criticos.filter(c => c.status === st);
+    const acima = doStatus.filter(c => c.acima).length;
+    const pct = doStatus.length ? (acima/doStatus.length*100) : 0;
+    const cor = pct >= 25 ? "#fb7185" : (pct >= 10 ? "#fbbf24" : "#34d399");
+    tbl += `<tr>
+      <td style="text-align:left"><strong>${STATUS_MAP[st]?.nome || st}</strong><br><span style="font-size:11px;color:var(--muted)">${st}</span></td>
+      <td style="text-align:center">${l.n}</td>
+      <td style="text-align:center">${l.media.toFixed(1)}</td>
+      <td style="text-align:center">${l.desvio.toFixed(1)}</td>
+      <td style="text-align:center">${l.limite.toFixed(0)} dias</td>
+      <td style="text-align:center;font-weight:700">${acima}</td>
+      <td style="text-align:center;color:${cor};font-weight:700">${pct.toFixed(0)}%</td>
+    </tr>`;
+  }
+  tbl += `</tbody></table>`;
+  document.getElementById("alertasPorStatus").innerHTML = tbl;
+
+  // ---- Popular filtros ----
+  const selStatus = document.getElementById("alertaFiltroStatus");
+  const selLoja = document.getElementById("alertaFiltroLoja");
+  if(selStatus.options.length === 0){
+    selStatus.innerHTML = `<option value="">Todos</option>` +
+      statusList.map(st => `<option value="${st}">${STATUS_MAP[st]?.nome || st}</option>`).join("");
+    const lojas = [...new Set(criticos.map(c => c.loja))].sort();
+    selLoja.innerHTML = `<option value="">Todas</option>` + lojas.map(l => `<option value="${l}">${l}</option>`).join("");
+    selStatus.onchange = renderAlertasTabela;
+    selLoja.onchange = renderAlertasTabela;
+    document.getElementById("alertaSoAcima").onchange = renderAlertasTabela;
+  }
+
+  renderAlertasTabela();
+
+  // ---- Ranking de lojas ----
+  const porLoja = {};
+  for(const c of criticos){
+    if(!porLoja[c.loja]) porLoja[c.loja] = { loja:c.loja, regional:c.regional, total:0, acima:0 };
+    porLoja[c.loja].total++;
+    if(c.acima) porLoja[c.loja].acima++;
+  }
+  const ranking = Object.values(porLoja).sort((a,b)=> b.acima - a.acima || b.total - a.total);
+  let rk = `<table><thead><tr>
+    <th style="text-align:left">Loja</th><th>Regional</th><th>Total travados</th><th>Acima do limite</th>
+    </tr></thead><tbody>`;
+  for(const r of ranking){
+    rk += `<tr><td style="text-align:left">${r.loja}</td><td style="text-align:center">${r.regional}</td>
+      <td style="text-align:center">${r.total}</td>
+      <td style="text-align:center;color:${r.acima>0?'#fb7185':'inherit'};font-weight:700">${r.acima}</td></tr>`;
+  }
+  rk += `</tbody></table>`;
+  document.getElementById("alertasRankingLojas").innerHTML = rk;
+}
+
+function renderAlertasTabela(){
+  if(!_alertasData) return;
+  const fStatus = document.getElementById("alertaFiltroStatus").value;
+  const fLoja = document.getElementById("alertaFiltroLoja").value;
+  const soAcima = document.getElementById("alertaSoAcima").checked;
+
+  let lista = _alertasData.criticos.filter(c =>
+    (!fStatus || c.status === fStatus) &&
+    (!fLoja || c.loja === fLoja) &&
+    (!soAcima || c.acima)
+  );
+  // ordenar por dias sem movimentação (mais parados primeiro)
+  lista.sort((a,b)=> b.diasUpdated - a.diasUpdated);
+
+  const totalMostrado = lista.length;
+  lista = lista.slice(0, 500); // limitar render
+
+  let tbl = `<table><thead><tr>
+    <th style="text-align:left">Pedido</th><th style="text-align:left">Loja</th>
+    <th style="text-align:left">Status</th><th>Dias desde pedido</th>
+    <th>Dias s/ movimentação</th><th>Limite</th><th>Situação</th>
+    </tr></thead><tbody>`;
+  for(const c of lista){
+    const cor = c.acima ? "#fb7185" : "#34d399";
+    const sit = c.acima ? "Acima do limite" : "Normal";
+    tbl += `<tr>
+      <td style="text-align:left;font-family:monospace;font-size:12px">${c.order}</td>
+      <td style="text-align:left">${c.loja}</td>
+      <td style="text-align:left">${c.statusNome}<br><span style="font-size:10px;color:var(--muted)">${c.status}</span></td>
+      <td style="text-align:center">${c.diasPlaced}</td>
+      <td style="text-align:center;font-weight:700">${c.diasUpdated}</td>
+      <td style="text-align:center">${c.limite!=null ? c.limite.toFixed(0) : "—"}</td>
+      <td style="text-align:center;color:${cor};font-weight:700">${sit}</td>
+    </tr>`;
+  }
+  tbl += `</tbody></table>`;
+  if(totalMostrado > 500){
+    tbl += `<p style="font-size:12px;color:var(--muted);margin-top:8px;">Mostrando os 500 mais parados de ${totalMostrado}. Use os filtros para refinar.</p>`;
+  }
+  document.getElementById("alertasTabela").innerHTML = tbl;
 }
 </script>
 </body>
