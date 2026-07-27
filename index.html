@@ -2053,6 +2053,15 @@
             <h3 style="margin:18px 0 8px;">Panorama por status crítico</h3>
             <div id="alertasPorStatus" style="overflow-x:auto;"></div>
 
+            <!-- Mapa de gargalos (scatter) -->
+            <h3 style="margin:22px 0 4px;">Mapa de gargalos</h3>
+            <p style="margin:0 0 10px;font-size:12px;color:var(--muted);">
+              Cada bolha é um status. Quanto mais à direita, mais pedidos parados; quanto mais alto, mais tempo parados. Bolhas grandes e vermelhas no canto superior direito são os gargalos prioritários.
+            </p>
+            <div style="position:relative;height:380px;margin-bottom:10px;">
+              <canvas id="alertasScatterChart"></canvas>
+            </div>
+
             <!-- Filtros da tabela detalhada -->
             <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0 10px;">
               <h3 style="margin:0;flex:1;min-width:200px;">Pedidos parados (detalhado)</h3>
@@ -8487,7 +8496,7 @@ const STATUS_MAP = {
   SHIPPED:{nome:"Despachado",grupo:"Em trânsito"},
   TAXING:{nome:"Aguardando GNRE",grupo:"Em processo transporte"},
   SHIPPING_READY:{nome:"Aguardando Transportadora",grupo:"Em processo transporte"},
-  SEND_READY:{nome:"Aguardando Transportadora",grupo:"Em processo transporte"},
+  SEND_READY:{nome:"Pronto para envio",grupo:"Em processo transporte"},
   BILLED:{nome:"Faturado",grupo:"Faturado"},
   PICKING:{nome:"Em Separação",grupo:"Em processamento"},
   INVOICING:{nome:"Aguardando Fiscal",grupo:"Em processamento"},
@@ -8640,6 +8649,9 @@ function renderAlertas(){
   tbl += `</tbody></table>`;
   document.getElementById("alertasPorStatus").innerHTML = tbl;
 
+  // ---- Gráfico de gargalos (scatter) ----
+  renderAlertasScatter(criticos, limites);
+
   // ---- Popular filtros ----
   const selStatus = document.getElementById("alertaFiltroStatus");
   const selLoja = document.getElementById("alertaFiltroLoja");
@@ -8673,6 +8685,98 @@ function renderAlertas(){
   }
   rk += `</tbody></table>`;
   document.getElementById("alertasRankingLojas").innerHTML = rk;
+}
+
+let _alertasScatterChart = null;
+
+function renderAlertasScatter(criticos, limites){
+  const canvas = document.getElementById("alertasScatterChart");
+  if(!canvas || typeof Chart === "undefined") return;
+
+  // Agrupa por status: volume (X), tempo médio parado (Y), qtd acima do limite (tamanho)
+  const porStatus = {};
+  for(const c of criticos){
+    if(!porStatus[c.status]){
+      porStatus[c.status] = { status:c.status, nome:c.statusNome, total:0, somaDias:0, acima:0 };
+    }
+    const s = porStatus[c.status];
+    s.total++;
+    s.somaDias += c.diasUpdated;
+    if(c.acima) s.acima++;
+  }
+
+  const pontos = Object.values(porStatus).map(s => {
+    const mediaDias = s.total ? s.somaDias/s.total : 0;
+    const pctAcima = s.total ? s.acima/s.total : 0;
+    // gargalo se muitos acima do limite (>=25%) ou volume alto de estourados
+    const gargalo = pctAcima >= 0.25 || s.acima >= 50;
+    return {
+      x: s.total,
+      y: +mediaDias.toFixed(1),
+      r: Math.max(6, Math.min(38, 6 + Math.sqrt(s.acima) * 4)), // raio pela qtd acima
+      nome: s.nome,
+      status: s.status,
+      total: s.total,
+      acima: s.acima,
+      pctAcima: pctAcima,
+      gargalo: gargalo
+    };
+  });
+
+  const data = {
+    datasets: [{
+      label: "Status",
+      data: pontos,
+      backgroundColor: pontos.map(p => p.gargalo ? "rgba(251,113,133,0.55)" : "rgba(52,211,153,0.45)"),
+      borderColor: pontos.map(p => p.gargalo ? "rgba(251,113,133,1)" : "rgba(52,211,153,0.9)"),
+      borderWidth: 1.5
+    }]
+  };
+
+  const isLight = document.documentElement.getAttribute("data-theme") === "light";
+  const gridColor = isLight ? "rgba(0,0,0,.08)" : "rgba(255,255,255,.08)";
+  const tickColor = isLight ? "#555" : "rgba(255,255,255,.7)";
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const p = ctx.raw;
+            return [
+              `${p.nome} (${p.status})`,
+              `Pedidos parados: ${p.total}`,
+              `Tempo médio: ${p.y} dias`,
+              `Acima do limite: ${p.acima} (${(p.pctAcima*100).toFixed(0)}%)`,
+              p.gargalo ? "⚠ Gargalo prioritário" : "Dentro do esperado"
+            ];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: { display: true, text: "Pedidos parados (volume)", color: tickColor },
+        grid: { color: gridColor }, ticks: { color: tickColor },
+        beginAtZero: true
+      },
+      y: {
+        title: { display: true, text: "Tempo médio parado (dias)", color: tickColor },
+        grid: { color: gridColor }, ticks: { color: tickColor },
+        beginAtZero: true
+      }
+    }
+  };
+
+  if(_alertasScatterChart){ _alertasScatterChart.destroy(); }
+  _alertasScatterChart = new Chart(canvas.getContext("2d"), {
+    type: "bubble",
+    data: data,
+    options: options
+  });
 }
 
 function renderAlertasTabela(){
