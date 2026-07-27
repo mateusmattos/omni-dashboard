@@ -2039,7 +2039,7 @@
             <div style="margin-bottom:6px;">
               <h2 style="margin:0;">Alertas de Status</h2>
               <p style="margin:4px 0 0;font-size:12px;color:var(--muted);">
-                Pedidos parados em status de processo travado. O limite de alerta é automático por status (média + 1 desvio-padrão do tempo sem movimentação). Foco em antecipar gargalos sistêmicos e operacionais.
+                Pedidos parados em status de processo travado. O limite de alerta é automático por status (média + 1 desvio-padrão do tempo sem movimentação), exceto Aguardando GNRE, que usa prazo fixo de 2 dias. Foco em antecipar gargalos sistêmicos e operacionais.
               </p>
             </div>
 
@@ -8546,7 +8546,9 @@ function computeAlertas(orders){
     (porStatus[st] = porStatus[st] || []).push(item.diasUpdated);
   }
 
-  // Limite automático por status: média + 1 desvio-padrão (populacional)
+  // Limite por status. Regra especial: GNRE (TAXING) usa prazo fixo de negócio.
+  // Demais status: automático = média + 1 desvio-padrão (populacional).
+  const LIMITE_FIXO = { TAXING: 2 };  // Aguardando GNRE: 2 dias cravados
   const limites = {};
   for(const st in porStatus){
     const arr = porStatus[st];
@@ -8554,7 +8556,8 @@ function computeAlertas(orders){
     const media = arr.reduce((a,b)=>a+b,0) / n;
     const variancia = arr.reduce((a,b)=>a+(b-media)*(b-media),0) / n;
     const desvio = Math.sqrt(variancia);
-    limites[st] = { n, media, desvio, limite: media + desvio };
+    const limite = (LIMITE_FIXO[st] !== undefined) ? LIMITE_FIXO[st] : (media + desvio);
+    limites[st] = { n, media, desvio, limite, fixo: (LIMITE_FIXO[st] !== undefined) };
   }
 
   // Marcar cada pedido: acima do limite do seu status?
@@ -8628,7 +8631,7 @@ function renderAlertas(){
       <td style="text-align:center">${l.n}</td>
       <td style="text-align:center">${l.media.toFixed(1)}</td>
       <td style="text-align:center">${l.desvio.toFixed(1)}</td>
-      <td style="text-align:center">${l.limite.toFixed(0)} dias</td>
+      <td style="text-align:center">${l.limite.toFixed(0)} dias${l.fixo ? ' <span style="font-size:10px;color:var(--muted)">(fixo)</span>' : ''}</td>
       <td style="text-align:center;font-weight:700">${acima}</td>
       <td style="text-align:center;color:${cor};font-weight:700">${pct.toFixed(0)}%</td>
     </tr>`;
